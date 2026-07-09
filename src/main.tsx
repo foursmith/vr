@@ -227,9 +227,13 @@ function App() {
     showDetectionPreview: showDetectionPreview(),
   })
 
-  const updateVideoVisibility = (hidden: boolean) => {
-    video.classList.toggle('hidden', !hidden)
-    video.classList.toggle('block', hidden)
+  const updateVideoVisibility = (videoOnlyMode: boolean) => {
+    video.classList.remove('hidden')
+    video.classList.add('block')
+    video.classList.toggle('opacity-100', videoOnlyMode)
+    video.classList.toggle('opacity-[0.01]', !videoOnlyMode)
+    video.classList.toggle('pointer-events-none', !videoOnlyMode)
+    video.dataset.displayMode = videoOnlyMode ? 'video-only' : 'vr-translation-layer'
   }
 
   const cancelHideControls = () => {
