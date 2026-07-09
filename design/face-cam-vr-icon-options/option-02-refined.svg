@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-labelledby="title desc">
+  <title id="title">Face Cam VR</title>
+  <desc id="desc">An abstract locked gaze mark with a soft center focus.</desc>
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0b4a5a" flood-opacity=".12" />
+    </filter>
+    <linearGradient id="glass" x1="70" y1="52" x2="244" y2="270" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".92" />
+      <stop offset=".5" stop-color="#fff" stop-opacity=".28" />
+      <stop offset="1" stop-color="#fff" stop-opacity=".62" />
+    </linearGradient>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <circle cx="160" cy="160" r="112" fill="#061a28" opacity=".28" />
+    <path d="M70 160c50-61 129-86 218-74-33 45-48 91-45 148-74 20-135-5-173-74Z" fill="url(#glass)" />
+    <circle cx="160" cy="160" r="42" fill="#07111f" opacity=".88" />
+    <circle cx="160" cy="160" r="17" fill="#e9fff7" />
+  </g>
+</svg>
