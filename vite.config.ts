@@ -25,12 +25,16 @@ export default defineConfig(({ command})=>({
         maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
       },
       manifest: {
+        id: '/',
         name: 'Face Cam VR',
         short_name: 'Face Cam VR',
-        description: 'A VR video player with automatic face-aware centering.',
+        description: 'Make VR videos look striking on phones and PCs with face-cam views.',
+        start_url: '/',
+        scope: '/',
         theme_color: '#061a28',
         background_color: '#061a28',
         display: 'standalone',
+        categories: ['video', 'photo', 'entertainment', 'utilities'],
         icons: [
           {
             src: '/pwa-192x192.png',

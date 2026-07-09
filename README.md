@@ -1,6 +1,6 @@
 # Face Cam VR
 
-Face Cam VR is a browser-based player for watching VR-format video on a normal flat monitor.
+Face Cam VR is a browser-based player that makes VR videos look striking on phones and PCs with face-cam views.
 
 It renders 180, 360, side-by-side, top-bottom, fisheye, and flat video formats into a 2D desktop browser view. It is not intended for VR headsets, WebXR sessions, Cardboard, Quest, or other immersive headset runtimes.
 
@@ -51,7 +51,7 @@ Deploy with Cloudflare Pages by importing the GitHub repository directly.
 - Framework preset: `Vite`
 - Build command: `bun run build`
 - Build output directory: `dist`
-- Production URL: https://face-cam-vr.pages.dev/
+- Production URL: https://facecam.busiyi.world/
 
 ## Keyboard Shortcuts
 
