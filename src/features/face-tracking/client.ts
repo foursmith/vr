@@ -74,41 +74,68 @@ const readLandmarkCenter = (landmarks: NormalizedLandmark[], fallback: Normalize
 class MainThreadFaceBackend {
   private detector?: FaceDetector
   private landmarker?: FaceLandmarker
+  private destroyed = false
+
+  private assertActive() {
+    if (this.destroyed) throw new Error('Face tracker was destroyed during initialization')
+  }
 
   async initialize(onProgress: (progress: ResourceLoadProgress) => void) {
     const total = 3
     onProgress({ loaded: 0, total, label: 'Loading vision runtime' })
     const { FaceDetector, FaceLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision')
+    this.assertActive()
     const vision = await FilesetResolver.forVisionTasks(WASM_URL)
+    this.assertActive()
     const createCanvas = () => typeof OffscreenCanvas === 'undefined' ? document.createElement('canvas') : new OffscreenCanvas(1, 1)
 
     onProgress({ loaded: 1, total, label: 'Loading fallback face detector' })
-    this.detector = await createWithGpuFallback((delegate) => FaceDetector.createFromOptions(vision, {
-      baseOptions: { modelAssetPath: FACE_MODEL_URL, delegate },
-      canvas: createCanvas(),
-      runningMode: 'IMAGE',
-      minDetectionConfidence: MIN_FACE_SCORE,
-      minSuppressionThreshold: 0.45,
-    }))
+    const detector = await createWithGpuFallback((delegate) => {
+      this.assertActive()
+      return FaceDetector.createFromOptions(vision, {
+        baseOptions: { modelAssetPath: FACE_MODEL_URL, delegate },
+        canvas: createCanvas(),
+        runningMode: 'IMAGE',
+        minDetectionConfidence: MIN_FACE_SCORE,
+        minSuppressionThreshold: 0.45,
+      })
+    })
+    if (this.destroyed) {
+      detector.close()
+      this.assertActive()
+    }
+    this.detector = detector
+    this.assertActive()
 
     onProgress({ loaded: 2, total, label: 'Loading fallback face landmarks' })
-    this.landmarker = await createWithGpuFallback((delegate) => FaceLandmarker.createFromOptions(vision, {
-      baseOptions: { modelAssetPath: FACE_LANDMARKER_MODEL_URL, delegate },
-      canvas: createCanvas(),
-      runningMode: 'VIDEO',
-      numFaces: 1,
-      minFaceDetectionConfidence: MIN_FACE_SCORE,
-      minFacePresenceConfidence: 0.5,
-      minTrackingConfidence: 0.55,
-      outputFaceBlendshapes: false,
-      outputFacialTransformationMatrixes: false,
-    }))
+    this.assertActive()
+    const landmarker = await createWithGpuFallback((delegate) => {
+      this.assertActive()
+      return FaceLandmarker.createFromOptions(vision, {
+        baseOptions: { modelAssetPath: FACE_LANDMARKER_MODEL_URL, delegate },
+        canvas: createCanvas(),
+        runningMode: 'VIDEO',
+        numFaces: 1,
+        minFaceDetectionConfidence: MIN_FACE_SCORE,
+        minFacePresenceConfidence: 0.5,
+        minTrackingConfidence: 0.55,
+        outputFaceBlendshapes: false,
+        outputFacialTransformationMatrixes: false,
+      })
+    })
+    if (this.destroyed) {
+      landmarker.close()
+      this.assertActive()
+    }
+    this.landmarker = landmarker
+    this.assertActive()
     onProgress({ loaded: total, total, label: 'Fallback face tracker ready' })
   }
 
   async infer(id: number, mode: FaceInferenceMode, bitmap: ImageBitmap, timestamp: number): Promise<FaceInferenceResult> {
     const startedAt = performance.now()
     try {
+      this.assertActive()
       if (mode === 'landmarks') {
         const landmarks = this.landmarker!.detectForVideo(bitmap, timestamp).faceLandmarks[0]
         const face = landmarks ? readLandmarkFace(landmarks) : undefined
@@ -144,8 +171,11 @@ class MainThreadFaceBackend {
   }
 
   destroy() {
+    this.destroyed = true
     this.detector?.close()
     this.landmarker?.close()
+    this.detector = undefined
+    this.landmarker = undefined
   }
 }
 
@@ -157,9 +187,20 @@ export class FaceTrackerClient {
   private nextRequestId = 1
   private workerReady = false
   private workerFailed = false
+  private destroyed = false
+  private rejectWorkerInitialization?: (error: Error) => void
 
   initialize(onProgress: (progress: ResourceLoadProgress) => void) {
-    this.initializationPromise ??= this.initializeBackend(onProgress)
+    if (this.destroyed) return Promise.reject(new Error('Face tracker was destroyed'))
+    if (!this.initializationPromise) {
+      const initializationPromise = this.initializeBackend(onProgress)
+      this.initializationPromise = initializationPromise
+      initializationPromise.catch(() => {
+        if (!this.destroyed && this.initializationPromise === initializationPromise) {
+          this.initializationPromise = undefined
+        }
+      })
+    }
     return this.initializationPromise
   }
 
@@ -170,6 +211,7 @@ export class FaceTrackerClient {
   }
 
   private async initializeBackend(onProgress: (progress: ResourceLoadProgress) => void) {
+    if (this.destroyed) throw new Error('Face tracker was destroyed')
     const supportsWorker =
       typeof Worker !== 'undefined' &&
       typeof OffscreenCanvas !== 'undefined' &&
@@ -180,28 +222,67 @@ export class FaceTrackerClient {
         await this.initializeWorker(onProgress)
         return
       } catch (error) {
+        if (this.destroyed) throw error
         console.warn('face tracking worker failed to start; using main thread fallback', error)
         this.disposeWorker()
       }
     }
 
-    this.fallback = new MainThreadFaceBackend()
-    await this.fallback.initialize(onProgress)
+    if (this.destroyed) throw new Error('Face tracker was destroyed')
+    const fallback = new MainThreadFaceBackend()
+    this.fallback = fallback
+    try {
+      await fallback.initialize(onProgress)
+    } catch (error) {
+      fallback.destroy()
+      if (this.fallback === fallback) this.fallback = undefined
+      throw error
+    }
+    if (this.destroyed) {
+      fallback.destroy()
+      if (this.fallback === fallback) this.fallback = undefined
+      throw new Error('Face tracker was destroyed')
+    }
   }
 
   private initializeWorker(onProgress: (progress: ResourceLoadProgress) => void) {
     return new Promise<void>((resolve, reject) => {
+      let settled = false
+      const resolveInitialization = () => {
+        if (settled) return
+        settled = true
+        this.rejectWorkerInitialization = undefined
+        resolve()
+      }
+      const rejectInitialization = (error: Error) => {
+        if (settled) return
+        settled = true
+        this.rejectWorkerInitialization = undefined
+        reject(error)
+      }
+      this.rejectWorkerInitialization = rejectInitialization
       // MediaPipe loads its generated WASM bootstrap with importScripts().
       // Keep this a classic worker; module workers reject importScripts().
-      const worker = new Worker(new URL('./worker.ts', import.meta.url))
+      let worker: Worker
+      try {
+        worker = new Worker(new URL('./worker.ts', import.meta.url))
+      } catch (error) {
+        rejectInitialization(error instanceof Error ? error : new Error(String(error)))
+        return
+      }
+      this.workerFailed = false
       this.worker = worker
       worker.onmessage = (event: MessageEvent<FaceWorkerResponse>) => {
         const message = event.data
         if (message.type === 'progress') {
-          onProgress(message)
+          if (!this.destroyed) onProgress(message)
         } else if (message.type === 'ready') {
+          if (this.destroyed) {
+            rejectInitialization(new Error('Face tracker was destroyed'))
+            return
+          }
           this.workerReady = true
-          resolve()
+          resolveInitialization()
         } else if (message.type === 'result') {
           const pending = this.pending.get(message.id)
           this.pending.delete(message.id)
@@ -213,24 +294,38 @@ export class FaceTrackerClient {
             this.pending.delete(message.id)
             pending?.reject(error)
           } else {
-            reject(error)
+            rejectInitialization(error)
           }
         }
       }
       worker.onerror = (event) => {
         const error = new Error(event.message || 'Face tracking worker crashed')
-        if (!this.workerReady) reject(error)
+        if (!this.workerReady) rejectInitialization(error)
         this.workerFailed = true
         for (const pending of this.pending.values()) pending.reject(error)
         this.pending.clear()
         this.disposeWorker()
       }
-      worker.postMessage({ type: 'init' })
+      try {
+        worker.postMessage({ type: 'init' })
+      } catch (error) {
+        this.disposeWorker()
+        rejectInitialization(error instanceof Error ? error : new Error(String(error)))
+      }
     })
   }
 
   async infer(mode: FaceInferenceMode, bitmap: ImageBitmap, timestamp: number) {
-    await (this.initializationPromise ?? this.initialize(() => {}))
+    try {
+      await (this.initializationPromise ?? this.initialize(() => {}))
+    } catch (error) {
+      bitmap.close()
+      throw error
+    }
+    if (this.destroyed) {
+      bitmap.close()
+      throw new Error('Face tracker was destroyed')
+    }
     const id = this.nextRequestId++
     if (this.worker && this.workerReady && !this.workerFailed) {
       return new Promise<FaceInferenceResult>((resolve, reject) => {
@@ -248,8 +343,22 @@ export class FaceTrackerClient {
     }
 
     if (!this.fallback) {
-      this.fallback = new MainThreadFaceBackend()
-      await this.fallback.initialize(() => {})
+      const fallback = new MainThreadFaceBackend()
+      this.fallback = fallback
+      try {
+        await fallback.initialize(() => {})
+      } catch (error) {
+        fallback.destroy()
+        if (this.fallback === fallback) this.fallback = undefined
+        bitmap.close()
+        throw error
+      }
+      if (this.destroyed) {
+        fallback.destroy()
+        if (this.fallback === fallback) this.fallback = undefined
+        bitmap.close()
+        throw new Error('Face tracker was destroyed')
+      }
     }
     return this.fallback.infer(id, mode, bitmap, timestamp)
   }
@@ -261,6 +370,10 @@ export class FaceTrackerClient {
   }
 
   destroy() {
+    if (this.destroyed) return
+    this.destroyed = true
+    this.rejectWorkerInitialization?.(new Error('Face tracker was destroyed'))
+    this.rejectWorkerInitialization = undefined
     this.disposeWorker()
     this.fallback?.destroy()
     this.fallback = undefined

@@ -1016,9 +1016,14 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     void (bitmapPromise ?? createImageBitmap(sampleCanvas))
       .then((bitmap) => {
         lastCaptureMs = performance.now() - captureStartedAt
-        if (options.showDetectionPreview && detectionMode === 'viewport') {
-          resizeCanvas(sampleCanvas, inputWidth, inputHeight)
-          sampleContext.drawImage(bitmap, 0, 0, inputWidth, inputHeight)
+        try {
+          if (options.showDetectionPreview && detectionMode === 'viewport') {
+            resizeCanvas(sampleCanvas, inputWidth, inputHeight)
+            sampleContext.drawImage(bitmap, 0, 0, inputWidth, inputHeight)
+          }
+        } catch (error) {
+          bitmap.close()
+          throw error
         }
         return faceTracker.infer(mode, bitmap, now)
       })

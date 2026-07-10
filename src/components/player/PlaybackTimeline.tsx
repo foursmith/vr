@@ -1,0 +1,71 @@
+import { Show, untrack } from 'solid-js'
+import type { PlayerController } from '../../features/player/controller'
+import { formatTime } from '../../lib/format-time'
+import { LiquidGlass } from '../ui/LiquidGlass'
+
+export function PlaybackTimeline(props: { controller: PlayerController['playback'] }) {
+  const {
+    currentTime, duration, loadingPercent, loadingState, progress, seekTo,
+  } = untrack(() => props.controller)
+  return (
+          <div
+            class="grid grid-rows-[1.35rem_1rem] gap-1"
+            role={loadingState.resourcesReady ? undefined : 'status'}
+            aria-live={loadingState.resourcesReady ? undefined : 'polite'}
+          >
+            <div
+              class="relative h-[1.35rem] w-full [--fill:rgba(255,255,255,0.82)] [--track:rgba(255,255,255,0.18)]"
+              style={`--progress:${loadingState.resourcesReady ? progress() : loadingPercent()}%`}
+            >
+              <span
+                aria-hidden="true"
+                class="pointer-events-none absolute inset-x-0 top-1/2 h-[0.28rem] -translate-y-1/2 overflow-hidden rounded-full"
+                style={{ background: 'var(--track)' }}
+              >
+                <span class="block h-full rounded-full" style={{ width: 'var(--progress)', background: 'var(--fill)' }}></span>
+              </span>
+              <input
+                type="range"
+                min="0"
+                max={loadingState.resourcesReady ? duration() || 0 : 100}
+                step={loadingState.resourcesReady ? '0.1' : '1'}
+                value={loadingState.resourcesReady ? currentTime() : loadingPercent()}
+                aria-label={loadingState.resourcesReady ? 'Playback position' : 'Loading progress'}
+                disabled={!loadingState.resourcesReady}
+                class="media-range absolute inset-0 z-10 h-[1.35rem] w-full cursor-pointer appearance-none bg-transparent"
+                onInput={(event) => {
+                  if (!loadingState.resourcesReady) return
+                  if (!duration()) return
+                  seekTo(Number(event.currentTarget.value))
+                }}
+              />
+              <Show when={loadingState.resourcesReady}>
+                <LiquidGlass
+                  class="liquid-glass-range-thumb pointer-events-none !absolute z-20 h-4 w-4 rounded-full"
+                  style={{
+                    left: 'calc(var(--progress) - 0.5rem)',
+                    top: 'calc(50% - 0.5rem)',
+                  }}
+                  cornerRadius={999}
+                  displacementScale={12}
+                  blurAmount={0.05}
+                  saturation={155}
+                  aberrationIntensity={1.5}
+                  elasticity={0}
+                  active
+                  castShadow={false}
+                >
+                  <span
+                    aria-hidden="true"
+                    class="block h-full w-full rounded-full border border-white/34 bg-[linear-gradient(145deg,rgba(255,255,255,0.26),rgba(255,255,255,0.12))] shadow-[inset_0_1px_1px_rgba(255,255,255,0.68),0_2px_8px_rgba(0,0,0,0.24)]"
+                  ></span>
+                </LiquidGlass>
+              </Show>
+            </div>
+            <div class="flex h-4 min-w-0 items-center justify-between font-mono text-[11px] leading-4 text-white/48">
+              <span class="min-w-0 truncate">{loadingState.resourcesReady ? formatTime(currentTime()) : loadingState.error ?? loadingState.label}</span>
+              <span class="shrink-0 pl-3 text-right">{loadingState.resourcesReady ? formatTime(duration()) : `${loadingPercent()}%`}</span>
+            </div>
+          </div>
+  )
+}

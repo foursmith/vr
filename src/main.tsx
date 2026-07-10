@@ -2,6 +2,6 @@ import 'virtual:uno.css'
 import './styles/index.css'
 import './app/register-service-worker'
 import { render } from '@solidjs/web'
-import { Root } from './components/App'
+import { App } from './App'
 
-render(() => <Root />, document.getElementById('root')!)
+render(() => <App />, document.getElementById('root')!)

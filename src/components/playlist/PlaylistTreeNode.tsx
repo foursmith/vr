@@ -1,14 +1,14 @@
 import { For, Show } from 'solid-js'
-import type { PlaylistNode } from '../../features/playlist/model'
+import type { PlaylistStateNode } from '../../features/playlist/model'
 import { Icon } from '../ui/Icon'
 
 export function PlaylistTreeNode(props: {
-  node: PlaylistNode
+  node: PlaylistStateNode
   depth: number
   expanded: Set<string>
   selectedId?: string
   onToggle: (id: string) => void
-  onSelect: (node: PlaylistNode) => void
+  onSelect: (node: PlaylistStateNode) => void
 }) {
   const isExpanded = () => props.expanded.has(props.node.id)
 

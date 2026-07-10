@@ -7,7 +7,7 @@ let debugDetectorPromise: Promise<import('@mediapipe/tasks-vision').FaceDetector
 
 export const getDebugDetector = async () => {
   if (!debugDetectorPromise) {
-    debugDetectorPromise = import('@mediapipe/tasks-vision').then(async ({ FaceDetector, FilesetResolver }) => {
+    const detectorPromise = import('@mediapipe/tasks-vision').then(async ({ FaceDetector, FilesetResolver }) => {
       const vision = await FilesetResolver.forVisionTasks(FACE_DEBUG_WASM_URL)
       return FaceDetector.createFromOptions(vision, {
         baseOptions: {
@@ -19,6 +19,16 @@ export const getDebugDetector = async () => {
         minSuppressionThreshold: 0.3,
       })
     })
+    debugDetectorPromise = detectorPromise
+    detectorPromise.catch(() => {
+      if (debugDetectorPromise === detectorPromise) debugDetectorPromise = undefined
+    })
   }
   return debugDetectorPromise
+}
+
+export const releaseDebugDetector = () => {
+  const detectorPromise = debugDetectorPromise
+  debugDetectorPromise = undefined
+  void detectorPromise?.then((detector) => detector.close()).catch(() => {})
 }

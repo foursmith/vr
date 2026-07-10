@@ -1,3 +1,10 @@
+export type PlaylistStateNode = {
+  id: string
+  name: string
+  kind: 'folder' | 'video'
+  children?: PlaylistStateNode[]
+}
+
 export type PlaylistNode = {
   id: string
   name: string
