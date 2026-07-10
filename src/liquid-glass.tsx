@@ -50,9 +50,32 @@ const liquidGlassFragment = (uv: Vec2): Vec2 => {
   return { x: ix * scaled + 0.5, y: iy * scaled + 0.5 }
 }
 
+const MAX_SHADER_MAP_DIMENSION = 256
+const MAX_SHADER_MAP_PIXELS = 32_768
+const MAX_SHADER_MAP_CACHE_ENTRIES = 32
+const shaderMapCache = new Map<string, string>()
+
+const fitShaderMapSize = (width: number, height: number) => {
+  const sourceWidth = Math.max(1, Math.round(width))
+  const sourceHeight = Math.max(1, Math.round(height))
+  const dimensionScale = MAX_SHADER_MAP_DIMENSION / Math.max(sourceWidth, sourceHeight)
+  const areaScale = Math.sqrt(MAX_SHADER_MAP_PIXELS / (sourceWidth * sourceHeight))
+  const scale = Math.min(1, dimensionScale, areaScale)
+
+  return {
+    width: Math.max(1, Math.round(sourceWidth * scale)),
+    height: Math.max(1, Math.round(sourceHeight * scale)),
+  }
+}
+
 const generateShaderDisplacementMap = (width: number, height: number) => {
-  const w = Math.max(1, Math.round(width))
-  const h = Math.max(1, Math.round(height))
+  const fittedSize = fitShaderMapSize(width, height)
+  const w = fittedSize.width
+  const h = fittedSize.height
+  const cacheKey = `${w}x${h}`
+  const cachedMap = shaderMapCache.get(cacheKey)
+  if (cachedMap) return cachedMap
+
   const canvas = document.createElement('canvas')
   const context = canvas.getContext('2d')
 
@@ -62,7 +85,8 @@ const generateShaderDisplacementMap = (width: number, height: number) => {
   canvas.height = h
 
   let maxScale = 1
-  const rawValues: number[] = []
+  const rawValues = new Float32Array(w * h * 2)
+  let rawWriteIndex = 0
 
   for (let y = 0; y < h; y += 1) {
     for (let x = 0; x < w; x += 1) {
@@ -72,7 +96,8 @@ const generateShaderDisplacementMap = (width: number, height: number) => {
       const dy = pos.y * h - y
 
       maxScale = Math.max(maxScale, Math.abs(dx), Math.abs(dy))
-      rawValues.push(dx, dy)
+      rawValues[rawWriteIndex++] = dx
+      rawValues[rawWriteIndex++] = dy
     }
   }
 
@@ -96,7 +121,14 @@ const generateShaderDisplacementMap = (width: number, height: number) => {
   }
 
   context.putImageData(imageData, 0, 0)
-  return canvas.toDataURL('image/png')
+  const mapUrl = canvas.toDataURL('image/png')
+
+  if (shaderMapCache.size >= MAX_SHADER_MAP_CACHE_ENTRIES) {
+    const oldestKey = shaderMapCache.keys().next().value
+    if (oldestKey) shaderMapCache.delete(oldestKey)
+  }
+  shaderMapCache.set(cacheKey, mapUrl)
+  return mapUrl
 }
 
 export function LiquidGlass(props: LiquidGlassProps) {
@@ -174,7 +206,9 @@ export function LiquidGlass(props: LiquidGlassProps) {
     if (!element) return
     const updateSize = () => {
       const rect = element.getBoundingClientRect()
-      setGlassSize({ width: Math.max(1, rect.width), height: Math.max(1, rect.height) })
+      const width = Math.max(1, Math.round(rect.width))
+      const height = Math.max(1, Math.round(rect.height))
+      setGlassSize((current) => (current.width === width && current.height === height ? current : { width, height }))
     }
     const resizeObserver = new ResizeObserver(updateSize)
 

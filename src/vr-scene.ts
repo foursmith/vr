@@ -574,6 +574,7 @@ export type VrSceneOptions = {
 
 export type VrSceneController = {
   update: (nextOptions: Partial<Pick<VrSceneOptions, 'preset' | 'quality' | 'hidden' | 'splitScreen' | 'faceAutoCenter' | 'showDetectionPreview'>>) => void
+  resetMedia: () => void
   destroy: () => void
 }
 
@@ -682,20 +683,21 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   }
 
   const setOverlay = (overlay: OverlayState) => {
-    if (overlay.hint) {
-      if (lastOverlayText !== overlay.hint.text) {
-        options.hintElement.textContent = overlay.hint.text
-        lastOverlayText = overlay.hint.text
+    const hint = options.showDetectionPreview ? overlay.hint : undefined
+    if (hint) {
+      if (lastOverlayText !== hint.text) {
+        options.hintElement.textContent = hint.text
+        lastOverlayText = hint.text
       }
-      if (lastOverlaySide !== overlay.hint.side) {
-        options.hintElement.dataset.side = overlay.hint.side
-        options.hintElement.classList.toggle('left-3.5', overlay.hint.side === 'left')
-        options.hintElement.classList.toggle('right-3.5', overlay.hint.side === 'right')
-        lastOverlaySide = overlay.hint.side
+      if (lastOverlaySide !== hint.side) {
+        options.hintElement.dataset.side = hint.side
+        options.hintElement.classList.toggle('left-3.5', hint.side === 'left')
+        options.hintElement.classList.toggle('right-3.5', hint.side === 'right')
+        lastOverlaySide = hint.side
       }
-      if (!Number.isFinite(lastOverlayTop) || Math.abs(lastOverlayTop - overlay.hint.top) >= 0.1) {
-        options.hintElement.style.top = `${overlay.hint.top}%`
-        lastOverlayTop = overlay.hint.top
+      if (!Number.isFinite(lastOverlayTop) || Math.abs(lastOverlayTop - hint.top) >= 0.1) {
+        options.hintElement.style.top = `${hint.top}%`
+        lastOverlayTop = hint.top
       }
       if (!overlayVisible) {
         options.hintElement.hidden = false
@@ -714,6 +716,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     options.sampleCanvas.classList.toggle('hidden', !options.showDetectionPreview || !options.faceAutoCenter)
     options.fpsElement.classList.toggle('hidden', !options.showDetectionPreview)
     if (!options.showDetectionPreview) {
+      setOverlay({})
       options.fpsElement.textContent = 'FPS --  P95 -- ms'
       fpsFrameCount = 0
       fpsSampleStartedAt = performance.now()
@@ -788,6 +791,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   }
 
   const onMetadata = () => {
+    texture.needsUpdate = true
     rebuildProjection()
     faceState.nextDetectionAt = 0
     requestRender()
@@ -1245,6 +1249,27 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         }
         requestRender()
       }
+    },
+    resetMedia() {
+      inferenceGeneration += 1
+      stopScheduledRender()
+      faceState.faces = []
+      faceState.target = undefined
+      faceState.recoveryMode = undefined
+      faceState.consecutiveMisses = 0
+      faceState.isMoving = false
+      faceState.yawVelocity = 0
+      faceState.pitchVelocity = 0
+      faceState.nextDetectionAt = 0
+      setOverlay({})
+      recentFrameTimes.length = 0
+      recentRenderTimes.length = 0
+      recentInferenceCompletions = []
+      recentInferenceTimes.length = 0
+      sampleCanvas.width = 1
+      sampleCanvas.height = 1
+      texture.needsUpdate = true
+      renderer.renderLists.dispose()
     },
     destroy() {
       disposed = true

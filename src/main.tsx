@@ -19,6 +19,29 @@ const FACE_DEBUG_WASM_URL = '/mediapipe/tasks-vision/wasm'
 const FACE_DEBUG_MODEL_URL = '/models/face_detector/blaze_face_full_range.tflite'
 
 type DebugFace = { x: number; y: number; width: number; height: number; score: number }
+type PlaylistNode = {
+  id: string
+  name: string
+  kind: 'folder' | 'video'
+  file?: File
+  children?: PlaylistNode[]
+}
+type DragFileEntry = {
+  isFile: true
+  isDirectory: false
+  name: string
+  file: (success: (file: File) => void, error?: (error: DOMException) => void) => void
+}
+type DragDirectoryReader = {
+  readEntries: (success: (entries: DragEntry[]) => void, error?: (error: DOMException) => void) => void
+}
+type DragDirectoryEntry = {
+  isFile: false
+  isDirectory: true
+  name: string
+  createReader: () => DragDirectoryReader
+}
+type DragEntry = DragFileEntry | DragDirectoryEntry
 type NavigatorWithUserAgentData = Navigator & {
   userAgentData?: {
     brands?: Array<{ brand: string; version: string }>
@@ -77,9 +100,13 @@ const ICONS = {
   columns: 'i-ph-columns',
   'fast-forward': 'i-ph-fast-forward',
   'file-video': 'i-ph-file-video',
+  folder: 'i-ph-folder',
+  'folder-open': 'i-ph-folder-open',
   gauge: 'i-ph-gauge',
   pause: 'i-ph-pause',
   play: 'i-ph-play',
+  playlist: 'i-ph-playlist',
+  plus: 'i-ph-plus',
   rewind: 'i-ph-rewind',
   scale: 'i-ph-magnifying-glass-plus',
   'rotate-ccw': 'i-ph-arrow-counter-clockwise',
@@ -87,11 +114,98 @@ const ICONS = {
   'screen-share': 'i-ph-screencast',
   upload: 'i-ph-upload',
   video: 'i-ph-video',
+  trash: 'i-ph-trash',
   'volume-1': 'i-ph-speaker-simple-low',
   'volume-2': 'i-ph-speaker-simple-high',
   'volume-x': 'i-ph-speaker-simple-x',
   x: 'i-ph-x',
 } as const
+
+let playlistNodeSequence = 0
+
+const createPlaylistId = () => `playlist-${playlistNodeSequence++}`
+
+const isVideoFile = (file: File) =>
+  file.type.startsWith('video/') || /\.(mp4|m4v|mov|webm|mkv|avi|ogv|mpeg|mpg)$/i.test(file.name)
+
+const sortPlaylistNodes = (nodes: PlaylistNode[]) =>
+  nodes.sort((a, b) => {
+    if (a.kind !== b.kind) return a.kind === 'folder' ? -1 : 1
+    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+  })
+
+const buildPlaylistTree = (files: File[]) => {
+  const roots: PlaylistNode[] = []
+
+  for (const file of files.filter(isVideoFile)) {
+    const relativePath = file.webkitRelativePath || file.name
+    const parts = relativePath.split('/').filter(Boolean)
+    let level = roots
+
+    for (const folderName of parts.slice(0, -1)) {
+      let folder = level.find((node) => node.kind === 'folder' && node.name === folderName)
+      if (!folder) {
+        folder = { id: createPlaylistId(), name: folderName, kind: 'folder', children: [] }
+        level.push(folder)
+      }
+      level = folder.children!
+    }
+
+    level.push({ id: createPlaylistId(), name: parts.at(-1) ?? file.name, kind: 'video', file })
+  }
+
+  const sortLevel = (nodes: PlaylistNode[]) => {
+    sortPlaylistNodes(nodes)
+    nodes.forEach((node) => node.children && sortLevel(node.children))
+  }
+  sortLevel(roots)
+  return roots
+}
+
+const readDragDirectory = (entry: DragDirectoryEntry) =>
+  new Promise<DragEntry[]>((resolve, reject) => {
+    const reader = entry.createReader()
+    const entries: DragEntry[] = []
+    const readBatch = () => {
+      reader.readEntries((batch) => {
+        if (!batch.length) {
+          resolve(entries)
+          return
+        }
+        entries.push(...batch)
+        readBatch()
+      }, reject)
+    }
+    readBatch()
+  })
+
+const PLAYLIST_IMPORT_BATCH_SIZE = 24
+
+async function playlistNodesFromEntries(entries: DragEntry[]) {
+  const nodes: PlaylistNode[] = []
+
+  for (let index = 0; index < entries.length; index += PLAYLIST_IMPORT_BATCH_SIZE) {
+    const batch = entries.slice(index, index + PLAYLIST_IMPORT_BATCH_SIZE)
+    const batchNodes = (await Promise.all(batch.map(playlistNodeFromEntry))).filter(
+      (node): node is PlaylistNode => Boolean(node),
+    )
+    nodes.push(...batchNodes)
+  }
+
+  return nodes
+}
+
+const playlistNodeFromEntry = async (entry: DragEntry): Promise<PlaylistNode | undefined> => {
+  if (entry.isFile) {
+    const file = await new Promise<File>((resolve, reject) => entry.file(resolve, reject))
+    return isVideoFile(file) ? { id: createPlaylistId(), name: file.name, kind: 'video', file } : undefined
+  }
+
+  const children = await playlistNodesFromEntries(await readDragDirectory(entry))
+  if (!children.length) return undefined
+  sortPlaylistNodes(children)
+  return { id: createPlaylistId(), name: entry.name, kind: 'folder', children }
+}
 
 type IconName = keyof typeof ICONS
 type SliderControl = 'quality' | 'volume' | 'scale'
@@ -100,6 +214,9 @@ type SliderAnchor = { x: number; bottom: number }
 const CONTROL_IDLE_HIDE_DELAY = 1800
 const CURSOR_IDLE_HIDE_DELAY = 1800
 const INITIAL_CONTROL_HIDE_DELAY = 3600
+const VIDEO_SWITCH_DEBOUNCE_MS = 180
+const VIDEO_RELEASE_SETTLE_MS = 160
+const VIDEO_EMPTY_TIMEOUT_MS = 1200
 
 const iconButtonClass =
   'h-9 w-9 shrink-0 rounded-full text-white/92 transition hover:text-white active:scale-95'
@@ -112,6 +229,75 @@ const selectClass =
 
 function Icon(props: { name: IconName; class?: string }) {
   return <span aria-hidden="true" class={[ICONS[props.name], props.class ?? 'h-4.5 w-4.5']}></span>
+}
+
+function PlaylistTreeNode(props: {
+  node: PlaylistNode
+  depth: number
+  expanded: Set<string>
+  selectedId?: string
+  onToggle: (id: string) => void
+  onSelect: (node: PlaylistNode) => void
+}) {
+  const isExpanded = () => props.expanded.has(props.node.id)
+
+  return (
+    <li
+      role="treeitem"
+      aria-expanded={props.node.kind === 'folder' ? (isExpanded() ? 'true' : 'false') : undefined}
+      aria-selected={props.node.id === props.selectedId ? 'true' : 'false'}
+    >
+      <button
+        type="button"
+        class={`playlist-tree-row group relative flex h-8 w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-md border-0 pr-2 text-left text-xs transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white/70 ${
+          props.node.id === props.selectedId
+            ? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
+            : 'bg-transparent text-white/68 hover:bg-white/8 hover:text-white/92'
+        }`}
+        style={{ 'padding-left': `${8 + props.depth * 16}px` }}
+        title={props.node.name}
+        onClick={() => (props.node.kind === 'folder' ? props.onToggle(props.node.id) : props.onSelect(props.node))}
+      >
+        <Show
+          when={props.node.kind === 'folder'}
+          fallback={<span aria-hidden="true" class="h-3.5 w-3.5 shrink-0"></span>}
+        >
+          <span
+            aria-hidden="true"
+            class={`i-ph-caret-right h-3.5 w-3.5 shrink-0 text-white/42 transition-transform ${isExpanded() ? 'rotate-90' : ''}`}
+          ></span>
+        </Show>
+        <Icon
+          name={props.node.kind === 'folder' ? (isExpanded() ? 'folder-open' : 'folder') : 'file-video'}
+          class={`h-4 w-4 shrink-0 ${props.node.kind === 'folder' ? 'text-[#80c7ff]' : 'text-white/52 group-hover:text-white/74'}`}
+        />
+        <span class="min-w-0 flex-1 truncate">{props.node.name}</span>
+        <Show when={props.node.id === props.selectedId}>
+          <span aria-label="Playing" class="flex h-3 items-end gap-[2px] text-[#63b8ff]">
+            <i class="playlist-eq h-2 w-[2px] rounded-full bg-current"></i>
+            <i class="playlist-eq h-3 w-[2px] rounded-full bg-current [animation-delay:-.35s]"></i>
+            <i class="playlist-eq h-1.5 w-[2px] rounded-full bg-current [animation-delay:-.7s]"></i>
+          </span>
+        </Show>
+      </button>
+      <Show when={props.node.kind === 'folder' && isExpanded()}>
+        <ul role="group" class="m-0 list-none p-0">
+          <For each={props.node.children ?? []}>
+            {(child) => (
+              <PlaylistTreeNode
+                node={child}
+                depth={props.depth + 1}
+                expanded={props.expanded}
+                selectedId={props.selectedId}
+                onToggle={props.onToggle}
+                onSelect={props.onSelect}
+              />
+            )}
+          </For>
+        </ul>
+      </Show>
+    </li>
+  )
 }
 
 function IconButton(props: {
@@ -240,6 +426,7 @@ function UnsupportedBrowser() {
 function App() {
   let player!: HTMLElement
   let fileInput!: HTMLInputElement
+  let folderInput!: HTMLInputElement
   let debugImageInput!: HTMLInputElement
   let video!: HTMLVideoElement
   let controlsZone!: HTMLElement
@@ -260,8 +447,17 @@ function App() {
   let hideSliderTimer: number | undefined
   let pointerInControlZone = false
   let lastAudibleVolume = 1
+  let videoLoadGeneration = 0
+  let videoSwitchTimer: number | undefined
+  let videoSwitchInProgress = false
+  let pendingVideoSwitch: { file: File; playlistId?: string } | undefined
 
   const [fileName, setFileName] = createSignal<string>()
+  const [playlist, setPlaylist] = createSignal<PlaylistNode[]>([])
+  const [expandedFolders, setExpandedFolders] = createSignal(new Set<string>())
+  const [selectedPlaylistId, setSelectedPlaylistId] = createSignal<string>()
+  const [playlistDragActive, setPlaylistDragActive] = createSignal(false)
+  const [playlistOpen, setPlaylistOpen] = createSignal(false)
   const [hasVideo, setHasVideo] = createSignal(false)
   const [playing, setPlaying] = createSignal(false)
   const [currentTime, setCurrentTime] = createSignal(0)
@@ -297,6 +493,14 @@ function App() {
   })
 
   const loadingPercent = createMemo(() => Math.round(Math.min(100, Math.max(0, loadingProgress()))))
+  const playlistVideos = createMemo(() => {
+    const videos: PlaylistNode[] = []
+    const visit = (nodes: PlaylistNode[]) => {
+      nodes.forEach((node) => (node.kind === 'video' ? videos.push(node) : visit(node.children ?? [])))
+    }
+    visit(playlist())
+    return videos
+  })
 
   const sceneOptions = () => ({
     preset: PRESETS[presetId()].component,
@@ -517,31 +721,156 @@ function App() {
     debugImageInput.click()
   }
 
-  const loadVideoFile = (file: File) => {
-    if (!file.type.startsWith('video/')) return
-    if (!file) return
-    if (fileUrl) URL.revokeObjectURL(fileUrl)
+  const detachCurrentVideoSource = async () => {
+    const previousUrl = fileUrl
+    fileUrl = undefined
+    video.pause()
+
+    if (video.currentSrc || video.getAttribute('src')) {
+      await new Promise<void>((resolve) => {
+        let completed = false
+        const finish = () => {
+          if (completed) return
+          completed = true
+          window.clearTimeout(timeout)
+          video.removeEventListener('emptied', finish)
+          resolve()
+        }
+        const timeout = window.setTimeout(finish, VIDEO_EMPTY_TIMEOUT_MS)
+        video.addEventListener('emptied', finish, { once: true })
+        video.removeAttribute('src')
+        video.load()
+      })
+    } else {
+      video.removeAttribute('src')
+      video.load()
+    }
+
+    if (previousUrl) URL.revokeObjectURL(previousUrl)
+    if (!appDisposed) {
+      await new Promise<void>((resolve) => window.setTimeout(resolve, VIDEO_RELEASE_SETTLE_MS))
+    }
+  }
+
+  const commitVideoFile = async (file: File, playlistId?: string) => {
+    const generation = ++videoLoadGeneration
+    scene?.resetMedia()
+    await detachCurrentVideoSource()
+    if (appDisposed || pendingVideoSwitch) return
     fileUrl = URL.createObjectURL(file)
     setHasVideo(true)
+    setPlaying(false)
+    setCurrentTime(0)
+    setDuration(0)
     setFileName(file.name)
+    setSelectedPlaylistId(playlistId)
     video.src = fileUrl
+    video.load()
     if (resourcesReady()) {
-      void video.play()
+      void video.play().catch((error) => {
+        if (generation !== videoLoadGeneration || error instanceof DOMException && error.name === 'AbortError') return
+        console.warn('video playback could not start', error)
+      })
       startInitialIdleCountdown()
     }
+  }
+
+  const processPendingVideoSwitch = async () => {
+    if (videoSwitchInProgress) return
+    videoSwitchInProgress = true
+    try {
+      while (pendingVideoSwitch && !appDisposed) {
+        const pending = pendingVideoSwitch
+        pendingVideoSwitch = undefined
+        await commitVideoFile(pending.file, pending.playlistId)
+      }
+    } finally {
+      videoSwitchInProgress = false
+    }
+  }
+
+  const loadVideoFile = (file: File, playlistId?: string) => {
+    if (!isVideoFile(file)) return
+    pendingVideoSwitch = { file, playlistId }
+    setSelectedPlaylistId(playlistId)
+
+    if (videoSwitchTimer !== undefined) window.clearTimeout(videoSwitchTimer)
+    videoSwitchTimer = window.setTimeout(() => {
+      videoSwitchTimer = undefined
+      void processPendingVideoSwitch()
+    }, fileUrl || videoSwitchInProgress ? VIDEO_SWITCH_DEBOUNCE_MS : 0)
   }
 
   const handleFile = () => {
     const file = fileInput.files?.[0]
     if (!file) return
-    loadVideoFile(file)
+    const node: PlaylistNode = { id: createPlaylistId(), name: file.name, kind: 'video', file }
+    setPlaylist((current) => [...current, node])
+    loadVideoFile(file, node.id)
+    fileInput.value = ''
+  }
+
+  const handleFolder = () => {
+    const nodes = buildPlaylistTree(Array.from(folderInput.files ?? []))
+    if (!nodes.length) return
+    setPlaylist((current) => [...current, ...nodes])
+    setExpandedFolders((current) => {
+      const next = new Set(current)
+      nodes.forEach((node) => node.kind === 'folder' && next.add(node.id))
+      return next
+    })
+    folderInput.value = ''
+  }
+
+  const togglePlaylistFolder = (id: string) => {
+    setExpandedFolders((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handlePlaylistDrop = async (event: DragEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setPlaylistDragActive(false)
+    const items = Array.from(event.dataTransfer?.items ?? [])
+    const entries = items
+      .map((item) => (item as unknown as { webkitGetAsEntry?: () => DragEntry | null }).webkitGetAsEntry?.())
+      .filter((entry): entry is DragEntry => Boolean(entry))
+
+    try {
+      const nodes = entries.length
+        ? await playlistNodesFromEntries(entries)
+        : buildPlaylistTree(Array.from(event.dataTransfer?.files ?? []))
+      if (!nodes.length) return
+      sortPlaylistNodes(nodes)
+      setPlaylist((current) => [...current, ...nodes])
+      setExpandedFolders((current) => {
+        const next = new Set(current)
+        nodes.forEach((node) => node.kind === 'folder' && next.add(node.id))
+        return next
+      })
+    } catch (error) {
+      console.warn('playlist folder import failed', error)
+    }
+  }
+
+  const playNextPlaylistVideo = () => {
+    const videos = playlistVideos()
+    const currentIndex = videos.findIndex((node) => node.id === selectedPlaylistId())
+    const next = videos[currentIndex + 1]
+    if (next?.file) loadVideoFile(next.file, next.id)
   }
 
   const handleVideoDrop = (event: DragEvent) => {
     event.preventDefault()
     const file = Array.from(event.dataTransfer?.files ?? []).find((item) => item.type.startsWith('video/'))
     if (!file) return
-    loadVideoFile(file)
+    const node: PlaylistNode = { id: createPlaylistId(), name: file.name, kind: 'video', file }
+    setPlaylist((current) => [...current, node])
+    loadVideoFile(file, node.id)
   }
 
   const handleDebugImage = () => {
@@ -738,12 +1067,19 @@ function App() {
       window.cancelAnimationFrame(bootPlayer)
       window.removeEventListener('keydown', handleKeydown)
       document.removeEventListener('fullscreenchange', syncFullscreen)
+      if (videoSwitchTimer !== undefined) window.clearTimeout(videoSwitchTimer)
+      pendingVideoSwitch = undefined
       cancelHideControls()
       cancelHideCursor()
       cancelHideSlider()
       scene?.destroy()
       releaseFaceAutoCenterResources()
+      videoLoadGeneration += 1
+      video.pause()
+      video.removeAttribute('src')
+      video.load()
       if (fileUrl) URL.revokeObjectURL(fileUrl)
+      fileUrl = undefined
       if (debugImageUrlRef) URL.revokeObjectURL(debugImageUrlRef)
     }
   })
@@ -766,6 +1102,15 @@ function App() {
       onDrop={handleVideoDrop}
     >
       <input ref={fileInput} type="file" accept="video/*" class="hidden" onChange={handleFile} />
+      <input
+        ref={folderInput}
+        type="file"
+        accept="video/*"
+        multiple
+        class="hidden"
+        {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
+        onChange={handleFolder}
+      />
       <input ref={debugImageInput} type="file" accept="image/*" class="hidden" onChange={handleDebugImage} />
 
       <section ref={vrRoot} id="vr-scene" class="absolute inset-0 h-dvh w-full opacity-100" aria-hidden={videoOnly() ? 'true' : 'false'}>
@@ -803,6 +1148,7 @@ function App() {
         onLoadedMetadata={syncTime}
         onPlaying={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
+        onEnded={playNextPlaylistVideo}
         onVolumeChange={() => {
           const nextVolume = video.muted ? 0 : video.volume
           if (nextVolume > 0) lastAudibleVolume = nextVolume
@@ -827,9 +1173,137 @@ function App() {
         </button>
       </Show>
 
+      <div
+        class={`pointer-events-auto absolute bottom-40 left-3 top-3 z-30 w-[min(15rem,calc(100vw-1.5rem))] transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:bottom-6 sm:left-6 sm:top-6 sm:w-72 ${
+          playlistOpen() ? 'translate-x-0 opacity-100' : 'pointer-events-none -translate-x-[calc(100%+1.5rem)] opacity-0'
+        }`}
+        aria-hidden={playlistOpen() ? 'false' : 'true'}
+        inert={!playlistOpen()}
+      >
+        <LiquidGlass
+          class={`h-full w-full rounded-[20px] text-white transition-shadow ${
+            playlistDragActive() ? 'shadow-[0_0_0_3px_rgba(99,184,255,0.2)]' : ''
+          }`}
+          cornerRadius={20}
+          displacementScale={46}
+          blurAmount={0.06}
+          saturation={150}
+          aberrationIntensity={2.2}
+          elasticity={0}
+          active={playlistDragActive()}
+          castShadow
+        >
+          <aside
+            class="flex h-full w-full flex-col overflow-hidden rounded-[20px] border border-white/12 text-white"
+            aria-label="Playlist"
+            onDragEnter={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              setPlaylistDragActive(true)
+            }}
+            onDragOver={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+            }}
+            onDragLeave={(event) => {
+              event.stopPropagation()
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPlaylistDragActive(false)
+            }}
+            onDrop={(event) => void handlePlaylistDrop(event)}
+          >
+            <header class="flex h-14 shrink-0 items-center gap-2 border-b border-white/9 px-3">
+              <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/8 text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
+                <Icon name="playlist" class="h-4.5 w-4.5" />
+              </span>
+              <div class="min-w-0 flex-1">
+                <h2 class="text-sm font-semibold tracking-tight text-white/94">播放列表</h2>
+                <p class="mt-0.5 text-[10px] text-white/42">{playlistVideos().length} 个视频</p>
+              </div>
+              <IconButton
+                label="清空播放列表"
+                icon="trash"
+                iconClass="h-3.5 w-3.5"
+                class={`!h-8 !w-8 ${playlist().length ? '' : 'pointer-events-none opacity-25'}`}
+                onClick={() => {
+                  setPlaylist([])
+                  setExpandedFolders(new Set<string>())
+                  setSelectedPlaylistId(undefined)
+                }}
+              />
+              <IconButton label="关闭播放列表" icon="x" iconClass="h-3.5 w-3.5" class="!h-8 !w-8" onClick={() => setPlaylistOpen(false)} />
+            </header>
+
+            <div class="playlist-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2">
+              <Show
+                when={playlist().length}
+                fallback={
+                  <button
+                    type="button"
+                    class={`grid min-h-full w-full cursor-pointer place-content-center justify-items-center gap-3 rounded-xl border border-dashed px-5 py-10 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white/70 ${
+                      playlistDragActive()
+                        ? 'border-[#63b8ff]/70 bg-[#63b8ff]/10 text-white'
+                        : 'border-white/14 bg-white/[0.025] text-white/58 hover:border-white/25 hover:bg-white/5 hover:text-white/78'
+                    }`}
+                    onClick={() => folderInput.click()}
+                  >
+                    <span class="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/7 text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
+                      <Icon name="folder" class="h-5.5 w-5.5" />
+                    </span>
+                    <span class="grid gap-1">
+                      <strong class="text-xs font-semibold text-current">拖入视频文件夹</strong>
+                      <span class="text-[10px] leading-4 text-white/38">保留嵌套目录结构</span>
+                    </span>
+                  </button>
+                }
+              >
+                <ul role="tree" aria-label="视频文件夹" class="m-0 list-none p-0">
+                  <For each={playlist()}>
+                    {(node) => (
+                      <PlaylistTreeNode
+                        node={node}
+                        depth={0}
+                        expanded={expandedFolders()}
+                        selectedId={selectedPlaylistId()}
+                        onToggle={togglePlaylistFolder}
+                        onSelect={(selected) => selected.file && loadVideoFile(selected.file, selected.id)}
+                      />
+                    )}
+                  </For>
+                </ul>
+              </Show>
+            </div>
+
+            <footer class="shrink-0 border-t border-white/9 p-2">
+              <LiquidGlass
+                class="h-9 w-full rounded-full text-white"
+                cornerRadius={999}
+                displacementScale={32}
+                blurAmount={0.052}
+                saturation={150}
+                aberrationIntensity={2.2}
+                elasticity={0.12}
+                castShadow={false}
+              >
+                <button
+                  type="button"
+                  class="flex h-full w-full cursor-pointer items-center justify-center gap-2 rounded-full border-0 bg-transparent px-3 text-xs font-semibold text-white/78 transition hover:text-white focus-visible:bg-white/10 focus-visible:outline-none"
+                  onClick={() => folderInput.click()}
+                >
+                  <Icon name="plus" class="h-3.5 w-3.5" />
+                  添加文件夹
+                </button>
+              </LiquidGlass>
+            </footer>
+          </aside>
+        </LiquidGlass>
+      </div>
+
       <aside
         ref={(element) => (controlsZone = element)}
-        class="pointer-events-auto absolute inset-x-0 bottom-0 z-20 p-3 sm:p-6"
+        class={`pointer-events-auto absolute inset-x-0 bottom-0 z-20 p-3 transition-[padding] duration-300 sm:p-6 ${
+          playlistOpen() ? 'sm:pl-[20rem]' : ''
+        }`}
       >
         <div
           ref={(element) => (controlsPanel = element)}
@@ -949,6 +1423,12 @@ function App() {
                   <span aria-hidden="true" class="i-ph-caret-down pointer-events-none h-3.5 w-3.5 shrink-0 text-white/62"></span>
                 </label>
               </LiquidGlass>
+              <IconButton
+                label="播放列表"
+                icon="playlist"
+                pressed={playlistOpen()}
+                onClick={() => setPlaylistOpen((current) => !current)}
+              />
               <IconButton label="Open video" icon="file-video" onClick={openVideoFile} />
               <Show when={fileName()}>
                 {(name) => <p class="min-w-0 truncate text-sm font-medium text-white/86 max-sm:hidden">{name()}</p>}
