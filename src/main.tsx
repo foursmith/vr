@@ -12,6 +12,7 @@ import {
   type CameraView,
   type VrSceneController,
 } from './vr-scene'
+import { releaseFaceAutoCenterResources } from './face-tracker-client'
 import { LiquidGlass } from './liquid-glass'
 
 const FACE_DEBUG_WASM_URL = '/mediapipe/tasks-vision/wasm'
@@ -171,6 +172,7 @@ function App() {
   let vrMount!: HTMLDivElement
   let sampleCanvas!: HTMLCanvasElement
   let faceHint!: HTMLDivElement
+  let fpsMeter!: HTMLDivElement
   let debugImage!: HTMLImageElement | undefined
 
   const viewRef = { current: { yaw: 0, pitch: 0, zoom: DEFAULT_ZOOM, pausedUntil: 0 } satisfies CameraView }
@@ -620,6 +622,7 @@ function App() {
           mount: vrMount,
           sampleCanvas,
           hintElement: faceHint,
+          fpsElement: fpsMeter,
           video,
           viewRef,
           onZoomChange: (nextZoom) => {
@@ -661,6 +664,7 @@ function App() {
       cancelHideCursor()
       cancelHideSlider()
       scene?.destroy()
+      releaseFaceAutoCenterResources()
       if (fileUrl) URL.revokeObjectURL(fileUrl)
       if (debugImageUrlRef) URL.revokeObjectURL(debugImageUrlRef)
     }
@@ -689,6 +693,14 @@ function App() {
       <section ref={vrRoot} id="vr-scene" class="absolute inset-0 h-dvh w-full opacity-100" aria-hidden={videoOnly() ? 'true' : 'false'}>
         <div ref={vrMount} id="vr-mount" class="h-full w-full"></div>
         <div class="pointer-events-none absolute inset-0 z-10">
+          <div
+            ref={fpsMeter}
+            id="fps-meter"
+            class="absolute left-3 top-3 hidden whitespace-pre rounded-md border border-white/16 bg-black/68 px-3 py-2 font-mono text-[11px] font-semibold leading-[1.55] text-white/78 shadow-[0_8px_24px_rgba(0,0,0,0.42)] backdrop-blur-md"
+            aria-label="Performance metrics"
+          >
+            FPS --  P95 -- ms
+          </div>
           <canvas
             ref={sampleCanvas}
             id="sample-canvas"
