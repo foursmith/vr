@@ -74,6 +74,7 @@ const ICONS = {
   'corners-in': 'i-ph-corners-in',
   'corners-out': 'i-ph-corners-out',
   'cube-focus': 'i-ph-cube-focus',
+  columns: 'i-ph-columns',
   'fast-forward': 'i-ph-fast-forward',
   'file-video': 'i-ph-file-video',
   gauge: 'i-ph-gauge',
@@ -272,6 +273,7 @@ function App() {
   const [activeSlider, setActiveSlider] = createSignal<SliderControl>()
   const [sliderAnchor, setSliderAnchor] = createSignal<SliderAnchor>({ x: 0, bottom: 72 })
   const [videoOnly, setVideoOnly] = createSignal(false)
+  const [splitScreen, setSplitScreen] = createSignal(true)
   const [faceAutoCenter, setFaceAutoCenter] = createSignal(true)
   const [showDetectionPreview, setShowDetectionPreview] = createSignal(false)
   const [controlsVisible, setControlsVisible] = createSignal(true)
@@ -300,6 +302,7 @@ function App() {
     preset: PRESETS[presetId()].component,
     quality: QUALITY_OPTIONS[qualityId()].component,
     hidden: videoOnly(),
+    splitScreen: splitScreen(),
     faceAutoCenter: faceAutoCenter(),
     showDetectionPreview: showDetectionPreview(),
   })
@@ -1026,6 +1029,12 @@ function App() {
                 </div>
               </LiquidGlass>
 
+              <IconButton
+                label={splitScreen() ? 'Disable automatic split screen' : 'Enable automatic split screen'}
+                icon="columns"
+                pressed={splitScreen()}
+                onClick={() => setSplitScreen((current) => !current)}
+              />
               <IconButton
                 label={videoOnly() ? 'Show panorama' : 'Show video only'}
                 icon={videoOnly() ? 'screen-share' : 'video'}

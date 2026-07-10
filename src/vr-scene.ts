@@ -66,6 +66,8 @@ const FACE_TARGET_GRACE_MS = 900
 const VIEWPORT_SAMPLE_WIDTH = 320
 const PANORAMA_SAMPLE_WIDTH = 320
 const PANORAMA_SAMPLE_MAX_HEIGHT = 384
+const MAX_SPLIT_SCREEN_PANELS = 3
+const MIN_SPLIT_SCREEN_ASPECT = 9 / 16
 const FACE_CENTER_RESPONSE = 0.65
 const FACE_CENTER_MAX_SPEED = 5.5
 const FACE_CENTER_VELOCITY_SMOOTHING_MS = 260
@@ -79,6 +81,7 @@ type DetectionMode = 'viewport' | 'panorama'
 type FaceTarget = { x: number; y: number; yaw?: number; pitch?: number; mode: DetectionMode; lastSeenAt: number }
 type FaceSelectionAnchor = { x: number; y: number; weight: number; wrapX: boolean }
 type PanoramaSample = { center: { x: number; y: number }; startX: number; widthX: number; wraps: boolean }
+type RenderViewport = { x: number; y: number; width: number; height: number }
 
 export type CameraView = {
   yaw: number
@@ -126,6 +129,20 @@ const getViewportPitchOffset = (camera: PerspectiveCamera, y: number) =>
 const resizeCanvas = (canvas: HTMLCanvasElement, width: number, height: number) => {
   if (canvas.width !== width) canvas.width = width
   if (canvas.height !== height) canvas.height = height
+}
+
+const getRenderViewports = (width: number, height: number, splitScreen: boolean): RenderViewport[] => {
+  if (!splitScreen || width <= height) return [{ x: 0, y: 0, width, height }]
+
+  const panelCount = Math.min(MAX_SPLIT_SCREEN_PANELS, Math.max(1, Math.floor(width / (height * MIN_SPLIT_SCREEN_ASPECT))))
+  const panelWidth = width / panelCount
+
+  return Array.from({ length: panelCount }, (_, index) => ({
+    x: panelWidth * index,
+    y: 0,
+    width: panelWidth,
+    height,
+  }))
 }
 
 const getUv = (geometry: BufferGeometry) => geometry.attributes.uv as BufferAttribute
@@ -504,24 +521,9 @@ const drawSampleBoxes = (state: FaceAutoCenterState, canvas: HTMLCanvasElement, 
   })
 }
 
-const drawViewportInferenceSample = (
-  sampleCanvas: HTMLCanvasElement,
-  context: CanvasRenderingContext2D,
-  sourceCanvas: HTMLCanvasElement,
-  sampleWidth: number,
-) => {
-  const size = getViewportInferenceSampleSize(sourceCanvas, sampleWidth)
-  if (!size) return false
-  const { width, height } = size
-  resizeCanvas(sampleCanvas, width, height)
-
-  context.drawImage(sourceCanvas, 0, 0, width, height)
-  return true
-}
-
-const getViewportInferenceSampleSize = (sourceCanvas: HTMLCanvasElement, sampleWidth: number) => {
-  if (!sourceCanvas.width || !sourceCanvas.height) return undefined
-  const aspect = sourceCanvas.width / sourceCanvas.height
+const getViewportInferenceSampleSize = (sourceWidth: number, sourceHeight: number, sampleWidth: number) => {
+  if (!sourceWidth || !sourceHeight) return undefined
+  const aspect = sourceWidth / sourceHeight
   const width = Math.max(160, Math.round(sampleWidth))
   const height = Math.max(120, Math.round(width / aspect))
   return { width, height }
@@ -563,6 +565,7 @@ export type VrSceneOptions = {
   preset: ProjectionPreset
   quality: ProjectionQuality
   hidden: boolean
+  splitScreen: boolean
   faceAutoCenter: boolean
   showDetectionPreview: boolean
   viewRef: MutableRefObject<CameraView>
@@ -570,7 +573,7 @@ export type VrSceneOptions = {
 }
 
 export type VrSceneController = {
-  update: (nextOptions: Partial<Pick<VrSceneOptions, 'preset' | 'quality' | 'hidden' | 'faceAutoCenter' | 'showDetectionPreview'>>) => void
+  update: (nextOptions: Partial<Pick<VrSceneOptions, 'preset' | 'quality' | 'hidden' | 'splitScreen' | 'faceAutoCenter' | 'showDetectionPreview'>>) => void
   destroy: () => void
 }
 
@@ -589,6 +592,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   let fpsSampleStartedAt = lastFrameAt
   let fpsFrameCount = 0
   const recentFrameTimes: number[] = []
+  const recentRenderTimes: number[] = []
+  let lastRenderMs = 0
   let recentInferenceCompletions: number[] = []
   const recentInferenceTimes: number[] = []
   let lastInferenceMs = 0
@@ -601,7 +606,12 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   let lastOverlayTop = Number.NaN
   const scene = new Scene()
   scene.background = new Color('#000')
-  const camera = new PerspectiveCamera(DEFAULT_FOV, mount.clientWidth / Math.max(1, mount.clientHeight), 0.1, 1000)
+  const initialViewport = getRenderViewports(
+    Math.max(1, mount.clientWidth),
+    Math.max(1, mount.clientHeight),
+    options.splitScreen,
+  )[0]
+  const camera = new PerspectiveCamera(DEFAULT_FOV, initialViewport.width / initialViewport.height, 0.1, 1000)
   camera.zoom = options.viewRef.current.zoom
   camera.updateProjectionMatrix()
   const renderer = new WebGLRenderer({
@@ -708,6 +718,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       fpsFrameCount = 0
       fpsSampleStartedAt = performance.now()
       recentFrameTimes.length = 0
+      recentRenderTimes.length = 0
+      lastRenderMs = 0
       recentInferenceCompletions = []
       lastInferenceMs = 0
       lastCaptureMs = 0
@@ -730,6 +742,9 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     const sortedFrameTimes = [...recentFrameTimes].sort((a, b) => a - b)
     const p95Index = Math.max(0, Math.ceil(sortedFrameTimes.length * 0.95) - 1)
     const p95 = sortedFrameTimes[p95Index] ?? 0
+    const sortedRenderTimes = [...recentRenderTimes].sort((a, b) => a - b)
+    const renderP95Index = Math.max(0, Math.ceil(sortedRenderTimes.length * 0.95) - 1)
+    const renderP95 = sortedRenderTimes[renderP95Index] ?? 0
     recentInferenceCompletions = recentInferenceCompletions.filter((time) => now - time <= 2000)
     const trackingSpan = recentInferenceCompletions.length > 1
       ? recentInferenceCompletions[recentInferenceCompletions.length - 1] - recentInferenceCompletions[0]
@@ -738,8 +753,15 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       ? ((recentInferenceCompletions.length - 1) * 1000) / trackingSpan
       : 0
 
+    const splitCount = getRenderViewports(mount.clientWidth, mount.clientHeight, options.splitScreen).length
+    const renderStrategy = splitCount <= 1
+      ? 'Single view'
+      : `Split ${splitCount} · render ${splitCount}×`
+
     options.fpsElement.textContent = [
       `FPS ${fps}  P95 ${p95.toFixed(1)} ms`,
+      renderStrategy,
+      `Render CPU ${lastRenderMs.toFixed(2)} ms  P95 ${renderP95.toFixed(2)} ms`,
       `Track ${trackingHz.toFixed(1)} Hz  Infer ${lastInferenceMs.toFixed(1)} ms`,
       `Capture ${lastCaptureMs.toFixed(1)} ms  Skipped ${skippedInferenceFrames}`,
       `${faceTracker.getBackendLabel()}  Input ${lastInputSize}`,
@@ -751,7 +773,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   const resize = () => {
     const width = Math.max(1, mount.clientWidth)
     const height = Math.max(1, mount.clientHeight)
-    camera.aspect = width / height
+    const primaryViewport = getRenderViewports(width, height, options.splitScreen)[0]
+    camera.aspect = primaryViewport.width / primaryViewport.height
     camera.updateProjectionMatrix()
     renderer.setSize(width, height, false)
     requestRender()
@@ -954,19 +977,24 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         inputHeight = sampleCanvas.height
       } else {
         mode = faceState.recoveryMode === 'viewport' ? 'detection' : 'landmarks'
-        const size = getViewportInferenceSampleSize(renderer.domElement, VIEWPORT_SAMPLE_WIDTH)
+        const renderViewports = getRenderViewports(renderer.domElement.width, renderer.domElement.height, options.splitScreen)
+        const sourceRect = renderViewports[Math.floor(renderViewports.length / 2)]
+        const size = getViewportInferenceSampleSize(sourceRect.width, sourceRect.height, VIEWPORT_SAMPLE_WIDTH)
         if (!size) return
         inputWidth = size.width
         inputHeight = size.height
-        if (options.showDetectionPreview) {
-          if (!drawViewportInferenceSample(sampleCanvas, sampleContext, renderer.domElement, VIEWPORT_SAMPLE_WIDTH)) return
-        } else {
-          bitmapPromise = createImageBitmap(renderer.domElement, {
+        bitmapPromise = createImageBitmap(
+          renderer.domElement,
+          sourceRect.x,
+          sourceRect.y,
+          sourceRect.width,
+          sourceRect.height,
+          {
             resizeWidth: inputWidth,
             resizeHeight: inputHeight,
             resizeQuality: 'low',
-          })
-        }
+          },
+        )
       }
     } catch (error) {
       if (now - faceState.lastErrorAt > 3000) {
@@ -984,6 +1012,10 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     void (bitmapPromise ?? createImageBitmap(sampleCanvas))
       .then((bitmap) => {
         lastCaptureMs = performance.now() - captureStartedAt
+        if (options.showDetectionPreview && detectionMode === 'viewport') {
+          resizeCanvas(sampleCanvas, inputWidth, inputHeight)
+          sampleContext.drawImage(bitmap, 0, 0, inputWidth, inputHeight)
+        }
         return faceTracker.infer(mode, bitmap, now)
       })
       .then((result) => {
@@ -1131,7 +1163,22 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       camera.updateProjectionMatrix()
     }
     camera.rotation.set(MathUtils.degToRad(options.viewRef.current.pitch), MathUtils.degToRad(options.viewRef.current.yaw), 0, 'YXZ')
-    renderer.render(scene, camera)
+    const renderStartedAt = performance.now()
+    const viewports = getRenderViewports(mount.clientWidth, mount.clientHeight, options.splitScreen)
+    renderer.setScissorTest(viewports.length > 1)
+    renderer.setViewport(0, 0, mount.clientWidth, mount.clientHeight)
+    renderer.setScissor(0, 0, mount.clientWidth, mount.clientHeight)
+    const renderViewport = (viewport: RenderViewport) => {
+      renderer.setViewport(viewport.x, viewport.y, viewport.width, viewport.height)
+      renderer.setScissor(viewport.x, viewport.y, viewport.width, viewport.height)
+      renderer.render(scene, camera)
+    }
+
+    viewports.forEach(renderViewport)
+    renderer.setScissorTest(false)
+    lastRenderMs = performance.now() - renderStartedAt
+    recentRenderTimes.push(lastRenderMs)
+    if (recentRenderTimes.length > 180) recentRenderTimes.shift()
     if (options.showDetectionPreview) updatePerformanceMetrics(now, delta * 1000)
     // Sample immediately after rendering so WebGL does not need an expensive
     // preserveDrawingBuffer allocation just for face tracking.
@@ -1173,6 +1220,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         fpsFrameCount = 0
         fpsSampleStartedAt = performance.now()
         recentFrameTimes.length = 0
+        recentRenderTimes.length = 0
+        lastRenderMs = 0
         recentInferenceCompletions = []
         lastInferenceMs = 0
         lastCaptureMs = 0
@@ -1186,6 +1235,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       if (shouldRebuild) {
         rebuildProjection()
       }
+      if (nextOptions.splitScreen !== undefined) resize()
       updateVisibility()
       if (options.hidden) {
         stopScheduledRender()
