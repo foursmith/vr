@@ -62,32 +62,39 @@ input[type='range']:focus {
   width: 0.86rem;
 }
 
+.media-range::-webkit-slider-thumb {
+  background: transparent;
+  box-shadow: none;
+  opacity: 0;
+}
+
+.media-range::-moz-range-thumb {
+  background: transparent;
+  box-shadow: none;
+  opacity: 0;
+}
+
+.media-range::-webkit-slider-runnable-track {
+  background: transparent;
+}
+
+.media-range::-moz-range-track,
+.media-range::-moz-range-progress {
+  background: transparent;
+}
+
 .media-range:disabled {
   cursor: default;
   opacity: 1;
 }
 
-.media-range[data-loading='true']::-webkit-slider-thumb {
-  box-shadow: none;
-  opacity: 0;
-}
-
-.media-range[data-loading='true']::-moz-range-thumb {
-  box-shadow: none;
-  opacity: 0;
-}
-
-.media-range:focus::-webkit-slider-thumb,
-.volume-range:focus::-webkit-slider-thumb,
-.vertical-range:focus::-webkit-slider-thumb {
+.volume-range:focus::-webkit-slider-thumb {
   box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.45),
     0 0 0 3px rgba(10, 132, 255, 0.22);
 }
 
-.media-range:focus::-moz-range-thumb,
-.volume-range:focus::-moz-range-thumb,
-.vertical-range:focus::-moz-range-thumb {
+.volume-range:focus::-moz-range-thumb {
   box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.45),
     0 0 0 3px rgba(10, 132, 255, 0.22);
@@ -99,13 +106,7 @@ input[type='range']:focus {
 }
 
 .vertical-range::-webkit-slider-runnable-track {
-  background: linear-gradient(
-    0deg,
-    var(--fill) 0%,
-    var(--fill) var(--progress, 100%),
-    var(--track) var(--progress, 100%),
-    var(--track) 100%
-  );
+  background: transparent;
   border-radius: 999px;
   height: 6rem;
   width: 0.28rem;
@@ -113,37 +114,44 @@ input[type='range']:focus {
 
 .vertical-range::-webkit-slider-thumb {
   appearance: none;
-  background: #fff;
+  background: transparent;
   border: 0;
   border-radius: 999px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  box-shadow: none;
   height: 0.86rem;
   margin-left: -0.29rem;
   margin-top: 0;
+  opacity: 0;
   width: 0.86rem;
 }
 
 .vertical-range::-moz-range-track {
-  background: var(--track);
+  background: transparent;
   border-radius: 999px;
   height: 6rem;
   width: 0.28rem;
 }
 
 .vertical-range::-moz-range-progress {
-  background: var(--fill);
+  background: transparent;
   border-radius: 999px;
   height: 6rem;
   width: 0.28rem;
 }
 
 .vertical-range::-moz-range-thumb {
-  background: #fff;
+  background: transparent;
   border: 0;
   border-radius: 999px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  box-shadow: none;
   height: 0.86rem;
+  opacity: 0;
   width: 0.86rem;
+}
+
+.media-range:focus-visible + .liquid-glass-range-thumb,
+.vertical-range:focus-visible + .liquid-glass-range-thumb {
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.22);
 }
 
 @media (prefers-reduced-motion: reduce) {
