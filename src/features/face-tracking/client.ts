@@ -4,7 +4,7 @@ import type {
   FaceInferenceResult,
   FaceWorkerResponse,
   NormalizedFace,
-} from './face-tracker-protocol'
+} from './protocol'
 
 const WASM_URL = '/mediapipe/tasks-vision/wasm'
 const FACE_MODEL_URL = '/models/face_detector/blaze_face_full_range.tflite'
@@ -193,7 +193,7 @@ export class FaceTrackerClient {
     return new Promise<void>((resolve, reject) => {
       // MediaPipe loads its generated WASM bootstrap with importScripts().
       // Keep this a classic worker; module workers reject importScripts().
-      const worker = new Worker(new URL('./face-tracker.worker.ts', import.meta.url))
+      const worker = new Worker(new URL('./worker.ts', import.meta.url))
       this.worker = worker
       worker.onmessage = (event: MessageEvent<FaceWorkerResponse>) => {
         const message = event.data

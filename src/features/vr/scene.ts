@@ -19,10 +19,10 @@ import {
   type Side,
   type Texture,
 } from 'three'
-import { getFaceTrackerClient, preloadFaceAutoCenterResources } from './face-tracker-client'
-import type { FaceInferenceMode, FaceInferenceResult, NormalizedFace } from './face-tracker-protocol'
+import { getFaceTrackerClient, preloadFaceAutoCenterResources } from '../face-tracking/client'
+import type { FaceInferenceMode, FaceInferenceResult, NormalizedFace } from '../face-tracking/protocol'
 
-export { preloadFaceAutoCenterResources } from './face-tracker-client'
+export { preloadFaceAutoCenterResources } from '../face-tracking/client'
 
 export type MutableRefObject<T> = { current: T }
 
