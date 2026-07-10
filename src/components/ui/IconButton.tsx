@@ -30,7 +30,7 @@ export function IconButton(props: {
         type="button"
         aria-label={props.label}
         aria-pressed={props.pressed === undefined ? undefined : props.pressed ? 'true' : 'false'}
-        class="relative grid h-full w-full cursor-pointer place-items-center rounded-full border-0 bg-transparent p-0 text-inherit transition focus-visible:bg-white/12 focus-visible:outline-none"
+        class="relative grid h-full w-full cursor-default place-items-center rounded-full border-0 bg-transparent p-0 text-inherit transition focus-visible:bg-white/12 focus-visible:outline-none"
         onClick={props.onClick}
       >
         <Icon name={props.icon} class={props.iconClass} />

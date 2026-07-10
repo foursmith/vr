@@ -35,7 +35,7 @@ export function VerticalGlassRange(props: {
         value={props.value}
         aria-label={props.label}
         title={props.title}
-        class="vertical-range absolute inset-0 z-10 h-24 w-6 cursor-pointer appearance-none bg-transparent"
+        class="vertical-range absolute inset-0 z-10 h-24 w-6 cursor-default appearance-none bg-transparent"
         onInput={(event) => props.onInput(Number(event.currentTarget.value))}
       />
       <LiquidGlass

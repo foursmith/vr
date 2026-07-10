@@ -829,8 +829,11 @@ export function createPlayerController() {
   }
 
   const seekTo = (time: number) => {
-    if (!resourcesReady() || !duration()) return
-    video.currentTime = time
+    const total = duration()
+    if (!resourcesReady() || !total) return
+    const nextTime = Math.min(total, Math.max(0, time))
+    video.currentTime = nextTime
+    setCurrentTime(nextTime)
   }
 
   return {

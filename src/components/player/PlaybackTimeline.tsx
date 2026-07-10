@@ -1,4 +1,4 @@
-import { Show, untrack } from 'solid-js'
+import { Show, createSignal, untrack } from 'solid-js'
 import type { PlayerController } from '../../features/player/controller'
 import { formatTime } from '../../lib/format-time'
 import { LiquidGlass } from '../ui/LiquidGlass'
@@ -7,6 +7,32 @@ export function PlaybackTimeline(props: { controller: PlayerController['playback
   const {
     currentTime, duration, fileName, loadingPercent, loadingState, progress, seekTo,
   } = untrack(() => props.controller)
+  const [hoverPreview, setHoverPreview] = createSignal<{ left: number; time: number }>()
+  const [pendingTime, setPendingTime] = createSignal<number>()
+
+  const timelineProgress = () => {
+    const pending = pendingTime()
+    const total = duration()
+    return pending === undefined || !total ? progress() : (pending / total) * 100
+  }
+
+  const updateHoverPreview = (event: PointerEvent & { currentTarget: HTMLDivElement }) => {
+    const total = duration()
+    if (!loadingState.resourcesReady || !total) {
+      setHoverPreview()
+      return
+    }
+
+    const bounds = event.currentTarget.getBoundingClientRect()
+    const position = Math.min(bounds.width, Math.max(0, event.clientX - bounds.left))
+    const ratio = bounds.width ? position / bounds.width : 0
+
+    setHoverPreview({
+      left: position,
+      time: ratio * total,
+    })
+  }
+
   return (
           <div
             class="grid grid-rows-[1.35rem_1rem] gap-1"
@@ -15,8 +41,21 @@ export function PlaybackTimeline(props: { controller: PlayerController['playback
           >
             <div
               class="relative h-[1.35rem] w-full [--fill:rgba(255,255,255,0.82)] [--track:rgba(255,255,255,0.18)]"
-              style={`--progress:${loadingState.resourcesReady ? progress() : loadingPercent()}%`}
+              style={`--progress:${loadingState.resourcesReady ? timelineProgress() : loadingPercent()}%`}
+              onPointerMove={updateHoverPreview}
+              onPointerLeave={() => setHoverPreview()}
             >
+              <Show when={hoverPreview()}>
+                {(preview) => (
+                  <span
+                    aria-hidden="true"
+                    class="pointer-events-none absolute bottom-full left-0 z-30 font-mono text-[11px] leading-4 text-white/48 will-change-transform"
+                    style={{ transform: `translate3d(${preview().left}px, 0, 0) translateX(-50%)` }}
+                  >
+                    {formatTime(preview().time)}
+                  </span>
+                )}
+              </Show>
               <span
                 aria-hidden="true"
                 class="pointer-events-none absolute inset-x-0 top-1/2 h-[0.28rem] -translate-y-1/2 overflow-hidden rounded-full"
@@ -29,14 +68,20 @@ export function PlaybackTimeline(props: { controller: PlayerController['playback
                 min="0"
                 max={loadingState.resourcesReady ? duration() || 0 : 100}
                 step={loadingState.resourcesReady ? '0.1' : '1'}
-                value={loadingState.resourcesReady ? currentTime() : loadingPercent()}
+                value={loadingState.resourcesReady ? pendingTime() ?? currentTime() : loadingPercent()}
                 aria-label={loadingState.resourcesReady ? 'Playback position' : 'Loading progress'}
                 disabled={!loadingState.resourcesReady}
-                class="media-range absolute inset-0 z-10 h-[1.35rem] w-full cursor-pointer appearance-none bg-transparent"
+                class="media-range absolute inset-0 z-10 h-[1.35rem] w-full cursor-default appearance-none bg-transparent"
                 onInput={(event) => {
                   if (!loadingState.resourcesReady) return
                   if (!duration()) return
+                  setPendingTime(Number(event.currentTarget.value))
+                }}
+                onChange={(event) => {
+                  if (!loadingState.resourcesReady) return
+                  if (!duration()) return
                   seekTo(Number(event.currentTarget.value))
+                  setPendingTime()
                 }}
               />
               <Show when={loadingState.resourcesReady}>

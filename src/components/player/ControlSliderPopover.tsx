@@ -81,7 +81,7 @@ export function ControlSliderPopover(props: {
                       type="button"
                       aria-label="Reset scale"
                       title="Reset scale"
-                      class="grid h-7 w-7 cursor-pointer place-items-center rounded-full border-0 bg-white/8 p-0 text-white/82 transition hover:bg-white/14 hover:text-white focus-visible:bg-white/16 focus-visible:outline-none"
+                      class="grid h-7 w-7 cursor-default place-items-center rounded-full border-0 bg-white/8 p-0 text-white/82 transition hover:bg-white/14 hover:text-white focus-visible:bg-white/16 focus-visible:outline-none"
                       onClick={resetView}
                     >
                       <Icon name="rotate-ccw" class="h-4 w-4" />
