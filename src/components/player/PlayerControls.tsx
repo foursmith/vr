@@ -27,7 +27,7 @@ export function PlayerControls(props: {
   } = controls
   const { setPlaylistOpen, state: playlistState } = playlist
   const {
-    fileName, loadingState, openVideoFile, playing, seekBy, startInitialLoad, togglePlay, volume,
+    loadingState, playing, seekBy, startInitialLoad, togglePlay, volume,
   } = playback
   const {
     fullscreen, setFaceAutoCenter, setPresetId, setShowDetectionPreview, setSplitScreen,
@@ -92,10 +92,6 @@ export function PlayerControls(props: {
                 pressed={playlistState.open}
                 onClick={() => setPlaylistOpen((current) => !current)}
               />
-              <IconButton label="Open video" icon="file-video" onClick={openVideoFile} />
-              <Show when={fileName()}>
-                {(name) => <p class="min-w-0 truncate text-sm font-medium text-white/86 max-sm:hidden">{name()}</p>}
-              </Show>
               <Show when={loadingState.error}>
                 <button
                   type="button"

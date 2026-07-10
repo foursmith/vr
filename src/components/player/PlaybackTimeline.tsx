@@ -5,7 +5,7 @@ import { LiquidGlass } from '../ui/LiquidGlass'
 
 export function PlaybackTimeline(props: { controller: PlayerController['playback'] }) {
   const {
-    currentTime, duration, loadingPercent, loadingState, progress, seekTo,
+    currentTime, duration, fileName, loadingPercent, loadingState, progress, seekTo,
   } = untrack(() => props.controller)
   return (
           <div
@@ -62,9 +62,12 @@ export function PlaybackTimeline(props: { controller: PlayerController['playback
                 </LiquidGlass>
               </Show>
             </div>
-            <div class="flex h-4 min-w-0 items-center justify-between font-mono text-[11px] leading-4 text-white/48">
+            <div class="grid h-4 min-w-0 grid-cols-[1fr_minmax(0,2fr)_1fr] items-center font-mono text-[11px] leading-4 text-white/48">
               <span class="min-w-0 truncate">{loadingState.resourcesReady ? formatTime(currentTime()) : loadingState.error ?? loadingState.label}</span>
-              <span class="shrink-0 pl-3 text-right">{loadingState.resourcesReady ? formatTime(duration()) : `${loadingPercent()}%`}</span>
+              <Show when={fileName()}>
+                {(name) => <span class="min-w-0 truncate px-3 text-center font-sans font-medium text-white/70">{name()}</span>}
+              </Show>
+              <span class="min-w-0 truncate text-right">{loadingState.resourcesReady ? formatTime(duration()) : `${loadingPercent()}%`}</span>
             </div>
           </div>
   )
