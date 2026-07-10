@@ -63,11 +63,11 @@ export function PlaybackTimeline(props: { controller: PlayerController['playback
               </Show>
             </div>
             <div class="grid h-4 min-w-0 grid-cols-[1fr_minmax(0,2fr)_1fr] items-center font-mono text-[11px] leading-4 text-white/48">
-              <span class="min-w-0 truncate">{loadingState.resourcesReady ? formatTime(currentTime()) : loadingState.error ?? loadingState.label}</span>
+              <span class="col-start-1 min-w-0 truncate">{loadingState.resourcesReady ? formatTime(currentTime()) : loadingState.error ?? loadingState.label}</span>
               <Show when={fileName()}>
-                {(name) => <span class="min-w-0 truncate px-3 text-center font-sans font-medium text-white/70">{name()}</span>}
+                {(name) => <span class="col-start-2 min-w-0 truncate px-3 text-center font-sans font-medium text-white/70">{name()}</span>}
               </Show>
-              <span class="min-w-0 truncate text-right">{loadingState.resourcesReady ? formatTime(duration()) : `${loadingPercent()}%`}</span>
+              <span class="col-start-3 min-w-0 truncate text-right">{loadingState.resourcesReady ? formatTime(duration()) : `${loadingPercent()}%`}</span>
             </div>
           </div>
   )
