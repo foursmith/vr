@@ -195,6 +195,26 @@ async function playlistNodesFromEntries(entries: DragEntry[]) {
   return nodes
 }
 
+const playlistNodesFromTransfer = async (dataTransfer: DataTransfer) => {
+  const entries = Array.from(dataTransfer.items)
+    .map((item) => (item as unknown as { webkitGetAsEntry?: () => DragEntry | null }).webkitGetAsEntry?.())
+    .filter((entry): entry is DragEntry => Boolean(entry))
+  const nodes = entries.length
+    ? await playlistNodesFromEntries(entries)
+    : buildPlaylistTree(Array.from(dataTransfer.files))
+  sortPlaylistNodes(nodes)
+  return nodes
+}
+
+const firstVideoNode = (nodes: PlaylistNode[]): PlaylistNode | undefined => {
+  for (const node of nodes) {
+    if (node.kind === 'video') return node
+    const nestedVideo = firstVideoNode(node.children ?? [])
+    if (nestedVideo) return nestedVideo
+  }
+  return undefined
+}
+
 const playlistNodeFromEntry = async (entry: DragEntry): Promise<PlaylistNode | undefined> => {
   if (entry.isFile) {
     const file = await new Promise<File>((resolve, reject) => entry.file(resolve, reject))
@@ -802,11 +822,11 @@ function App() {
   }
 
   const handleFile = () => {
-    const file = fileInput.files?.[0]
-    if (!file) return
-    const node: PlaylistNode = { id: createPlaylistId(), name: file.name, kind: 'video', file }
-    setPlaylist((current) => [...current, node])
-    loadVideoFile(file, node.id)
+    const nodes = buildPlaylistTree(Array.from(fileInput.files ?? []))
+    const firstVideo = firstVideoNode(nodes)
+    if (!firstVideo?.file) return
+    setPlaylist((current) => [...current, ...nodes])
+    loadVideoFile(firstVideo.file, firstVideo.id)
     fileInput.value = ''
   }
 
@@ -819,6 +839,8 @@ function App() {
       nodes.forEach((node) => node.kind === 'folder' && next.add(node.id))
       return next
     })
+    const firstVideo = firstVideoNode(nodes)
+    if (!hasVideo() && firstVideo?.file) loadVideoFile(firstVideo.file, firstVideo.id)
     folderInput.value = ''
   }
 
@@ -835,17 +857,12 @@ function App() {
     event.preventDefault()
     event.stopPropagation()
     setPlaylistDragActive(false)
-    const items = Array.from(event.dataTransfer?.items ?? [])
-    const entries = items
-      .map((item) => (item as unknown as { webkitGetAsEntry?: () => DragEntry | null }).webkitGetAsEntry?.())
-      .filter((entry): entry is DragEntry => Boolean(entry))
+    const dataTransfer = event.dataTransfer
+    if (!dataTransfer) return
 
     try {
-      const nodes = entries.length
-        ? await playlistNodesFromEntries(entries)
-        : buildPlaylistTree(Array.from(event.dataTransfer?.files ?? []))
+      const nodes = await playlistNodesFromTransfer(dataTransfer)
       if (!nodes.length) return
-      sortPlaylistNodes(nodes)
       setPlaylist((current) => [...current, ...nodes])
       setExpandedFolders((current) => {
         const next = new Set(current)
@@ -864,13 +881,25 @@ function App() {
     if (next?.file) loadVideoFile(next.file, next.id)
   }
 
-  const handleVideoDrop = (event: DragEvent) => {
+  const handleVideoDrop = async (event: DragEvent) => {
     event.preventDefault()
-    const file = Array.from(event.dataTransfer?.files ?? []).find((item) => item.type.startsWith('video/'))
-    if (!file) return
-    const node: PlaylistNode = { id: createPlaylistId(), name: file.name, kind: 'video', file }
-    setPlaylist((current) => [...current, node])
-    loadVideoFile(file, node.id)
+    const dataTransfer = event.dataTransfer
+    if (!dataTransfer) return
+
+    try {
+      const nodes = await playlistNodesFromTransfer(dataTransfer)
+      const firstVideo = firstVideoNode(nodes)
+      if (!firstVideo?.file) return
+      setPlaylist((current) => [...current, ...nodes])
+      setExpandedFolders((current) => {
+        const next = new Set(current)
+        nodes.forEach((node) => node.kind === 'folder' && next.add(node.id))
+        return next
+      })
+      loadVideoFile(firstVideo.file, firstVideo.id)
+    } catch (error) {
+      console.warn('video import failed', error)
+    }
   }
 
   const handleDebugImage = () => {
@@ -1099,9 +1128,9 @@ function App() {
       class={`relative h-dvh overflow-hidden bg-black text-white ${cursorVisible() ? '' : 'cursor-none'}`}
       onMouseMove={handlePlayerMouseMove}
       onDragOver={(event) => event.preventDefault()}
-      onDrop={handleVideoDrop}
+      onDrop={(event) => void handleVideoDrop(event)}
     >
-      <input ref={fileInput} type="file" accept="video/*" class="hidden" onChange={handleFile} />
+      <input ref={fileInput} type="file" accept="video/*" multiple class="hidden" onChange={handleFile} />
       <input
         ref={folderInput}
         type="file"
@@ -1157,20 +1186,45 @@ function App() {
       ></video>
 
       <Show when={!hasVideo()}>
-        <button
-          type="button"
-          class="absolute inset-0 z-10 grid h-full w-full cursor-pointer place-items-center border-0 bg-black px-6 text-center text-white transition hover:bg-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-white/70"
-          aria-label="Choose video file"
-          onClick={openVideoFile}
-        >
+        <section class="absolute inset-0 z-10 grid h-full w-full place-items-center bg-black px-6 text-center text-white">
           <span class="grid -translate-y-[17dvh] justify-items-center gap-6">
             <img src="/icon.svg" alt="Face Cam VR" class="h-24 w-24 drop-shadow-[0_18px_44px_rgba(0,0,0,0.5)] sm:h-32 sm:w-32" />
             <span class="grid gap-3">
-              <span class="text-balance text-xl font-semibold tracking-normal sm:text-2xl">Drop a video file here</span>
-              <span class="text-balance text-xs font-medium text-white/58 sm:text-sm">or click to choose from your computer</span>
+              <span class="text-balance text-xl font-semibold tracking-normal sm:text-2xl">Drop video files or folders here</span>
+              <span class="text-balance text-xs font-medium text-white/58 sm:text-sm">or choose what to add</span>
             </span>
+            <LiquidGlass
+              class="h-10 w-64 rounded-full text-white"
+              cornerRadius={999}
+              displacementScale={34}
+              blurAmount={0.055}
+              saturation={150}
+              aberrationIntensity={2.2}
+              elasticity={0.12}
+              castShadow={false}
+            >
+              <div class="flex h-full w-full items-center">
+                <button
+                  type="button"
+                  class="flex h-full min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-l-full border-0 bg-transparent px-3 text-xs font-semibold text-white/82 transition hover:bg-white/7 hover:text-white focus-visible:bg-white/10 focus-visible:outline-none"
+                  onClick={openVideoFile}
+                >
+                  <Icon name="file-video" class="h-3.5 w-3.5" />
+                  Choose files
+                </button>
+                <span aria-hidden="true" class="h-4 w-px shrink-0 bg-white/12"></span>
+                <button
+                  type="button"
+                  class="flex h-full min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-r-full border-0 bg-transparent px-3 text-xs font-semibold text-white/82 transition hover:bg-white/7 hover:text-white focus-visible:bg-white/10 focus-visible:outline-none"
+                  onClick={() => folderInput.click()}
+                >
+                  <Icon name="folder" class="h-3.5 w-3.5" />
+                  Choose folder
+                </button>
+              </div>
+            </LiquidGlass>
           </span>
-        </button>
+        </section>
       </Show>
 
       <div
@@ -1217,11 +1271,13 @@ function App() {
                 <Icon name="playlist" class="h-4.5 w-4.5" />
               </span>
               <div class="min-w-0 flex-1">
-                <h2 class="text-sm font-semibold tracking-tight text-white/94">播放列表</h2>
-                <p class="mt-0.5 text-[10px] text-white/42">{playlistVideos().length} 个视频</p>
+                <h2 class="text-sm font-semibold tracking-tight text-white/94">Playlist</h2>
+                <p class="mt-0.5 text-[10px] text-white/42">
+                  {playlistVideos().length} {playlistVideos().length === 1 ? 'video' : 'videos'}
+                </p>
               </div>
               <IconButton
-                label="清空播放列表"
+                label="Clear playlist"
                 icon="trash"
                 iconClass="h-3.5 w-3.5"
                 class={`!h-8 !w-8 ${playlist().length ? '' : 'pointer-events-none opacity-25'}`}
@@ -1231,33 +1287,27 @@ function App() {
                   setSelectedPlaylistId(undefined)
                 }}
               />
-              <IconButton label="关闭播放列表" icon="x" iconClass="h-3.5 w-3.5" class="!h-8 !w-8" onClick={() => setPlaylistOpen(false)} />
+              <IconButton label="Close playlist" icon="x" iconClass="h-3.5 w-3.5" class="!h-8 !w-8" onClick={() => setPlaylistOpen(false)} />
             </header>
 
             <div class="playlist-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2">
               <Show
                 when={playlist().length}
                 fallback={
-                  <button
-                    type="button"
-                    class={`grid min-h-full w-full cursor-pointer place-content-center justify-items-center gap-3 rounded-xl border border-dashed px-5 py-10 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-white/70 ${
+                  <div
+                    role="status"
+                    class={`grid min-h-full w-full place-content-center justify-items-center gap-2 rounded-xl px-5 py-10 text-center transition ${
                       playlistDragActive()
-                        ? 'border-[#63b8ff]/70 bg-[#63b8ff]/10 text-white'
-                        : 'border-white/14 bg-white/[0.025] text-white/58 hover:border-white/25 hover:bg-white/5 hover:text-white/78'
+                        ? 'bg-white/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
+                        : 'text-white/34'
                     }`}
-                    onClick={() => folderInput.click()}
                   >
-                    <span class="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/7 text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
-                      <Icon name="folder" class="h-5.5 w-5.5" />
-                    </span>
-                    <span class="grid gap-1">
-                      <strong class="text-xs font-semibold text-current">拖入视频文件夹</strong>
-                      <span class="text-[10px] leading-4 text-white/38">保留嵌套目录结构</span>
-                    </span>
-                  </button>
+                    <Icon name="folder" class="h-4.5 w-4.5" />
+                    <span class="text-[11px] font-medium">{playlistDragActive() ? 'Release to add' : 'No videos'}</span>
+                  </div>
                 }
               >
-                <ul role="tree" aria-label="视频文件夹" class="m-0 list-none p-0">
+                <ul role="tree" aria-label="Video folders" class="m-0 list-none p-0">
                   <For each={playlist()}>
                     {(node) => (
                       <PlaylistTreeNode
@@ -1291,7 +1341,7 @@ function App() {
                   onClick={() => folderInput.click()}
                 >
                   <Icon name="plus" class="h-3.5 w-3.5" />
-                  添加文件夹
+                  Add folder
                 </button>
               </LiquidGlass>
             </footer>
@@ -1424,7 +1474,7 @@ function App() {
                 </label>
               </LiquidGlass>
               <IconButton
-                label="播放列表"
+                label="Playlist"
                 icon="playlist"
                 pressed={playlistOpen()}
                 onClick={() => setPlaylistOpen((current) => !current)}
