@@ -51,23 +51,25 @@ const MAX_ZOOM = 2.4
 const WHEEL_ZOOM_SPEED = 0.0016
 const VIEWPORT_TARGET_X = 0.5
 const VIEWPORT_TARGET_Y = 1 / 3
-const VIEWPORT_HORIZONTAL_DEGREES = 52
-const VIEWPORT_VERTICAL_DEGREES = 55
+const VIEWPORT_DEAD_ZONE_X = 0.04
+const VIEWPORT_DEAD_ZONE_Y = 0.04
 const MIN_FACE_SCORE = 0.5
-const TARGET_SMOOTHING_TIME_MS = 360
+const TARGET_SMOOTHING_TIME_MS = 480
 const PANORAMA_DIRECTION_ANCHOR_WEIGHT = 1.35
 const PANORAMA_SEARCH_DEGREES = 140
-const FACE_TRACK_ACTIVE_INTERVAL_MS = 90
-const FACE_TRACK_STABLE_INTERVAL_MS = 180
-const FACE_RECOVERY_INTERVAL_MS = 60
+const FACE_TRACK_ACTIVE_INTERVAL_MS = 120
+const FACE_TRACK_STABLE_INTERVAL_MS = 240
+const FACE_RECOVERY_INTERVAL_MS = 80
 const FACE_INFERENCE_HEADROOM = 1.15
 const FACE_INFERENCE_MAX_PERIOD_MS = 360
 const FACE_TARGET_GRACE_MS = 900
-const VIEWPORT_SAMPLE_WIDTH = 384
+const VIEWPORT_SAMPLE_WIDTH = 320
 const PANORAMA_SAMPLE_WIDTH = 320
 const PANORAMA_SAMPLE_MAX_HEIGHT = 384
-const FACE_CENTER_GAIN = 0.16
-const FACE_CENTER_MAX_SPEED = 8.5
+const FACE_CENTER_RESPONSE = 0.65
+const FACE_CENTER_MAX_SPEED = 5.5
+const FACE_CENTER_VELOCITY_SMOOTHING_MS = 260
+const FACE_CENTER_STOP_SPEED = 0.025
 
 type ProjectionPreset = (typeof PRESETS)[number]['component']
 type ProjectionQuality = (typeof QUALITY_OPTIONS)[number]['component']
@@ -100,6 +102,8 @@ type FaceAutoCenterState = {
   isMoving: boolean
   offCenterSince?: number
   target?: FaceTarget
+  yawVelocity: number
+  pitchVelocity: number
   lastErrorAt: number
 }
 
@@ -112,6 +116,12 @@ const QUALITY_SEGMENTS: Record<ProjectionQuality, { eqrHalfWidth: number; eqrFul
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 const shortestAngle = (degrees: number) => ((degrees + 540) % 360) - 180
+const getViewportTanHalfVertical = (camera: PerspectiveCamera) =>
+  Math.tan(MathUtils.degToRad(camera.fov) / 2) / camera.zoom
+const getViewportYawOffset = (camera: PerspectiveCamera, x: number) =>
+  MathUtils.radToDeg(Math.atan((1 - x * 2) * getViewportTanHalfVertical(camera) * camera.aspect))
+const getViewportPitchOffset = (camera: PerspectiveCamera, y: number) =>
+  MathUtils.radToDeg(Math.atan((1 - y * 2) * getViewportTanHalfVertical(camera)))
 
 const resizeCanvas = (canvas: HTMLCanvasElement, width: number, height: number) => {
   if (canvas.width !== width) canvas.width = width
@@ -263,12 +273,16 @@ const getSourceCrop = (video: HTMLVideoElement, preset: ProjectionPreset): Sourc
   }
 }
 
-const getPanoramaCenterForView = (view: CameraView, projectionPreset: ProjectionPreset) => {
+const getPanoramaCenterForView = (
+  view: CameraView,
+  projectionPreset: ProjectionPreset,
+  camera: PerspectiveCamera,
+) => {
   const yawSpan = getProjectionYawSpan(projectionPreset)
   const yawLimit = getProjectionYawLimit(projectionPreset)
   const yaw = yawLimit === undefined ? shortestAngle(view.yaw) : clamp(shortestAngle(view.yaw), -yawLimit, yawLimit)
   const pitch = clamp(view.pitch, -75, 75)
-  const targetYOffset = (0.5 - VIEWPORT_TARGET_Y) * VIEWPORT_VERTICAL_DEGREES
+  const targetYOffset = getViewportPitchOffset(camera, VIEWPORT_TARGET_Y)
 
   return {
     x: yawSpan === 360 ? ((0.5 - yaw / yawSpan) % 1 + 1) % 1 : clamp(VIEWPORT_TARGET_X - yaw / yawSpan, 0, 1),
@@ -284,8 +298,9 @@ const drawPanoramaSample = (
   height: number,
   view: CameraView,
   preset: ProjectionPreset,
+  camera: PerspectiveCamera,
 ): PanoramaSample => {
-  const center = getPanoramaCenterForView(view, preset)
+  const center = getPanoramaCenterForView(view, preset, camera)
   const wraps = getProjectionYawLimit(preset) === undefined
   const yawSpan = getProjectionYawSpan(preset)
   const widthX = Math.min(1, PANORAMA_SEARCH_DEGREES / yawSpan)
@@ -429,12 +444,18 @@ const setViewportTarget = (state: FaceAutoCenterState, face: FaceBox | undefined
   return true
 }
 
-const setPanoramaTarget = (state: FaceAutoCenterState, face: FaceBox | undefined, time: number, projectionPreset: ProjectionPreset) => {
+const setPanoramaTarget = (
+  state: FaceAutoCenterState,
+  face: FaceBox | undefined,
+  time: number,
+  projectionPreset: ProjectionPreset,
+  camera: PerspectiveCamera,
+) => {
   if (!face) return false
 
   const center = getFaceCenter(face)
   const facePitch = (0.5 - center.y) * 180
-  const targetYOffset = (0.5 - VIEWPORT_TARGET_Y) * VIEWPORT_VERTICAL_DEGREES
+  const targetYOffset = getViewportPitchOffset(camera, VIEWPORT_TARGET_Y)
   const yawSpan = getProjectionYawSpan(projectionPreset)
   const yawLimit = getProjectionYawLimit(projectionPreset)
   const yaw = (VIEWPORT_TARGET_X - center.x) * yawSpan
@@ -513,6 +534,7 @@ const drawPanoramaInferenceSample = (
   sampleWidth: number,
   preset: ProjectionPreset,
   view: CameraView,
+  camera: PerspectiveCamera,
 ): PanoramaSample | undefined => {
   if (!video.videoWidth || !video.videoHeight || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return undefined
 
@@ -528,7 +550,7 @@ const drawPanoramaInferenceSample = (
   }
   resizeCanvas(sampleCanvas, width, height)
 
-  return drawPanoramaSample(context, video, crop, width, height, view, preset)
+  return drawPanoramaSample(context, video, crop, width, height, view, preset, camera)
 }
 
 export type VrSceneOptions = {
@@ -606,6 +628,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     lastDetectionAt: 0,
     consecutiveMisses: 0,
     isMoving: false,
+    yawVelocity: 0,
+    pitchVelocity: 0,
     lastErrorAt: 0,
   }
   const sampleContext = sampleCanvas.getContext('2d', { alpha: false, willReadFrequently: true })
@@ -771,6 +795,9 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   const pauseFaceCenter = () => {
     options.viewRef.current.pausedUntil = performance.now() + 1800
     faceState.nextDetectionAt = options.viewRef.current.pausedUntil
+    faceState.yawVelocity = 0
+    faceState.pitchVelocity = 0
+    faceState.isMoving = false
     requestRender()
   }
 
@@ -881,7 +908,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         weight: PANORAMA_DIRECTION_ANCHOR_WEIGHT,
         wrapX: panoramaSample.wraps,
       }, (sampleFace) => mapSampleFaceToPanorama(sampleFace, panoramaSample))
-      foundFace = setPanoramaTarget(faceState, face, time, preset)
+      foundFace = setPanoramaTarget(faceState, face, time, preset, camera)
       faceState.recoveryMode = undefined
     } else {
       faceState.detectionMode = 'viewport'
@@ -920,6 +947,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
           PANORAMA_SAMPLE_WIDTH,
           preset,
           options.viewRef.current,
+          camera,
         )
         if (!panoramaSample) return
         inputWidth = sampleCanvas.width
@@ -987,6 +1015,9 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       faceState.target = undefined
       faceState.recoveryMode = undefined
       faceState.consecutiveMisses = 0
+      faceState.yawVelocity = 0
+      faceState.pitchVelocity = 0
+      faceState.isMoving = false
       setOverlay({})
       return
     }
@@ -995,6 +1026,9 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       faceState.faces = []
       faceState.target = undefined
       faceState.recoveryMode = undefined
+      faceState.yawVelocity = 0
+      faceState.pitchVelocity = 0
+      faceState.isMoving = false
       setOverlay({})
       return
     }
@@ -1010,20 +1044,51 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       }
     }
 
+    const frameDelta = clamp(delta || 1 / 60, 1 / 240, 0.05)
+    const velocityBlend = 1 - Math.exp(-(frameDelta * 1000) / FACE_CENTER_VELOCITY_SMOOTHING_MS)
+    const updateVelocity = (current: number, desired: number) => {
+      const next = current + (desired - current) * velocityBlend
+      return Math.abs(next) < FACE_CENTER_STOP_SPEED && desired === 0 ? 0 : next
+    }
     const target = faceState.target
     const targetMaxAge = faceState.isMoving ? 4500 : 1100
     if (!target || now - target.lastSeenAt > targetMaxAge) {
-      faceState.isMoving = false
+      faceState.yawVelocity = updateVelocity(faceState.yawVelocity, 0)
+      faceState.pitchVelocity = updateVelocity(faceState.pitchVelocity, 0)
+      faceState.isMoving = faceState.yawVelocity !== 0 || faceState.pitchVelocity !== 0
+      const yawLimit = getProjectionYawLimit(options.preset)
+      const yawStep = faceState.yawVelocity * frameDelta
+      options.viewRef.current.yaw =
+        yawLimit === undefined
+          ? options.viewRef.current.yaw + yawStep
+          : clamp(shortestAngle(options.viewRef.current.yaw) + yawStep, -yawLimit, yawLimit)
+      options.viewRef.current.pitch = clamp(
+        options.viewRef.current.pitch + faceState.pitchVelocity * frameDelta,
+        -85,
+        85,
+      )
       setOverlay({})
       return
     }
 
-    const yawError = target.yaw === undefined ? target.x * -VIEWPORT_HORIZONTAL_DEGREES : shortestAngle(target.yaw - options.viewRef.current.yaw)
-    const pitchError = target.pitch === undefined ? target.y * -VIEWPORT_VERTICAL_DEGREES : target.pitch - options.viewRef.current.pitch
-    const yawDeadZone = target.yaw === undefined ? 0.24 * VIEWPORT_HORIZONTAL_DEGREES : 6
-    const pitchDeadZone = target.yaw === undefined ? 0.24 * VIEWPORT_VERTICAL_DEGREES : 7
-    const x = Math.abs(yawError) < yawDeadZone ? 0 : yawError
-    const y = Math.abs(pitchError) < pitchDeadZone ? 0 : pitchError
+    const viewportFaceX = VIEWPORT_TARGET_X + target.x
+    const viewportFaceY = VIEWPORT_TARGET_Y + target.y
+    const yawError = target.yaw === undefined
+      ? getViewportYawOffset(camera, viewportFaceX) - getViewportYawOffset(camera, VIEWPORT_TARGET_X)
+      : shortestAngle(target.yaw - options.viewRef.current.yaw)
+    const pitchError = target.pitch === undefined
+      ? getViewportPitchOffset(camera, viewportFaceY) - getViewportPitchOffset(camera, VIEWPORT_TARGET_Y)
+      : target.pitch - options.viewRef.current.pitch
+    const yawDeadZone = target.yaw === undefined
+      ? Math.abs(getViewportYawOffset(camera, VIEWPORT_TARGET_X + VIEWPORT_DEAD_ZONE_X) - getViewportYawOffset(camera, VIEWPORT_TARGET_X))
+      : 6
+    const pitchDeadZone = target.yaw === undefined
+      ? Math.abs(getViewportPitchOffset(camera, VIEWPORT_TARGET_Y + VIEWPORT_DEAD_ZONE_Y) - getViewportPitchOffset(camera, VIEWPORT_TARGET_Y))
+      : 7
+    // Remove the dead zone from the error instead of switching the full error
+    // on and off at its edge. This lets the camera ease to a stop smoothly.
+    const x = Math.sign(yawError) * Math.max(0, Math.abs(yawError) - yawDeadZone)
+    const y = Math.sign(pitchError) * Math.max(0, Math.abs(pitchError) - pitchDeadZone)
     const hint =
       Math.abs(yawError) >= 18
         ? {
@@ -1034,26 +1099,26 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         : undefined
 
     setOverlay({ hint })
-    if (!x && !y) {
-      faceState.isMoving = false
-      faceState.offCenterSince = undefined
-      return
-    }
-
-    faceState.offCenterSince ??= now
+    if (!x && !y) faceState.offCenterSince = undefined
+    else faceState.offCenterSince ??= now
     const panoramaTarget = target.mode === 'panorama'
     const farTarget = Math.abs(yawError) > 70
-    const gain = FACE_CENTER_GAIN * (panoramaTarget ? 1.7 : farTarget ? 1.35 : 1)
-    const maxSpeed = FACE_CENTER_MAX_SPEED * (panoramaTarget ? 2.2 : farTarget ? 1.25 : 1)
-    const maxStep = maxSpeed * Math.min(delta || 0.0167, 0.064)
+    const response = FACE_CENTER_RESPONSE * (panoramaTarget ? 1.25 : farTarget ? 1.1 : 1)
+    const maxSpeed = FACE_CENTER_MAX_SPEED * (panoramaTarget ? 1.35 : farTarget ? 1.15 : 1)
+    const desiredYawVelocity = clamp(x * response, -maxSpeed, maxSpeed)
+    const desiredPitchVelocity = clamp(y * response, -maxSpeed, maxSpeed)
+    faceState.yawVelocity = updateVelocity(faceState.yawVelocity, desiredYawVelocity)
+    faceState.pitchVelocity = updateVelocity(faceState.pitchVelocity, desiredPitchVelocity)
+    const yawStep = faceState.yawVelocity * frameDelta
+    const pitchStep = faceState.pitchVelocity * frameDelta
     const yawLimit = getProjectionYawLimit(options.preset)
 
-    faceState.isMoving = true
+    faceState.isMoving = faceState.yawVelocity !== 0 || faceState.pitchVelocity !== 0
     options.viewRef.current.yaw =
       yawLimit === undefined
-        ? options.viewRef.current.yaw + clamp(x * gain, -maxStep, maxStep)
-        : clamp(shortestAngle(options.viewRef.current.yaw) + clamp(x * gain, -maxStep, maxStep), -yawLimit, yawLimit)
-    options.viewRef.current.pitch = clamp(options.viewRef.current.pitch + clamp(y * gain, -maxStep, maxStep), -85, 85)
+        ? options.viewRef.current.yaw + yawStep
+        : clamp(shortestAngle(options.viewRef.current.yaw) + yawStep, -yawLimit, yawLimit)
+    options.viewRef.current.pitch = clamp(options.viewRef.current.pitch + pitchStep, -85, 85)
   }
 
   const render = (now: number) => {
