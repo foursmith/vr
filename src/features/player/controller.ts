@@ -22,6 +22,7 @@ import {
 type SliderControl = 'quality' | 'volume' | 'scale'
 type SliderAnchor = { x: number; bottom: number }
 type ValueUpdate<T> = T | ((current: T) => T)
+type PlaylistImportPlayback = 'always' | 'when-empty' | 'never'
 
 const resolveUpdate = <T>(current: T, update: ValueUpdate<T>) =>
   typeof update === 'function' ? (update as (current: T) => T)(current) : update
@@ -67,17 +68,16 @@ export function createPlayerController() {
   const playlistFiles = new Map<string, File>()
 
   const [fileName, setFileName] = createSignal<string>()
+  const [frameDragActive, setFrameDragActive] = createSignal(false)
   const [playlistState, setPlaylistState] = createStore({
     nodes: [] as PlaylistStateNode[],
     expandedFolderIds: [] as string[],
     selectedId: undefined as string | undefined,
-    dragActive: false,
     open: false,
   })
   const playlist = () => playlistState.nodes
   const expandedFolders = createMemo(() => new Set(playlistState.expandedFolderIds))
   const selectedPlaylistId = () => playlistState.selectedId
-  const playlistDragActive = () => playlistState.dragActive
   const playlistOpen = () => playlistState.open
   const serializePlaylistNodes = (nodes: PlaylistNode[]): PlaylistStateNode[] => nodes.map((node) => {
     if (node.file) playlistFiles.set(node.id, node.file)
@@ -97,9 +97,6 @@ export function createPlayerController() {
   })
   const setSelectedPlaylistId = (selectedId: string | undefined) => setPlaylistState((draft) => {
     draft.selectedId = selectedId
-  })
-  const setPlaylistDragActive = (dragActive: boolean) => setPlaylistState((draft) => {
-    draft.dragActive = dragActive
   })
   const setPlaylistOpen = (update: ValueUpdate<boolean>) => setPlaylistState((draft) => {
     draft.open = resolveUpdate(draft.open, update)
@@ -514,29 +511,44 @@ export function createPlayerController() {
     if (file) loadVideoFile(file, id)
   }
 
-  const handleFile = () => {
-    const files = Array.from(fileInput.files ?? [])
-    fileInput.value = ''
-    const nodes = buildPlaylistTree(files)
-    const firstVideo = firstVideoNode(nodes)
-    if (!firstVideo?.file) return
-    appendPlaylist(nodes)
-    loadVideoFile(firstVideo.file, firstVideo.id)
-  }
-
-  const handleFolder = () => {
-    const files = Array.from(folderInput.files ?? [])
-    folderInput.value = ''
-    const nodes = buildPlaylistTree(files)
+  const importPlaylistNodes = (nodes: PlaylistNode[], playback: PlaylistImportPlayback) => {
     if (!nodes.length) return
+    const firstVideo = firstVideoNode(nodes)
+    if (playback === 'always' && !firstVideo?.file) return
+
     appendPlaylist(nodes)
     setExpandedFolders((current) => {
       const next = new Set(current)
       nodes.forEach((node) => node.kind === 'folder' && next.add(node.id))
       return next
     })
-    const firstVideo = firstVideoNode(nodes)
-    if (!hasVideo() && firstVideo?.file) loadVideoFile(firstVideo.file, firstVideo.id)
+
+    if (firstVideo?.file && (playback === 'always' || (playback === 'when-empty' && !hasVideo()))) {
+      loadVideoFile(firstVideo.file, firstVideo.id)
+    }
+  }
+
+  const importPlaylistTransfer = async (dataTransfer: DataTransfer, playback: PlaylistImportPlayback) => {
+    const importGeneration = playlistImportGeneration
+    try {
+      const nodes = await playlistNodesFromTransfer(dataTransfer)
+      if (appDisposed || importGeneration !== playlistImportGeneration) return
+      importPlaylistNodes(nodes, playback)
+    } catch (error) {
+      console.warn('video import failed', error)
+    }
+  }
+
+  const handleFile = () => {
+    const files = Array.from(fileInput.files ?? [])
+    fileInput.value = ''
+    importPlaylistNodes(buildPlaylistTree(files), 'always')
+  }
+
+  const handleFolder = () => {
+    const files = Array.from(folderInput.files ?? [])
+    folderInput.value = ''
+    importPlaylistNodes(buildPlaylistTree(files), 'when-empty')
   }
 
   const togglePlaylistFolder = (id: string) => {
@@ -546,29 +558,6 @@ export function createPlayerController() {
       else next.add(id)
       return next
     })
-  }
-
-  const handlePlaylistDrop = async (event: DragEvent) => {
-    event.preventDefault()
-    event.stopPropagation()
-    setPlaylistDragActive(false)
-    const dataTransfer = event.dataTransfer
-    if (!dataTransfer) return
-    const importGeneration = playlistImportGeneration
-
-    try {
-      const nodes = await playlistNodesFromTransfer(dataTransfer)
-      if (appDisposed || importGeneration !== playlistImportGeneration) return
-      if (!nodes.length) return
-      appendPlaylist(nodes)
-      setExpandedFolders((current) => {
-        const next = new Set(current)
-        nodes.forEach((node) => node.kind === 'folder' && next.add(node.id))
-        return next
-      })
-    } catch (error) {
-      console.warn('playlist folder import failed', error)
-    }
   }
 
   const playNextPlaylistVideo = () => {
@@ -581,25 +570,10 @@ export function createPlayerController() {
 
   const handleVideoDrop = async (event: DragEvent) => {
     event.preventDefault()
+    setFrameDragActive(false)
     const dataTransfer = event.dataTransfer
     if (!dataTransfer) return
-    const importGeneration = playlistImportGeneration
-
-    try {
-      const nodes = await playlistNodesFromTransfer(dataTransfer)
-      if (appDisposed || importGeneration !== playlistImportGeneration) return
-      const firstVideo = firstVideoNode(nodes)
-      if (!firstVideo?.file) return
-      appendPlaylist(nodes)
-      setExpandedFolders((current) => {
-        const next = new Set(current)
-        nodes.forEach((node) => node.kind === 'folder' && next.add(node.id))
-        return next
-      })
-      loadVideoFile(firstVideo.file, firstVideo.id)
-    } catch (error) {
-      console.warn('video import failed', error)
-    }
+    await importPlaylistTransfer(dataTransfer, 'always')
   }
 
   const handleDebugImage = () => {
@@ -863,6 +837,7 @@ export function createPlayerController() {
     frame: {
       chooseFolder: () => folderInput.click(),
       cursorVisible,
+      frameDragActive,
       handleDebugImage,
       handleFile,
       handleFolder,
@@ -875,6 +850,7 @@ export function createPlayerController() {
       setFileInput: (element: HTMLInputElement) => (fileInput = element),
       setFolderInput: (element: HTMLInputElement) => (folderInput = element),
       setFpsMeter: (element: HTMLDivElement) => (fpsMeter = element),
+      setFrameDragActive,
       setPlayer: (element: HTMLElement) => (player = element),
       setSampleCanvas: (element: HTMLCanvasElement) => (sampleCanvas = element),
       setVideo: (element: HTMLVideoElement) => (video = element),
@@ -882,13 +858,12 @@ export function createPlayerController() {
       setVrRoot: (element: HTMLElement) => (vrRoot = element),
     },
     playlist: {
+      chooseFiles: () => fileInput.click(),
       chooseFolder: () => folderInput.click(),
       clearPlaylist,
       expandedFolders,
-      handlePlaylistDrop,
       playPlaylistNode,
       playlistVideos,
-      setPlaylistDragActive,
       setPlaylistOpen,
       state: playlistState,
       togglePlaylistFolder,

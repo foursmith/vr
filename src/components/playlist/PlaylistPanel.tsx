@@ -4,11 +4,12 @@ import { PlaylistTreeNode } from '../playlist/PlaylistTreeNode'
 import { Icon } from '../ui/Icon'
 import { IconButton } from '../ui/IconButton'
 import { LiquidGlass } from '../ui/LiquidGlass'
+import { MediaPickerButtons } from '../ui/MediaPickerButtons'
 
 export function PlaylistPanel(props: { controller: PlayerController['playlist'] }) {
   const {
-    chooseFolder, clearPlaylist, expandedFolders, handlePlaylistDrop, playPlaylistNode,
-    playlistVideos, setPlaylistDragActive, setPlaylistOpen, state, togglePlaylistFolder,
+    chooseFiles, chooseFolder, clearPlaylist, expandedFolders, playPlaylistNode, playlistVideos,
+    setPlaylistOpen, state, togglePlaylistFolder,
   } = untrack(() => props.controller)
   return (
       <div
@@ -19,36 +20,18 @@ export function PlaylistPanel(props: { controller: PlayerController['playlist'] 
         inert={!state.open}
       >
         <LiquidGlass
-          class={`h-full w-full rounded-[20px] text-white transition-shadow ${
-            state.dragActive ? 'shadow-[0_0_0_3px_rgba(99,184,255,0.2)]' : ''
-          }`}
+          class="h-full w-full rounded-[20px] text-white"
           cornerRadius={20}
           displacementScale={46}
           blurAmount={0.06}
           saturation={150}
           aberrationIntensity={2.2}
           elasticity={0}
-          active={state.dragActive}
           castShadow
         >
           <aside
             class="flex h-full w-full flex-col overflow-hidden rounded-[20px] border border-white/12 text-white"
             aria-label="Playlist"
-            onDragEnter={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-              setPlaylistDragActive(true)
-            }}
-            onDragOver={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-              if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
-            }}
-            onDragLeave={(event) => {
-              event.stopPropagation()
-              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setPlaylistDragActive(false)
-            }}
-            onDrop={(event) => void handlePlaylistDrop(event)}
           >
             <header class="flex h-14 shrink-0 items-center gap-2 border-b border-white/9 px-3">
               <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/8 text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
@@ -76,14 +59,10 @@ export function PlaylistPanel(props: { controller: PlayerController['playlist'] 
                 fallback={
                   <div
                     role="status"
-                    class={`grid min-h-full w-full place-content-center justify-items-center gap-2 rounded-xl px-5 py-10 text-center transition ${
-                      state.dragActive
-                        ? 'bg-white/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
-                        : 'text-white/34'
-                    }`}
+                    class="grid min-h-full w-full place-content-center justify-items-center gap-2 rounded-xl px-5 py-10 text-center text-white/34"
                   >
                     <Icon name="folder" class="h-4.5 w-4.5" />
-                    <span class="text-[11px] font-medium">{state.dragActive ? 'Release to add' : 'No videos'}</span>
+                    <span class="text-[11px] font-medium">No videos</span>
                   </div>
                 }
               >
@@ -104,26 +83,8 @@ export function PlaylistPanel(props: { controller: PlayerController['playlist'] 
               </Show>
             </div>
 
-            <footer class="shrink-0 border-t border-white/9 p-2">
-              <LiquidGlass
-                class="h-9 w-full rounded-full text-white"
-                cornerRadius={999}
-                displacementScale={32}
-                blurAmount={0.052}
-                saturation={150}
-                aberrationIntensity={2.2}
-                elasticity={0.12}
-                castShadow={false}
-              >
-                <button
-                  type="button"
-                  class="flex h-full w-full cursor-pointer items-center justify-center gap-2 rounded-full border-0 bg-transparent px-3 text-xs font-semibold text-white/78 transition hover:text-white focus-visible:bg-white/10 focus-visible:outline-none"
-                  onClick={() => chooseFolder()}
-                >
-                  <Icon name="plus" class="h-3.5 w-3.5" />
-                  Add folder
-                </button>
-              </LiquidGlass>
+            <footer class="grid shrink-0 place-items-center border-t border-white/9 p-2">
+              <MediaPickerButtons onChooseFiles={chooseFiles} onChooseFolder={chooseFolder} />
             </footer>
           </aside>
         </LiquidGlass>
