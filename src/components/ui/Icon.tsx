@@ -16,6 +16,7 @@ const ICONS = {
   rewind: 'i-ph-rewind',
   scale: 'i-ph-magnifying-glass-plus',
   settings: 'i-ph-gear-six',
+  subtitles: 'i-ph-subtitles',
   'rotate-ccw': 'i-ph-arrow-counter-clockwise',
   'scan-face': 'i-ph-scan-smiley',
   'screen-share': 'i-ph-screencast',

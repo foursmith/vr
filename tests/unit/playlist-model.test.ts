@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildPlaylistTree, firstVideoNode, isVideoFile, playlistNodesFromTransfer } from '../../src/features/playlist/model'
+import { buildPlaylistTree, firstVideoNode, isSubtitleFile, isVideoFile, playlistNodesFromTransfer, subtitleMatchScore } from '../../src/features/playlist/model'
 
 const file = (name: string, type = '', relativePath?: string) => {
   const value = new File(['media'], name, { type })
@@ -12,6 +12,21 @@ describe('playlist model', () => {
     expect(isVideoFile(file('clip.bin', 'video/mp4'))).toBe(true)
     expect(isVideoFile(file('clip.MKV'))).toBe(true)
     expect(isVideoFile(file('notes.txt', 'text/plain'))).toBe(false)
+    expect(isSubtitleFile(file('captions.ZH-CN.SRT'))).toBe(true)
+  })
+
+  it('matches subtitles by the highest relative filename similarity in each folder', () => {
+    const tree = buildPlaylistTree([
+      file('Episode 01.mp4', 'video/mp4', 'Show/Episode 01.mp4'),
+      file('Episode 02.mp4', 'video/mp4', 'Show/Episode 02.mp4'),
+      file('Episode.02.zh-CN.srt', '', 'Show/Episode.02.zh-CN.srt'),
+      file('Episode 01 English.vtt', '', 'Show/Episode 01 English.vtt'),
+      file('Episode 01.srt', '', 'Other/Episode 01.srt'),
+    ])
+    const videos = tree[0].children ?? []
+    expect(videos[0].subtitleFile?.name).toBe('Episode 01 English.vtt')
+    expect(videos[1].subtitleFile?.name).toBe('Episode.02.zh-CN.srt')
+    expect(subtitleMatchScore('Movie Director Cut.mkv', 'Movie.Director.Cut.zh.srt')).toBeGreaterThan(0.9)
   })
 
   it('builds nested, folder-first, naturally sorted trees and ignores non-video files', () => {

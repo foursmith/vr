@@ -11,6 +11,7 @@ import {
 import { releaseFaceAutoCenterResources } from '../face-tracking/client'
 import { createControls } from './controls'
 import { createDisplay } from './display'
+import { activeSubtitleText, parseSubtitle, type SubtitleCue } from '../subtitles/parser'
 import {
   buildPlaylistTree,
   firstVideoNode,
@@ -53,6 +54,7 @@ export function createPlayerController() {
   let playlistImportGeneration = 0
   let resourcesInitialized = false
   const playlistFiles = new Map<string, File>()
+  const playlistSubtitles = new Map<string, File>()
 
   const [fileName, setFileName] = createSignal<string>()
   const [frameDragActive, setFrameDragActive] = createSignal(false)
@@ -68,10 +70,12 @@ export function createPlayerController() {
   const playlistOpen = () => playlistState.open
   const serializePlaylistNodes = (nodes: PlaylistNode[]): PlaylistStateNode[] => nodes.map((node) => {
     if (node.file) playlistFiles.set(node.id, node.file)
+    if (node.subtitleFile) playlistSubtitles.set(node.id, node.subtitleFile)
     return {
       id: node.id,
       name: node.name,
-      kind: node.kind,
+      kind: node.kind === 'folder' ? 'folder' : 'video',
+      hasSubtitle: Boolean(node.subtitleFile),
       children: node.children ? serializePlaylistNodes(node.children) : undefined,
     }
   })
@@ -93,6 +97,9 @@ export function createPlayerController() {
   const [currentTime, setCurrentTime] = createSignal(0)
   const [duration, setDuration] = createSignal(0)
   const [volume, setVolume] = createSignal(1)
+  const [subtitleCues, setSubtitleCues] = createSignal<SubtitleCue[]>([])
+  const [subtitlesEnabled, setSubtitlesEnabled] = createSignal(true)
+  const [subtitleFileName, setSubtitleFileName] = createSignal<string>()
   const [debugPanelOpen, setDebugPanelOpen] = createSignal(false)
   const [loadingState, setLoadingState] = createStore({
     resourcesReady: true,
@@ -172,6 +179,29 @@ export function createPlayerController() {
   const syncTime = () => {
     setCurrentTime(video.currentTime || 0)
     setDuration(video.duration || 0)
+  }
+
+  const subtitleText = createMemo(() => subtitlesEnabled()
+    ? activeSubtitleText(subtitleCues(), currentTime())
+    : '')
+
+  const loadSubtitle = async (file: File | undefined, generation: number) => {
+    if (!file) {
+      setSubtitleCues([])
+      setSubtitleFileName(undefined)
+      return
+    }
+    try {
+      const cues = parseSubtitle(await file.text(), file.name)
+      if (generation !== videoLoadGeneration || appDisposed) return
+      setSubtitleCues(cues)
+      setSubtitleFileName(file.name)
+    } catch (error) {
+      if (generation !== videoLoadGeneration || appDisposed) return
+      setSubtitleCues([])
+      setSubtitleFileName(undefined)
+      console.warn('subtitle loading failed', error)
+    }
   }
 
   const togglePlay = () => {
@@ -269,6 +299,7 @@ export function createPlayerController() {
     setDuration(0)
     setFileName(file.name)
     setSelectedPlaylistId(playlistId && playlistFiles.has(playlistId) ? playlistId : undefined)
+    void loadSubtitle(playlistId ? playlistSubtitles.get(playlistId) : undefined, generation)
     video.src = fileUrl
     video.load()
     if (resourcesInitialized && resourcesReady()) {
@@ -314,6 +345,7 @@ export function createPlayerController() {
     if (!switchInProgress) autoplayPending = false
     playlistImportGeneration += 1
     playlistFiles.clear()
+    playlistSubtitles.clear()
     setPlaylistState((draft) => {
       draft.nodes = []
       draft.expandedFolderIds = []
@@ -634,6 +666,13 @@ export function createPlayerController() {
       syncTime,
       togglePlay,
       volume,
+    },
+    subtitles: {
+      enabled: subtitlesEnabled,
+      fileName: subtitleFileName,
+      hasSubtitle: () => subtitleCues().length > 0,
+      text: subtitleText,
+      toggle: () => setSubtitlesEnabled((current) => !current),
     },
     display: displayModule.controller,
     controls: {
