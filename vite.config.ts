@@ -32,7 +32,7 @@ export default defineConfig(({ command})=>({
         id: '/',
         name: 'Face Cam VR',
         short_name: 'Face Cam VR',
-        description: 'Make VR videos look striking on phones and PCs with face-cam views.',
+        description: 'An Elegant Way to Watch VR in 2D — Like a Face Cam.',
         start_url: '/',
         scope: '/',
         theme_color: '#061a28',
