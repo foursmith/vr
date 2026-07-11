@@ -28,9 +28,7 @@ export function PlayerControls(props: { controller: PlayerController }) {
   return (
       <aside
         ref={setControlsZone}
-        class={`pointer-events-auto absolute inset-x-0 bottom-0 z-20 p-3 transition-[padding] duration-300 sm:p-6 ${
-          playlistState.open ? 'sm:pl-[20rem]' : ''
-        }`}
+        class="pointer-events-auto absolute inset-x-0 bottom-0 z-20 p-3 sm:p-6"
       >
         <div
           ref={setControlsPanel}

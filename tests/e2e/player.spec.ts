@@ -27,6 +27,9 @@ test('imports multiple videos, opens the playlist, selects and clears it', async
   const playlist = page.getByRole('complementary', { name: 'Playlist' })
   await expect(playlist).toBeVisible()
   await expect(playlist.getByText('2 videos')).toBeVisible()
+  await expect(playlist.getByRole('button', { name: 'Choose files' })).toBeVisible()
+  await expect(playlist.getByRole('button', { name: 'Choose folder' })).toBeVisible()
+  const populatedPlaylistBox = await playlist.boundingBox()
   const treeItems = playlist.getByRole('treeitem')
   await expect(treeItems).toHaveCount(2)
   await expect(treeItems.nth(0)).toContainText('clip2.webm')
@@ -34,7 +37,13 @@ test('imports multiple videos, opens the playlist, selects and clears it', async
 
   await playlist.getByRole('button', { name: 'Clear playlist' }).click()
   await expect(playlist.getByText('0 videos')).toBeVisible()
-  await expect(playlist.getByText('Drop video files or folders here')).toBeVisible()
+  await expect(playlist.getByText('Drop video files or folders here')).toHaveCount(0)
+  await expect(playlist.getByRole('button', { name: 'Choose files' })).toHaveCount(0)
+  await expect(playlist.getByRole('button', { name: 'Choose folder' })).toHaveCount(0)
+  const emptyPlaylistBox = await playlist.boundingBox()
+  expect(populatedPlaylistBox).not.toBeNull()
+  expect(emptyPlaylistBox).not.toBeNull()
+  expect(emptyPlaylistBox!.height).toBeLessThan(populatedPlaylistBox!.height)
 })
 
 test('plays and pauses a real video through the application controls', async ({ page }) => {
@@ -126,6 +135,27 @@ test('toggles player display settings and playlist visibility', async ({ page })
   await page.getByRole('button', { name: 'Close playlist' }).click()
   const hiddenPlaylist = page.locator('div[aria-hidden]').filter({ has: page.locator('aside[aria-label="Playlist"]') })
   await expect(hiddenPlaylist).toHaveAttribute('aria-hidden', 'true')
+})
+
+test('keeps the playlist above the control bar without resizing the controls', async ({ page }) => {
+  await blockModels(page)
+  await page.goto('/')
+
+  const controls = page.locator('#player > aside')
+  const closedControlsBox = await controls.boundingBox()
+  await page.getByRole('button', { name: 'Playlist' }).click()
+
+  const playlist = page.getByRole('complementary', { name: 'Playlist' })
+  const [playlistBox, openControlsBox] = await Promise.all([
+    playlist.boundingBox(),
+    controls.boundingBox(),
+  ])
+
+  expect(closedControlsBox).not.toBeNull()
+  expect(playlistBox).not.toBeNull()
+  expect(openControlsBox).not.toBeNull()
+  expect(openControlsBox!.width).toBeCloseTo(closedControlsBox!.width, 0)
+  expect(playlistBox!.y + playlistBox!.height).toBeLessThanOrEqual(openControlsBox!.y)
 })
 
 test('renders the unsupported-browser message for Firefox-like clients', async ({ page }) => {
