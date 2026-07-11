@@ -46,6 +46,12 @@ export function PlayerControls(props: { controller: PlayerController }) {
           <ControlSliderPopover controller={controller} />
           <div class="grid gap-3 max-sm:grid-cols-[minmax(0,1fr)_auto] max-sm:items-center max-sm:gap-x-3 max-sm:gap-y-2 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
             <div class="flex min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] max-sm:col-start-1 max-sm:row-start-1 max-sm:[&::-webkit-scrollbar]:hidden">
+              <IconButton
+                label="Playlist"
+                icon="playlist"
+                pressed={playlistState.open}
+                onClick={() => setPlaylistOpen((current) => !current)}
+              />
               <LiquidGlass
                 class={[glassPillClass, 'h-9 w-36 shrink-0 rounded-full max-sm:w-34']}
                 cornerRadius={999}
@@ -56,12 +62,6 @@ export function PlayerControls(props: { controller: PlayerController }) {
                   <ProjectionSelect value={displayState.presetId} onChange={setPresetId} />
                 </div>
               </LiquidGlass>
-              <IconButton
-                label="Playlist"
-                icon="playlist"
-                pressed={playlistState.open}
-                onClick={() => setPlaylistOpen((current) => !current)}
-              />
               <Show when={loadingState.error}>
                 <button
                   type="button"
