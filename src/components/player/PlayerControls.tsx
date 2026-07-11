@@ -11,11 +11,13 @@ import { ProjectionSelect } from './ProjectionSelect'
 const glassPillClass = 'text-white transition hover:text-white focus-within:text-white'
 export function PlayerControls(props: {
   controls: PlayerController['controls']
+  debug: PlayerController['debug']
   display: PlayerController['display']
   playback: PlayerController['playback']
   playlist: PlayerController['playlist']
 }) {
   const controls = untrack(() => props.controls)
+  const debug = untrack(() => props.debug)
   const display = untrack(() => props.display)
   const playback = untrack(() => props.playback)
   const playlist = untrack(() => props.playlist)
@@ -28,7 +30,7 @@ export function PlayerControls(props: {
     loadingState, playing, seekBy, startInitialLoad, togglePlay, volume,
   } = playback
   const {
-    fullscreen, setFaceAutoCenter, setPresetId, setShowDetectionPreview, setSplitScreen,
+    fullscreen, setFaceAutoCenter, setPresetId, setSplitScreen,
     setVideoOnly, state: displayState, toggleFullscreen, zoom,
   } = display
   return (
@@ -160,11 +162,11 @@ export function PlayerControls(props: {
                 onClick={() => setFaceAutoCenter((current) => !current)}
               />
               <IconButton
-                label={displayState.showDetectionPreview ? 'Hide detection image' : 'Show detection image'}
+                label={debug.panelOpen() ? 'Hide debug panel' : 'Show debug panel'}
                 icon="bug"
-                pressed={displayState.showDetectionPreview}
+                pressed={debug.panelOpen()}
                 onClick={() => {
-                  setShowDetectionPreview((current) => !current)
+                  debug.setPanelOpen((current) => !current)
                   showControls()
                 }}
               />

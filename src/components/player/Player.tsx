@@ -1,6 +1,5 @@
 import { Show, untrack } from 'solid-js'
 import type { PlayerController } from '../../features/player/controller'
-import { DebugPanel } from '../debug/DebugPanel'
 import { PlaylistPanel } from '../playlist/PlaylistPanel'
 import { createMediaDropTip, MediaDropTip } from '../ui/MediaDropTip'
 import { EmptyState } from './EmptyState'
@@ -22,17 +21,13 @@ export function Player(props: {
   const playback = untrack(() => props.playback)
   const playlist = untrack(() => props.playlist)
   const {
-    chooseFolder, cursorVisible, frameDragActive, handleDebugImage, handleFile, handleFolder,
-    handlePlayerMouseMove, handleVideoDrop, hasVideo, openVideoFile, setDebugImageInput, setFaceHint,
-    setFileInput, setFolderInput, setFpsMeter, setFrameDragActive, setPlayer, setSampleCanvas,
+    chooseFolder, cursorVisible, frameDragActive, handleFile, handleFolder,
+    handlePlayerMouseMove, handleVideoDrop, hasVideo, openVideoFile,
+    setFileInput, setFolderInput, setFrameDragActive, setPlayer,
     setVideo, setVrMount, setVrRoot,
   } = frame
   const { handleVolumeChange, playNextPlaylistVideo, setPlaying, syncTime } = playback
   const { state: displayState } = display
-  const {
-    closeDebugPanel, debugFaces, debugImageUrl, debugPanelOpen, debugStatus,
-    detectDebugImage, openDebugImageFile, setDebugImage,
-  } = debug
   const dropTip = createMediaDropTip()
   return (
     <main
@@ -67,15 +62,11 @@ export function Player(props: {
         {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
         onChange={handleFolder}
       />
-      <input ref={setDebugImageInput} type="file" accept="image/*" class="hidden" onChange={handleDebugImage} />
-
       <PlayerStage
         videoOnly={displayState.videoOnly}
+        debug={debug}
         setVrRoot={setVrRoot}
         setVrMount={setVrMount}
-        setFpsMeter={setFpsMeter}
-        setSampleCanvas={setSampleCanvas}
-        setFaceHint={setFaceHint}
         setVideo={setVideo}
         onTimeUpdate={syncTime}
         onPlaying={() => setPlaying(true)}
@@ -95,22 +86,11 @@ export function Player(props: {
       <PlaylistPanel controller={playlist} />
       <PlayerControls
         controls={controls}
+        debug={debug}
         display={display}
         playback={playback}
         playlist={playlist}
       />
-
-      <Show when={debugPanelOpen()}>
-        <DebugPanel
-          status={debugStatus()}
-          imageUrl={debugImageUrl()}
-          faces={debugFaces()}
-          setImage={setDebugImage}
-          onImageLoad={detectDebugImage}
-          onUpload={openDebugImageFile}
-          onClose={closeDebugPanel}
-        />
-      </Show>
     </main>
   )
 }

@@ -9,7 +9,6 @@ import {
   type VrSceneController,
 } from '../vr/scene'
 import { releaseFaceAutoCenterResources } from '../face-tracking/client'
-import { getDebugDetector, releaseDebugDetector, type DebugFace } from '../face-tracking/debug-detector'
 import {
   buildPlaylistTree,
   firstVideoNode,
@@ -38,7 +37,6 @@ export function createPlayerController() {
   let player!: HTMLElement
   let fileInput!: HTMLInputElement
   let folderInput!: HTMLInputElement
-  let debugImageInput!: HTMLInputElement
   let video!: HTMLVideoElement
   let controlsZone!: HTMLElement
   let controlsPanel!: HTMLDivElement
@@ -47,13 +45,10 @@ export function createPlayerController() {
   let sampleCanvas!: HTMLCanvasElement
   let faceHint!: HTMLDivElement
   let fpsMeter!: HTMLDivElement
-  let debugImage!: HTMLImageElement | undefined
 
   const viewRef = { current: { yaw: 0, pitch: 0, zoom: DEFAULT_ZOOM, pausedUntil: 0 } satisfies CameraView }
   let scene: VrSceneController | undefined
   let fileUrl: string | undefined
-  let debugImageUrlRef: string | undefined
-  let debugImageGeneration = 0
   let hideControlsTimer: number | undefined
   let hideCursorTimer: number | undefined
   let hideSliderTimer: number | undefined
@@ -112,7 +107,6 @@ export function createPlayerController() {
     videoOnly: false,
     splitScreen: true,
     faceAutoCenter: true,
-    showDetectionPreview: false,
   })
   const presetId = () => displayState.presetId
   const qualityId = () => displayState.qualityId
@@ -122,7 +116,6 @@ export function createPlayerController() {
   const videoOnly = () => displayState.videoOnly
   const splitScreen = () => displayState.splitScreen
   const faceAutoCenter = () => displayState.faceAutoCenter
-  const showDetectionPreview = () => displayState.showDetectionPreview
   const setDisplayValue = <K extends keyof typeof displayState>(key: K, update: ValueUpdate<(typeof displayState)[K]>) => {
     setDisplayState((draft) => {
       draft[key] = resolveUpdate(draft[key], update)
@@ -133,16 +126,11 @@ export function createPlayerController() {
   const setVideoOnly = (update: ValueUpdate<boolean>) => setDisplayValue('videoOnly', update)
   const setSplitScreen = (update: ValueUpdate<boolean>) => setDisplayValue('splitScreen', update)
   const setFaceAutoCenter = (update: ValueUpdate<boolean>) => setDisplayValue('faceAutoCenter', update)
-  const setShowDetectionPreview = (update: ValueUpdate<boolean>) => setDisplayValue('showDetectionPreview', update)
+  const [debugPanelOpen, setDebugPanelOpen] = createSignal(false)
   const [controlsVisible, setControlsVisible] = createSignal(true)
   const playlistVisible = createMemo(() => playlistOpen() && controlsVisible())
   const [cursorVisible, setCursorVisible] = createSignal(true)
   const [fullscreen, setFullscreen] = createSignal(false)
-  const [debugPanelOpen, setDebugPanelOpen] = createSignal(false)
-  const [debugImageUrl, setDebugImageUrl] = createSignal<string | undefined>()
-  const [debugFaces, setDebugFaces] = createSignal<DebugFace[]>([])
-  const [debugStatus, setDebugStatus] = createSignal('Upload image')
-  const [debugImageNeedsDetection, setDebugImageNeedsDetection] = createSignal(false)
   const [loadingState, setLoadingState] = createStore({
     resourcesReady: false,
     progress: 0,
@@ -189,7 +177,7 @@ export function createPlayerController() {
     hidden: videoOnly(),
     splitScreen: splitScreen(),
     faceAutoCenter: faceAutoCenter(),
-    showDetectionPreview: showDetectionPreview(),
+    debugPanelOpen: debugPanelOpen(),
   })
 
   const updateVideoVisibility = (videoOnlyMode: boolean) => {
@@ -403,11 +391,6 @@ export function createPlayerController() {
   const openVideoFile = () => {
     fileInput.click()
   }
-  const openDebugImageFile = () => {
-    if (!resourcesReady()) return
-    debugImageInput.click()
-  }
-
   const requestVideoPlayback = (generation = videoLoadGeneration) => {
     if (generation !== videoLoadGeneration) return
     if (!video.currentSrc && !video.getAttribute('src')) return
@@ -595,70 +578,6 @@ export function createPlayerController() {
     await importPlaylistTransfer(dataTransfer, 'always')
   }
 
-  const handleDebugImage = () => {
-    if (!resourcesReady()) return
-    const file = debugImageInput.files?.[0]
-    debugImageInput.value = ''
-    if (!file) return
-    debugImageGeneration += 1
-    if (debugImageUrlRef) URL.revokeObjectURL(debugImageUrlRef)
-    debugImageUrlRef = URL.createObjectURL(file)
-    setDebugImageUrl(debugImageUrlRef)
-    setDebugImageNeedsDetection(true)
-    setDebugFaces([])
-    setDebugStatus('Loading image')
-    setDebugPanelOpen(true)
-  }
-
-  const closeDebugPanel = () => {
-    debugImageGeneration += 1
-    debugImage = undefined
-    if (debugImageUrlRef) URL.revokeObjectURL(debugImageUrlRef)
-    debugImageUrlRef = undefined
-    debugImageInput.value = ''
-    setDebugImageUrl(undefined)
-    setDebugImageNeedsDetection(false)
-    setDebugFaces([])
-    setDebugStatus('Upload image')
-    setDebugPanelOpen(false)
-  }
-
-  const detectDebugImage = async () => {
-    if (!resourcesReady()) return
-    const image = debugImage
-    if (!image || !debugImageNeedsDetection() || !image.naturalWidth || !image.naturalHeight) return
-
-    const generation = debugImageGeneration
-    setDebugImageNeedsDetection(false)
-    setDebugStatus('Running detector')
-    setDebugFaces([])
-
-    try {
-      const detector = await getDebugDetector()
-      if (appDisposed || generation !== debugImageGeneration || image !== debugImage) return
-      const result = detector.detect(image)
-      const faces = result.detections
-        .filter((detection) => detection.boundingBox)
-        .map((detection) => {
-          const box = detection.boundingBox!
-          return {
-            x: box.originX / image.naturalWidth,
-            y: box.originY / image.naturalHeight,
-            width: box.width / image.naturalWidth,
-            height: box.height / image.naturalHeight,
-            score: detection.categories[0]?.score ?? 0,
-          }
-        })
-        .sort((a, b) => b.width * b.height - a.width * a.height)
-      setDebugFaces(faces)
-      setDebugStatus(faces.length ? `${faces.length} face${faces.length === 1 ? '' : 's'}` : 'No face detected')
-    } catch (error) {
-      if (appDisposed || generation !== debugImageGeneration) return
-      console.warn('debug face detector failed', error)
-      setDebugStatus('Detector failed')
-    }
-  }
-
   const handleKeydown = (event: KeyboardEvent) => {
     if (!resourcesReady()) {
       event.preventDefault()
@@ -819,17 +738,12 @@ export function createPlayerController() {
       cancelHideSlider()
       scene?.destroy()
       releaseFaceAutoCenterResources()
-      releaseDebugDetector()
       videoLoadGeneration += 1
       video.pause()
       video.removeAttribute('src')
       video.load()
       if (fileUrl) URL.revokeObjectURL(fileUrl)
       fileUrl = undefined
-      if (debugImageUrlRef) URL.revokeObjectURL(debugImageUrlRef)
-      debugImageUrlRef = undefined
-      debugImageGeneration += 1
-      debugImage = undefined
     }
   })
 
@@ -860,21 +774,16 @@ export function createPlayerController() {
       chooseFolder: () => folderInput.click(),
       cursorVisible,
       frameDragActive,
-      handleDebugImage,
       handleFile,
       handleFolder,
       handlePlayerMouseMove,
       handleVideoDrop,
       hasVideo,
       openVideoFile,
-      setDebugImageInput: (element: HTMLInputElement) => (debugImageInput = element),
-      setFaceHint: (element: HTMLDivElement) => (faceHint = element),
       setFileInput: (element: HTMLInputElement) => (fileInput = element),
       setFolderInput: (element: HTMLInputElement) => (folderInput = element),
-      setFpsMeter: (element: HTMLDivElement) => (fpsMeter = element),
       setFrameDragActive,
       setPlayer: (element: HTMLElement) => (player = element),
-      setSampleCanvas: (element: HTMLCanvasElement) => (sampleCanvas = element),
       setVideo: (element: HTMLVideoElement) => (video = element),
       setVrMount: (element: HTMLDivElement) => (vrMount = element),
       setVrRoot: (element: HTMLElement) => (vrRoot = element),
@@ -917,7 +826,6 @@ export function createPlayerController() {
       setFaceAutoCenter,
       setPresetId,
       setQualityId,
-      setShowDetectionPreview,
       setSplitScreen,
       setVideoOnly,
       setZoom,
@@ -940,14 +848,11 @@ export function createPlayerController() {
       sliderAnchor,
     },
     debug: {
-      closeDebugPanel,
-      debugFaces,
-      debugImageUrl,
-      debugPanelOpen,
-      debugStatus,
-      detectDebugImage,
-      openDebugImageFile,
-      setDebugImage: (element: HTMLImageElement) => (debugImage = element),
+      panelOpen: debugPanelOpen,
+      setFaceHint: (element: HTMLDivElement) => (faceHint = element),
+      setFpsMeter: (element: HTMLDivElement) => (fpsMeter = element),
+      setPanelOpen: setDebugPanelOpen,
+      setSampleCanvas: (element: HTMLCanvasElement) => (sampleCanvas = element),
     },
   }
 }

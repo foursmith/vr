@@ -567,13 +567,13 @@ export type VrSceneOptions = {
   hidden: boolean
   splitScreen: boolean
   faceAutoCenter: boolean
-  showDetectionPreview: boolean
+  debugPanelOpen: boolean
   viewRef: MutableRefObject<CameraView>
   onZoomChange: (zoom: number) => void
 }
 
 export type VrSceneController = {
-  update: (nextOptions: Partial<Pick<VrSceneOptions, 'preset' | 'quality' | 'hidden' | 'splitScreen' | 'faceAutoCenter' | 'showDetectionPreview'>>) => void
+  update: (nextOptions: Partial<Pick<VrSceneOptions, 'preset' | 'quality' | 'hidden' | 'splitScreen' | 'faceAutoCenter' | 'debugPanelOpen'>>) => void
   resetMedia: () => void
   destroy: () => void
 }
@@ -683,7 +683,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   }
 
   const setOverlay = (overlay: OverlayState) => {
-    const hint = options.showDetectionPreview ? overlay.hint : undefined
+    const hint = options.debugPanelOpen ? overlay.hint : undefined
     if (hint) {
       if (lastOverlayText !== hint.text) {
         options.hintElement.textContent = hint.text
@@ -713,9 +713,9 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     options.root.classList.toggle('opacity-0', options.hidden)
     options.root.classList.toggle('opacity-100', !options.hidden)
     options.root.setAttribute('aria-hidden', String(options.hidden))
-    options.sampleCanvas.classList.toggle('hidden', !options.showDetectionPreview || !options.faceAutoCenter)
-    options.fpsElement.classList.toggle('hidden', !options.showDetectionPreview)
-    if (!options.showDetectionPreview) {
+    options.sampleCanvas.classList.toggle('hidden', !options.debugPanelOpen || !options.faceAutoCenter)
+    options.fpsElement.classList.toggle('hidden', !options.debugPanelOpen)
+    if (!options.debugPanelOpen) {
       setOverlay({})
       options.fpsElement.textContent = 'FPS --  P95 -- ms'
       fpsFrameCount = 0
@@ -945,7 +945,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     }
 
     updateTrackingResult(foundFace, time)
-    if (options.showDetectionPreview) {
+    if (options.debugPanelOpen) {
       drawSampleBoxes(faceState, sampleCanvas, sampleContext!, performance.now(), faceState.detectionMode)
     }
   }
@@ -1017,7 +1017,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       .then((bitmap) => {
         lastCaptureMs = performance.now() - captureStartedAt
         try {
-          if (options.showDetectionPreview && detectionMode === 'viewport') {
+          if (options.debugPanelOpen && detectionMode === 'viewport') {
             resizeCanvas(sampleCanvas, inputWidth, inputHeight)
             sampleContext.drawImage(bitmap, 0, 0, inputWidth, inputHeight)
           }
@@ -1188,7 +1188,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     lastRenderMs = performance.now() - renderStartedAt
     recentRenderTimes.push(lastRenderMs)
     if (recentRenderTimes.length > 180) recentRenderTimes.shift()
-    if (options.showDetectionPreview) updatePerformanceMetrics(now, delta * 1000)
+    if (options.debugPanelOpen) updatePerformanceMetrics(now, delta * 1000)
     // Sample immediately after rendering so WebGL does not need an expensive
     // preserveDrawingBuffer allocation just for face tracking.
     runFaceAutoCenter(now, delta)
@@ -1218,14 +1218,14 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   return {
     update(nextOptions) {
       const shouldRebuild = nextOptions.preset !== undefined || nextOptions.quality !== undefined
-      const enablesDebugPreview = nextOptions.showDetectionPreview === true && !options.showDetectionPreview
+      const opensDebugPanel = nextOptions.debugPanelOpen === true && !options.debugPanelOpen
       const invalidatesInference =
         nextOptions.preset !== undefined ||
         nextOptions.hidden !== undefined ||
         nextOptions.faceAutoCenter !== undefined
       if (invalidatesInference) inferenceGeneration += 1
       Object.assign(options, nextOptions)
-      if (enablesDebugPreview) {
+      if (opensDebugPanel) {
         fpsFrameCount = 0
         fpsSampleStartedAt = performance.now()
         recentFrameTimes.length = 0
