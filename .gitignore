@@ -42,3 +42,10 @@ server/avrp.spec
 server/bin/ff*
 server/.thumbnails
 server/store.sqlite
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
