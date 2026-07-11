@@ -1,16 +1,14 @@
-import { For, Show, untrack } from 'solid-js'
-import { PRESETS, QUALITY_OPTIONS } from '../../features/vr/scene'
+import { Show, untrack } from 'solid-js'
+import { QUALITY_OPTIONS } from '../../features/vr/scene'
 import type { PlayerController } from '../../features/player/controller'
 import { Icon } from '../ui/Icon'
 import { IconButton } from '../ui/IconButton'
 import { LiquidGlass } from '../ui/LiquidGlass'
 import { ControlSliderPopover } from './ControlSliderPopover'
 import { PlaybackTimeline } from './PlaybackTimeline'
+import { ProjectionSelect } from './ProjectionSelect'
 
 const glassPillClass = 'text-white transition hover:text-white focus-within:text-white'
-const selectClass =
-  'h-full min-w-0 flex-1 cursor-default appearance-none border-0 bg-transparent p-0 text-xs font-medium text-white outline-none'
-
 export function PlayerControls(props: {
   controls: PlayerController['controls']
   display: PlayerController['display']
@@ -61,26 +59,9 @@ export function PlayerControls(props: {
                 elasticity={0.16}
                 castShadow={false}
               >
-                <label class="box-border flex h-full w-full min-w-0 items-center gap-2 rounded-full px-3">
-                  <span class="sr-only">Projection</span>
-                  <Icon name="cube-focus" class="h-4 w-4 shrink-0 text-white/78" />
-                  <select
-                    value={displayState.presetId}
-                    class={selectClass}
-                    aria-label="Projection"
-                    title={`Projection: ${PRESETS[displayState.presetId]?.label ?? 'Projection'}`}
-                    onChange={(event) => setPresetId(Number(event.currentTarget.value))}
-                  >
-                    <For each={PRESETS}>
-                      {(preset, index) => (
-                        <option value={index()} class="bg-[#1c1c1e] text-white">
-                          {preset.label}
-                        </option>
-                      )}
-                    </For>
-                  </select>
-                  <span aria-hidden="true" class="i-ph-caret-down pointer-events-none h-3.5 w-3.5 shrink-0 text-white/62"></span>
-                </label>
+                <div class="box-border flex h-full w-full min-w-0 items-center rounded-full px-3">
+                  <ProjectionSelect value={displayState.presetId} onChange={setPresetId} />
+                </div>
               </LiquidGlass>
               <IconButton
                 label="Playlist"
