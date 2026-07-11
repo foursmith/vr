@@ -42,7 +42,7 @@ export function PlayerControls(props: {
       >
         <div
           ref={setControlsPanel}
-          class={`pointer-events-auto relative mx-auto grid max-w-6xl gap-3 overflow-visible rounded-[24px] bg-transparent p-3 text-white shadow-none transition duration-300 ease-out sm:p-4 ${
+          class={`pointer-events-auto relative mx-auto grid max-w-6xl gap-3 overflow-visible rounded-[24px] bg-transparent p-3 text-white shadow-none transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:p-4 ${
             controlsVisible() ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-4 opacity-0'
           }`}
           onMouseEnter={showControls}

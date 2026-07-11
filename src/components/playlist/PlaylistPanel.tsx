@@ -9,15 +9,15 @@ import { MediaPickerButtons } from '../ui/MediaPickerButtons'
 export function PlaylistPanel(props: { controller: PlayerController['playlist'] }) {
   const {
     chooseFiles, chooseFolder, clearPlaylist, expandedFolders, playPlaylistNode, playlistVideos,
-    setPlaylistOpen, state, togglePlaylistFolder,
+    setPlaylistOpen, state, togglePlaylistFolder, visible,
   } = untrack(() => props.controller)
   return (
       <div
         class={`pointer-events-auto absolute bottom-40 left-3 top-3 z-30 w-[min(15rem,calc(100vw-1.5rem))] transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:bottom-6 sm:left-6 sm:top-6 sm:w-72 ${
-          state.open ? 'translate-x-0 opacity-100' : 'pointer-events-none -translate-x-[calc(100%+1.5rem)] opacity-0'
+          visible() ? 'translate-x-0 opacity-100' : 'pointer-events-none -translate-x-[calc(100%+1.5rem)] opacity-0'
         }`}
-        aria-hidden={state.open ? 'false' : 'true'}
-        inert={!state.open}
+        aria-hidden={visible() ? 'false' : 'true'}
+        inert={!visible()}
       >
         <LiquidGlass
           class="h-full w-full rounded-[20px] text-white"

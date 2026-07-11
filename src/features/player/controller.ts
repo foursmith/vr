@@ -135,6 +135,7 @@ export function createPlayerController() {
   const setFaceAutoCenter = (update: ValueUpdate<boolean>) => setDisplayValue('faceAutoCenter', update)
   const setShowDetectionPreview = (update: ValueUpdate<boolean>) => setDisplayValue('showDetectionPreview', update)
   const [controlsVisible, setControlsVisible] = createSignal(true)
+  const playlistVisible = createMemo(() => playlistOpen() && controlsVisible())
   const [cursorVisible, setCursorVisible] = createSignal(true)
   const [fullscreen, setFullscreen] = createSignal(false)
   const [debugPanelOpen, setDebugPanelOpen] = createSignal(false)
@@ -266,7 +267,13 @@ export function createPlayerController() {
 
   const isInControlZone = (event: MouseEvent) => {
     const rect = controlsZone.getBoundingClientRect()
-    return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom
+    const playlistActivationWidth = window.matchMedia('(min-width: 640px)').matches
+      ? 312
+      : Math.min(252, window.innerWidth)
+    const isInPlaylistZone = playlistOpen() && event.clientX <= playlistActivationWidth
+    const isInPlaybackZone = event.clientX >= rect.left && event.clientX <= rect.right
+      && event.clientY >= rect.top && event.clientY <= rect.bottom
+    return isInPlaylistZone || isInPlaybackZone
   }
 
   const handlePlayerMouseMove = (event: MouseEvent) => {
@@ -511,6 +518,11 @@ export function createPlayerController() {
     if (file) loadVideoFile(file, id)
   }
 
+  const countPlaylistVideos = (nodes: PlaylistNode[]): number => nodes.reduce(
+    (count, node) => count + (node.kind === 'video' ? 1 : countPlaylistVideos(node.children ?? [])),
+    0,
+  )
+
   const importPlaylistNodes = (nodes: PlaylistNode[], playback: PlaylistImportPlayback) => {
     if (!nodes.length) return
     const firstVideo = firstVideoNode(nodes)
@@ -522,6 +534,11 @@ export function createPlayerController() {
       nodes.forEach((node) => node.kind === 'folder' && next.add(node.id))
       return next
     })
+
+    if (countPlaylistVideos(nodes) > 1) {
+      setPlaylistOpen(true)
+      showControls()
+    }
 
     if (firstVideo?.file && (playback === 'always' || (playback === 'when-empty' && !hasVideo()))) {
       loadVideoFile(firstVideo.file, firstVideo.id)
@@ -870,6 +887,7 @@ export function createPlayerController() {
       setPlaylistOpen,
       state: playlistState,
       togglePlaylistFolder,
+      visible: playlistVisible,
     },
     playback: {
       currentTime,
