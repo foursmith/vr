@@ -1,21 +1,27 @@
+import type {
+  BufferAttribute,
+  BufferGeometry,
+  Object3D,
+  Side,
+  Texture,
+  VideoTexture,
+} from "three"
+import type { ProjectionPreset, ProjectionQuality } from "./config"
 import {
   BackSide,
-  BufferAttribute,
+
   FrontSide,
   Group,
   Mesh,
   MeshBasicMaterial,
-  PlaneGeometry,
-  SphereGeometry,
-  type BufferGeometry,
-  type Object3D,
-  type Side,
-  type Texture,
-  type VideoTexture,
-} from 'three'
-import type { ProjectionPreset, ProjectionQuality } from './config'
 
-const QUALITY_SEGMENTS: Record<ProjectionQuality, { eqrHalfWidth: number; eqrFullWidth: number; eqrHeight: number; fisheye: number }> = {
+  PlaneGeometry,
+
+  SphereGeometry,
+
+} from "three"
+
+const QUALITY_SEGMENTS: Record<ProjectionQuality, { eqrHalfWidth: number, eqrFullWidth: number, eqrHeight: number, fisheye: number }> = {
   performance: { eqrHalfWidth: 48, eqrFullWidth: 64, eqrHeight: 32, fisheye: 48 },
   balanced: { eqrHalfWidth: 72, eqrFullWidth: 96, eqrHeight: 48, fisheye: 72 },
   sharp: { eqrHalfWidth: 96, eqrFullWidth: 128, eqrHeight: 64, fisheye: 96 },
@@ -24,7 +30,7 @@ const QUALITY_SEGMENTS: Record<ProjectionQuality, { eqrHalfWidth: number; eqrFul
 
 const getUv = (geometry: BufferGeometry) => geometry.attributes.uv as BufferAttribute
 
-const setUvCrop = (geometry: BufferGeometry, repeat: { x: number; y: number }, offset: { x: number; y: number }) => {
+const setUvCrop = (geometry: BufferGeometry, repeat: { x: number, y: number }, offset: { x: number, y: number }) => {
   const uv = getUv(geometry)
   for (let i = 0; i < uv.count; i += 1) {
     uv.setXY(i, uv.getX(i) * repeat.x + offset.x, uv.getY(i) * repeat.y + offset.y)
@@ -55,7 +61,7 @@ const createVideoMaterial = (texture: Texture, side: Side) => new MeshBasicMater
 const createMask = () => {
   const mask = new Mesh(
     new SphereGeometry(99, 32, 8, 0, Math.PI * 2, 0, Math.PI / 2),
-    new MeshBasicMaterial({ color: '#14120f', side: BackSide }),
+    new MeshBasicMaterial({ color: "#14120f", side: BackSide }),
   )
   mask.rotation.x = Math.PI / 2
   return mask
@@ -71,17 +77,17 @@ export const createProjectionGroup = (
   const segments = QUALITY_SEGMENTS[quality]
 
   switch (preset) {
-    case 'sbs_180_eqr': {
+    case "sbs_180_eqr": {
       const geometry = new SphereGeometry(100, segments.eqrHalfWidth, segments.eqrHeight, Math.PI, Math.PI, 0, Math.PI)
       setUvCrop(geometry, { x: -0.5, y: 1 }, { x: 0.5, y: 0 })
       group.add(new Mesh(geometry, createVideoMaterial(texture, BackSide)))
       break
     }
-    case 'sbs_180_fe':
+    case "sbs_180_fe":
       group.add(new Mesh(createFisheyeGeometry(true, segments.fisheye), createVideoMaterial(texture, BackSide)))
       group.add(createMask())
       break
-    case 'tb_360_eqr': {
+    case "tb_360_eqr": {
       const geometry = new SphereGeometry(100, segments.eqrFullWidth, segments.eqrHeight, 0, Math.PI * 2, 0, Math.PI)
       setUvCrop(geometry, { x: 1, y: 0.5 }, { x: 0, y: 0.5 })
       const mesh = new Mesh(geometry, createVideoMaterial(texture, BackSide))
@@ -90,16 +96,16 @@ export const createProjectionGroup = (
       group.add(mesh)
       break
     }
-    case 'flat_2d': {
+    case "flat_2d": {
       const height = 60
       const aspect = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 1.77
-      group.add(new Mesh(new SphereGeometry(120, 32, 16), new MeshBasicMaterial({ color: '#14120f', side: BackSide })))
+      group.add(new Mesh(new SphereGeometry(120, 32, 16), new MeshBasicMaterial({ color: "#14120f", side: BackSide })))
       const screen = new Mesh(new PlaneGeometry(height * aspect, height), createVideoMaterial(texture, FrontSide))
       screen.position.set(0, 10, -65)
       group.add(screen)
       break
     }
-    case 'm_180_eqr': {
+    case "m_180_eqr": {
       const mesh = new Mesh(
         new SphereGeometry(100, segments.eqrHalfWidth, segments.eqrHeight, Math.PI, Math.PI, 0, Math.PI),
         createVideoMaterial(texture, BackSide),
@@ -108,7 +114,7 @@ export const createProjectionGroup = (
       group.add(mesh)
       break
     }
-    case 'mono_360_eqr': {
+    case "mono_360_eqr": {
       const mesh = new Mesh(
         new SphereGeometry(100, segments.eqrFullWidth, segments.eqrHeight, 0, Math.PI * 2, 0, Math.PI),
         createVideoMaterial(texture, BackSide),
@@ -118,7 +124,7 @@ export const createProjectionGroup = (
       group.add(mesh)
       break
     }
-    case 'm_180_fe':
+    case "m_180_fe":
       group.add(new Mesh(createFisheyeGeometry(false, segments.fisheye), createVideoMaterial(texture, BackSide)))
       group.add(createMask())
       break
@@ -131,7 +137,7 @@ export const disposeObject = (object: Object3D) => {
     const mesh = child as Mesh
     mesh.geometry?.dispose()
     const material = mesh.material
-    if (Array.isArray(material)) material.forEach((item) => item.dispose())
+    if (Array.isArray(material)) material.forEach(item => item.dispose())
     else material?.dispose()
   })
 }

@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { FaceWorkerResponse } from '../../src/features/face-tracking/protocol'
-import { FaceTrackerClient } from '../../src/features/face-tracking/client'
+import type { FaceWorkerResponse } from "../../src/features/face-tracking/protocol"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { FaceTrackerClient } from "../../src/features/face-tracking/client"
 
 class FakeWorker {
   static instances: FakeWorker[] = []
@@ -20,66 +20,68 @@ class FakeWorker {
 
 beforeEach(() => {
   FakeWorker.instances = []
-  vi.stubGlobal('Worker', FakeWorker)
-  vi.stubGlobal('OffscreenCanvas', class {})
-  vi.stubGlobal('createImageBitmap', vi.fn())
+  vi.stubGlobal("Worker", FakeWorker)
+  vi.stubGlobal("OffscreenCanvas", class {})
+  vi.stubGlobal("createImageBitmap", vi.fn())
 })
 
 afterEach(() => vi.unstubAllGlobals())
 
-describe('FaceTrackerClient worker backend', () => {
-  it('initializes once, forwards progress and resolves inference results', async () => {
+describe("faceTrackerClient worker backend", () => {
+  it("initializes once, forwards progress and resolves inference results", async () => {
     const client = new FaceTrackerClient()
     const progress = vi.fn()
     const initializing = client.initialize(progress)
     const sameInitialization = client.initialize(progress)
     expect(initializing).toBe(sameInitialization)
     const worker = FakeWorker.instances[0]
-    expect(worker.postMessage).toHaveBeenCalledWith({ type: 'init' })
-    worker.emit({ type: 'progress', loaded: 1, total: 2, label: 'runtime' })
-    worker.emit({ type: 'ready' })
+    expect(worker.postMessage).toHaveBeenCalledWith({ type: "init" })
+    worker.emit({ type: "progress", loaded: 1, total: 2, label: "runtime" })
+    worker.emit({ type: "ready" })
     await initializing
-    expect(progress).toHaveBeenCalledWith({ type: 'progress', loaded: 1, total: 2, label: 'runtime' })
-    expect(client.getBackendLabel()).toBe('Worker CPU')
+    expect(progress).toHaveBeenCalledWith({ type: "progress", loaded: 1, total: 2, label: "runtime" })
+    expect(client.getBackendLabel()).toBe("Worker CPU")
 
     const bitmap = { close: vi.fn() } as unknown as ImageBitmap
-    const inference = client.infer('detection', bitmap, 42)
+    const inference = client.infer("detection", bitmap, 42)
     await Promise.resolve()
     expect(worker.postMessage).toHaveBeenLastCalledWith(
-      { id: 1, type: 'infer', mode: 'detection', timestamp: 42, bitmap },
+      { id: 1, type: "infer", mode: "detection", timestamp: 42, bitmap },
       [bitmap],
     )
-    worker.emit({ id: 1, type: 'result', mode: 'detection', timestamp: 42, faces: [], inferenceMs: 3 })
+    worker.emit({ id: 1, type: "result", mode: "detection", timestamp: 42, faces: [], inferenceMs: 3 })
     await expect(inference).resolves.toMatchObject({ id: 1, inferenceMs: 3 })
   })
 
-  it('rejects pending work and terminates the worker when destroyed', async () => {
+  it("rejects pending work and terminates the worker when destroyed", async () => {
     const client = new FaceTrackerClient()
     const initializing = client.initialize(() => {})
     const worker = FakeWorker.instances[0]
-    worker.emit({ type: 'ready' })
+    worker.emit({ type: "ready" })
     await initializing
     const bitmap = { close: vi.fn() } as unknown as ImageBitmap
-    const inference = client.infer('landmarks', bitmap, 10)
+    const inference = client.infer("landmarks", bitmap, 10)
     await Promise.resolve()
     client.destroy()
-    await expect(inference).rejects.toThrow('Face tracker was destroyed')
+    await expect(inference).rejects.toThrow("Face tracker was destroyed")
     expect(worker.terminate).toHaveBeenCalledOnce()
-    await expect(client.initialize(() => {})).rejects.toThrow('Face tracker was destroyed')
+    await expect(client.initialize(() => {})).rejects.toThrow("Face tracker was destroyed")
     const lateBitmap = { close: vi.fn() } as unknown as ImageBitmap
-    await expect(client.infer('detection', lateBitmap, 20)).rejects.toThrow('Face tracker was destroyed')
+    await expect(client.infer("detection", lateBitmap, 20)).rejects.toThrow("Face tracker was destroyed")
     expect(lateBitmap.close).toHaveBeenCalledOnce()
   })
 
-  it('rejects inference when posting a transferable bitmap fails', async () => {
+  it("rejects inference when posting a transferable bitmap fails", async () => {
     const client = new FaceTrackerClient()
     const initializing = client.initialize(() => {})
     const worker = FakeWorker.instances[0]
-    worker.emit({ type: 'ready' })
+    worker.emit({ type: "ready" })
     await initializing
-    worker.postMessage.mockImplementationOnce(() => { throw new Error('transfer failed') })
+    worker.postMessage.mockImplementationOnce(() => {
+      throw new Error("transfer failed")
+    })
     const bitmap = { close: vi.fn() } as unknown as ImageBitmap
-    await expect(client.infer('detection', bitmap, 1)).rejects.toThrow('transfer failed')
+    await expect(client.infer("detection", bitmap, 1)).rejects.toThrow("transfer failed")
     expect(bitmap.close).toHaveBeenCalledOnce()
     expect(worker.terminate).toHaveBeenCalledOnce()
   })

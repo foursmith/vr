@@ -1,10 +1,10 @@
-import { registerSW } from 'virtual:pwa-register'
+import { registerSW } from "virtual:pwa-register"
 
 const updateIntervalMs = 5 * 60 * 1000
 let pendingReload = false
 
 const hasLoadedVideo = () => {
-  const video = document.getElementById('video')
+  const video = document.getElementById("video")
   return video instanceof HTMLVideoElement && Boolean(video.currentSrc)
 }
 
@@ -19,10 +19,10 @@ const checkForUpdate = async (swUrl: string, registration: ServiceWorkerRegistra
   if (registration.installing || !navigator.onLine) return
 
   const response = await fetch(swUrl, {
-    cache: 'no-store',
+    cache: "no-store",
     headers: {
-      cache: 'no-store',
-      'cache-control': 'no-cache',
+      "cache": "no-store",
+      "cache-control": "no-cache",
     },
   })
 
@@ -39,14 +39,14 @@ registerSW({
     const update = () => {
       reloadWhenNoVideo()
       void checkForUpdate(swUrl, registration).catch((error) => {
-        console.warn('service worker update check failed', error)
+        console.warn("service worker update check failed", error)
       })
     }
 
     window.setInterval(update, updateIntervalMs)
-    document.addEventListener('visibilitychange', () => {
+    document.addEventListener("visibilitychange", () => {
       reloadWhenNoVideo()
-      if (document.visibilityState === 'visible') update()
+      if (document.visibilityState === "visible") update()
     })
   },
   onNeedReload() {
@@ -54,6 +54,6 @@ registerSW({
     reloadWhenNoVideo()
   },
   onRegisterError(error) {
-    console.warn('service worker registration failed', error)
+    console.warn("service worker registration failed", error)
   },
 })

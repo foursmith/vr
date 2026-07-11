@@ -1,4 +1,4 @@
-import { onSettled } from 'solid-js'
+import { onSettled } from "solid-js"
 import {
   Mesh,
   OrthographicCamera,
@@ -7,7 +7,7 @@ import {
   ShaderMaterial,
   Vector2,
   WebGLRenderer,
-} from 'three'
+} from "three"
 
 const vertexShader = /* glsl */ `
   void main() {
@@ -91,12 +91,12 @@ export function OceanBackground() {
   let canvas!: HTMLCanvasElement
 
   onSettled(() => {
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
     const renderer = new WebGLRenderer({
       canvas,
       antialias: false,
-      powerPreference: 'low-power',
-      precision: 'mediump',
+      powerPreference: "low-power",
+      precision: "mediump",
     })
     const scene = new Scene()
     const camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1)
@@ -130,8 +130,8 @@ export function OceanBackground() {
       uniforms.uTime.value = elapsed
       if (!reducedMotion && root) {
         const rayTime = elapsed * 0.65
-        root.style.setProperty('--ocean-flow-x', `${Math.sin(rayTime * 0.41 + 2.1) * 18}px`)
-        root.style.setProperty('--ocean-flow-y', `${Math.sin(rayTime * 0.27 - 0.8) * 8}px`)
+        root.style.setProperty("--ocean-flow-x", `${Math.sin(rayTime * 0.41 + 2.1) * 18}px`)
+        root.style.setProperty("--ocean-flow-y", `${Math.sin(rayTime * 0.27 - 0.8) * 8}px`)
       }
       renderer.render(scene, camera)
       if (!reducedMotion && !document.hidden) renderTimer = window.setTimeout(render, frameInterval)
@@ -149,7 +149,7 @@ export function OceanBackground() {
 
     const resizeObserver = new ResizeObserver(resize)
     resizeObserver.observe(canvas)
-    document.addEventListener('visibilitychange', handleVisibility)
+    document.addEventListener("visibilitychange", handleVisibility)
     resize()
     render()
 
@@ -157,9 +157,9 @@ export function OceanBackground() {
       disposed = true
       window.clearTimeout(renderTimer)
       resizeObserver.disconnect()
-      document.removeEventListener('visibilitychange', handleVisibility)
-      root?.style.removeProperty('--ocean-flow-x')
-      root?.style.removeProperty('--ocean-flow-y')
+      document.removeEventListener("visibilitychange", handleVisibility)
+      root?.style.removeProperty("--ocean-flow-x")
+      root?.style.removeProperty("--ocean-flow-y")
       geometry.dispose()
       material.dispose()
       renderer.dispose()

@@ -1,10 +1,11 @@
-import { Show } from 'solid-js'
-import { Icon, type IconName } from './Icon'
-import { LiquidGlass } from './LiquidGlass'
+import type { IconName } from "./Icon"
+import { Show } from "solid-js"
+import { Icon } from "./Icon"
+import { LiquidGlass } from "./LiquidGlass"
 
-const iconButtonClass =
-  'h-9 w-9 shrink-0 rounded-full text-white/92 transition hover:text-white active:scale-95'
-const activeButtonClass = 'text-white bg-white/10'
+const iconButtonClass
+  = "h-9 w-9 shrink-0 rounded-full text-white/92 transition hover:text-white active:scale-95"
+const activeButtonClass = "text-white bg-white/10"
 
 export function IconButton(props: {
   label: string
@@ -25,7 +26,7 @@ export function IconButton(props: {
       <button
         type="button"
         aria-label={props.label}
-        aria-pressed={props.pressed === undefined ? undefined : props.pressed ? 'true' : 'false'}
+        aria-pressed={props.pressed === undefined ? undefined : props.pressed ? "true" : "false"}
         class="relative grid h-full w-full place-items-center rounded-full border-0 bg-transparent p-0 text-inherit"
         onClick={props.onClick}
       >
@@ -33,7 +34,7 @@ export function IconButton(props: {
         <Show when={props.pressed}>
           <LiquidGlass
             class="pointer-events-none !absolute bottom-1 h-1.5 w-1.5 rounded-full"
-            style={{ left: 'calc(50% - 0.1875rem)' }}
+            style={{ left: "calc(50% - 0.1875rem)" }}
             cornerRadius={999}
             elasticity={0}
             active

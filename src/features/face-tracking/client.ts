@@ -1,33 +1,33 @@
-import type { FaceDetector, FaceLandmarker, NormalizedLandmark } from '@mediapipe/tasks-vision'
+import type { FaceDetector, FaceLandmarker, NormalizedLandmark } from "@mediapipe/tasks-vision"
 import type {
   FaceInferenceMode,
   FaceInferenceResult,
   FaceWorkerResponse,
   NormalizedFace,
-} from './protocol'
+} from "./protocol"
 
-const WASM_URL = '/mediapipe/tasks-vision/wasm'
-const FACE_MODEL_URL = '/models/face_detector/blaze_face_full_range.tflite'
-const FACE_LANDMARKER_MODEL_URL = '/models/face_landmarker/face_landmarker.task'
+const WASM_URL = "/mediapipe/tasks-vision/wasm"
+const FACE_MODEL_URL = "/models/face_detector/blaze_face_full_range.tflite"
+const FACE_LANDMARKER_MODEL_URL = "/models/face_landmarker/face_landmarker.task"
 const MIN_FACE_SCORE = 0.5
 
-export type ResourceLoadProgress = {
+export interface ResourceLoadProgress {
   loaded: number
   total: number
   label: string
 }
 
-type PendingInference = {
+interface PendingInference {
   resolve: (result: FaceInferenceResult) => void
   reject: (error: Error) => void
 }
 
-const createWithGpuFallback = async <T>(createTask: (delegate: 'GPU' | 'CPU') => Promise<T>) => {
+const createWithGpuFallback = async <T>(createTask: (delegate: "GPU" | "CPU") => Promise<T>) => {
   try {
-    return await createTask('GPU')
+    return await createTask("GPU")
   } catch (gpuError) {
-    console.warn('GPU face inference is unavailable; falling back to CPU', gpuError)
-    return createTask('CPU')
+    console.warn("GPU face inference is unavailable; falling back to CPU", gpuError)
+    return createTask("CPU")
   }
 }
 
@@ -77,25 +77,25 @@ class MainThreadFaceBackend {
   private destroyed = false
 
   private assertActive() {
-    if (this.destroyed) throw new Error('Face tracker was destroyed during initialization')
+    if (this.destroyed) throw new Error("Face tracker was destroyed during initialization")
   }
 
   async initialize(onProgress: (progress: ResourceLoadProgress) => void) {
     const total = 3
-    onProgress({ loaded: 0, total, label: 'Loading vision runtime' })
-    const { FaceDetector, FaceLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision')
+    onProgress({ loaded: 0, total, label: "Loading vision runtime" })
+    const { FaceDetector, FaceLandmarker, FilesetResolver } = await import("@mediapipe/tasks-vision")
     this.assertActive()
     const vision = await FilesetResolver.forVisionTasks(WASM_URL)
     this.assertActive()
-    const createCanvas = () => typeof OffscreenCanvas === 'undefined' ? document.createElement('canvas') : new OffscreenCanvas(1, 1)
+    const createCanvas = () => typeof OffscreenCanvas === "undefined" ? document.createElement("canvas") : new OffscreenCanvas(1, 1)
 
-    onProgress({ loaded: 1, total, label: 'Loading fallback face detector' })
+    onProgress({ loaded: 1, total, label: "Loading fallback face detector" })
     const detector = await createWithGpuFallback((delegate) => {
       this.assertActive()
       return FaceDetector.createFromOptions(vision, {
         baseOptions: { modelAssetPath: FACE_MODEL_URL, delegate },
         canvas: createCanvas(),
-        runningMode: 'IMAGE',
+        runningMode: "IMAGE",
         minDetectionConfidence: MIN_FACE_SCORE,
         minSuppressionThreshold: 0.45,
       })
@@ -107,14 +107,14 @@ class MainThreadFaceBackend {
     this.detector = detector
     this.assertActive()
 
-    onProgress({ loaded: 2, total, label: 'Loading fallback face landmarks' })
+    onProgress({ loaded: 2, total, label: "Loading fallback face landmarks" })
     this.assertActive()
     const landmarker = await createWithGpuFallback((delegate) => {
       this.assertActive()
       return FaceLandmarker.createFromOptions(vision, {
         baseOptions: { modelAssetPath: FACE_LANDMARKER_MODEL_URL, delegate },
         canvas: createCanvas(),
-        runningMode: 'VIDEO',
+        runningMode: "VIDEO",
         numFaces: 1,
         minFaceDetectionConfidence: MIN_FACE_SCORE,
         minFacePresenceConfidence: 0.5,
@@ -129,19 +129,19 @@ class MainThreadFaceBackend {
     }
     this.landmarker = landmarker
     this.assertActive()
-    onProgress({ loaded: total, total, label: 'Fallback face tracker ready' })
+    onProgress({ loaded: total, total, label: "Fallback face tracker ready" })
   }
 
   async infer(id: number, mode: FaceInferenceMode, bitmap: ImageBitmap, timestamp: number): Promise<FaceInferenceResult> {
     const startedAt = performance.now()
     try {
       this.assertActive()
-      if (mode === 'landmarks') {
+      if (mode === "landmarks") {
         const landmarks = this.landmarker!.detectForVideo(bitmap, timestamp).faceLandmarks[0]
         const face = landmarks ? readLandmarkFace(landmarks) : undefined
         return {
           id,
-          type: 'result',
+          type: "result",
           mode,
           timestamp,
           faces: face ? [face] : [],
@@ -150,21 +150,17 @@ class MainThreadFaceBackend {
         }
       }
 
-      const faces = this.detector!.detect(bitmap).detections
-        .filter((item) => item.boundingBox)
-        .map((item) => {
-          const box = item.boundingBox!
-          return {
-            x: box.originX / bitmap.width,
-            y: box.originY / bitmap.height,
-            width: box.width / bitmap.width,
-            height: box.height / bitmap.height,
-            score: item.categories[0]?.score ?? 0,
-          }
-        })
-        .sort((a, b) => b.width * b.height - a.width * a.height)
-        .slice(0, 8)
-      return { id, type: 'result', mode, timestamp, faces, inferenceMs: performance.now() - startedAt }
+      const faces = this.detector!.detect(bitmap).detections.filter(item => item.boundingBox).map((item) => {
+        const box = item.boundingBox!
+        return {
+          x: box.originX / bitmap.width,
+          y: box.originY / bitmap.height,
+          width: box.width / bitmap.width,
+          height: box.height / bitmap.height,
+          score: item.categories[0]?.score ?? 0,
+        }
+      }).sort((a, b) => b.width * b.height - a.width * a.height).slice(0, 8)
+      return { id, type: "result", mode, timestamp, faces, inferenceMs: performance.now() - startedAt }
     } finally {
       bitmap.close()
     }
@@ -191,7 +187,7 @@ export class FaceTrackerClient {
   private rejectWorkerInitialization?: (error: Error) => void
 
   initialize(onProgress: (progress: ResourceLoadProgress) => void) {
-    if (this.destroyed) return Promise.reject(new Error('Face tracker was destroyed'))
+    if (this.destroyed) return Promise.reject(new Error("Face tracker was destroyed"))
     if (!this.initializationPromise) {
       const initializationPromise = this.initializeBackend(onProgress)
       this.initializationPromise = initializationPromise
@@ -205,17 +201,17 @@ export class FaceTrackerClient {
   }
 
   getBackendLabel() {
-    if (this.worker && this.workerReady && !this.workerFailed) return 'Worker CPU'
-    if (this.fallback) return 'Main thread fallback'
-    return 'Initializing'
+    if (this.worker && this.workerReady && !this.workerFailed) return "Worker CPU"
+    if (this.fallback) return "Main thread fallback"
+    return "Initializing"
   }
 
   private async initializeBackend(onProgress: (progress: ResourceLoadProgress) => void) {
-    if (this.destroyed) throw new Error('Face tracker was destroyed')
-    const supportsWorker =
-      typeof Worker !== 'undefined' &&
-      typeof OffscreenCanvas !== 'undefined' &&
-      typeof createImageBitmap === 'function'
+    if (this.destroyed) throw new Error("Face tracker was destroyed")
+    const supportsWorker
+      = typeof Worker !== "undefined"
+        && typeof OffscreenCanvas !== "undefined"
+        && typeof createImageBitmap === "function"
 
     if (supportsWorker) {
       try {
@@ -223,12 +219,12 @@ export class FaceTrackerClient {
         return
       } catch (error) {
         if (this.destroyed) throw error
-        console.warn('face tracking worker failed to start; using main thread fallback', error)
+        console.warn("face tracking worker failed to start; using main thread fallback", error)
         this.disposeWorker()
       }
     }
 
-    if (this.destroyed) throw new Error('Face tracker was destroyed')
+    if (this.destroyed) throw new Error("Face tracker was destroyed")
     const fallback = new MainThreadFaceBackend()
     this.fallback = fallback
     try {
@@ -241,7 +237,7 @@ export class FaceTrackerClient {
     if (this.destroyed) {
       fallback.destroy()
       if (this.fallback === fallback) this.fallback = undefined
-      throw new Error('Face tracker was destroyed')
+      throw new Error("Face tracker was destroyed")
     }
   }
 
@@ -265,7 +261,7 @@ export class FaceTrackerClient {
       // Keep this a classic worker; module workers reject importScripts().
       let worker: Worker
       try {
-        worker = new Worker(new URL('./worker.ts', import.meta.url))
+        worker = new Worker(new URL("./worker.ts", import.meta.url))
       } catch (error) {
         rejectInitialization(error instanceof Error ? error : new Error(String(error)))
         return
@@ -274,16 +270,16 @@ export class FaceTrackerClient {
       this.worker = worker
       worker.onmessage = (event: MessageEvent<FaceWorkerResponse>) => {
         const message = event.data
-        if (message.type === 'progress') {
+        if (message.type === "progress") {
           if (!this.destroyed) onProgress(message)
-        } else if (message.type === 'ready') {
+        } else if (message.type === "ready") {
           if (this.destroyed) {
-            rejectInitialization(new Error('Face tracker was destroyed'))
+            rejectInitialization(new Error("Face tracker was destroyed"))
             return
           }
           this.workerReady = true
           resolveInitialization()
-        } else if (message.type === 'result') {
+        } else if (message.type === "result") {
           const pending = this.pending.get(message.id)
           this.pending.delete(message.id)
           pending?.resolve(message)
@@ -299,7 +295,7 @@ export class FaceTrackerClient {
         }
       }
       worker.onerror = (event) => {
-        const error = new Error(event.message || 'Face tracking worker crashed')
+        const error = new Error(event.message || "Face tracking worker crashed")
         if (!this.workerReady) rejectInitialization(error)
         this.workerFailed = true
         for (const pending of this.pending.values()) pending.reject(error)
@@ -307,7 +303,7 @@ export class FaceTrackerClient {
         this.disposeWorker()
       }
       try {
-        worker.postMessage({ type: 'init' })
+        worker.postMessage({ type: "init" })
       } catch (error) {
         this.disposeWorker()
         rejectInitialization(error instanceof Error ? error : new Error(String(error)))
@@ -324,14 +320,14 @@ export class FaceTrackerClient {
     }
     if (this.destroyed) {
       bitmap.close()
-      throw new Error('Face tracker was destroyed')
+      throw new Error("Face tracker was destroyed")
     }
     const id = this.nextRequestId++
     if (this.worker && this.workerReady && !this.workerFailed) {
       return new Promise<FaceInferenceResult>((resolve, reject) => {
         this.pending.set(id, { resolve, reject })
         try {
-          this.worker!.postMessage({ id, type: 'infer', mode, timestamp, bitmap }, [bitmap])
+          this.worker!.postMessage({ id, type: "infer", mode, timestamp, bitmap }, [bitmap])
         } catch (error) {
           this.pending.delete(id)
           this.workerFailed = true
@@ -357,7 +353,7 @@ export class FaceTrackerClient {
         fallback.destroy()
         if (this.fallback === fallback) this.fallback = undefined
         bitmap.close()
-        throw new Error('Face tracker was destroyed')
+        throw new Error("Face tracker was destroyed")
       }
     }
     return this.fallback.infer(id, mode, bitmap, timestamp)
@@ -372,12 +368,12 @@ export class FaceTrackerClient {
   destroy() {
     if (this.destroyed) return
     this.destroyed = true
-    this.rejectWorkerInitialization?.(new Error('Face tracker was destroyed'))
+    this.rejectWorkerInitialization?.(new Error("Face tracker was destroyed"))
     this.rejectWorkerInitialization = undefined
     this.disposeWorker()
     this.fallback?.destroy()
     this.fallback = undefined
-    for (const pending of this.pending.values()) pending.reject(new Error('Face tracker was destroyed'))
+    for (const pending of this.pending.values()) pending.reject(new Error("Face tracker was destroyed"))
     this.pending.clear()
   }
 }

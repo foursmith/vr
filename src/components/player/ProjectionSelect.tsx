@@ -1,8 +1,8 @@
-import { For, createSignal, onSettled } from 'solid-js'
-import { Portal } from '@solidjs/web'
-import { PRESETS } from '../../features/vr/scene'
-import { LiquidGlass } from '../ui/LiquidGlass'
-import { ProjectionIcon } from '../ui/ProjectionIcon'
+import { Portal } from "@solidjs/web"
+import { createSignal, For, onSettled } from "solid-js"
+import { PRESETS } from "../../features/vr/scene"
+import { LiquidGlass } from "../ui/LiquidGlass"
+import { ProjectionIcon } from "../ui/ProjectionIcon"
 
 export function ProjectionSelect(props: {
   value: number
@@ -48,11 +48,11 @@ export function ProjectionSelect(props: {
     if (!root?.contains(target) && !list?.contains(target)) close()
   }
   onSettled(() => {
-    document.addEventListener('pointerdown', onPointerDown)
-    window.addEventListener('resize', updateMenuPosition)
+    document.addEventListener("pointerdown", onPointerDown)
+    window.addEventListener("resize", updateMenuPosition)
     return () => {
-      document.removeEventListener('pointerdown', onPointerDown)
-      window.removeEventListener('resize', updateMenuPosition)
+      document.removeEventListener("pointerdown", onPointerDown)
+      window.removeEventListener("resize", updateMenuPosition)
     }
   })
 
@@ -63,22 +63,22 @@ export function ProjectionSelect(props: {
         class="flex h-full w-full min-w-0 items-center gap-2 rounded-full border-0 bg-transparent px-3 py-0 text-left text-xs font-medium text-white outline-none"
         aria-label="Projection"
         aria-haspopup="listbox"
-        aria-expanded={open() ? 'true' : 'false'}
+        aria-expanded={open() ? "true" : "false"}
         title={`Projection: ${currentPreset().label}`}
         onClick={toggle}
         onKeyDown={(event) => {
-          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
             event.preventDefault()
             if (!open()) openMenu()
-            else moveFocus(event.key === 'ArrowDown' ? 1 : -1)
-          } else if (event.key === 'Escape') {
+            else moveFocus(event.key === "ArrowDown" ? 1 : -1)
+          } else if (event.key === "Escape") {
             close()
           }
         }}
       >
         <ProjectionIcon preset={currentPreset().component} class="h-4.5 w-4.5 shrink-0 text-white/82" />
         <span class="min-w-0 flex-1 truncate">{currentPreset().label}</span>
-        <span aria-hidden="true" class={`i-ph-caret-down h-3.5 w-3.5 shrink-0 text-white/62 transition-transform ${open() ? 'rotate-180' : ''}`}></span>
+        <span aria-hidden="true" class={`i-ph-caret-down h-3.5 w-3.5 shrink-0 text-white/62 transition-transform ${open() ? "rotate-180" : ""}`}></span>
       </button>
 
       <Portal>
@@ -96,18 +96,18 @@ export function ProjectionSelect(props: {
               aria-label="Projection"
               class="grid h-full w-full gap-1 p-1.5"
               onKeyDown={(event) => {
-                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                if (event.key === "ArrowDown" || event.key === "ArrowUp") {
                   event.preventDefault()
-                  moveFocus(event.key === 'ArrowDown' ? 1 : -1)
-                } else if (event.key === 'Home' || event.key === 'End') {
+                  moveFocus(event.key === "ArrowDown" ? 1 : -1)
+                } else if (event.key === "Home" || event.key === "End") {
                   event.preventDefault()
-                  const next = event.key === 'Home' ? 0 : PRESETS.length - 1
+                  const next = event.key === "Home" ? 0 : PRESETS.length - 1
                   setFocusedIndex(next)
                   list?.querySelector<HTMLButtonElement>(`[data-index="${next}"]`)?.focus()
-                } else if (event.key === 'Escape') {
+                } else if (event.key === "Escape") {
                   event.preventDefault()
                   close()
-                  root?.querySelector<HTMLButtonElement>(':scope > button')?.focus()
+                  root?.querySelector<HTMLButtonElement>(":scope > button")?.focus()
                 }
               }}
             >
@@ -116,12 +116,12 @@ export function ProjectionSelect(props: {
                   <button
                     type="button"
                     role="option"
-                    aria-selected={index() === props.value ? 'true' : 'false'}
+                    aria-selected={index() === props.value ? "true" : "false"}
                     data-index={index()}
                     class={`flex min-h-0 w-full items-center gap-3 rounded-2xl border-0 px-2.5 text-left text-xs font-medium outline-none ${
                       index() === props.value
-                        ? 'bg-white/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.1)]'
-                        : 'bg-transparent text-white/68 hover:!bg-white/7 hover:text-white focus-visible:!bg-white/10 focus-visible:text-white'
+                        ? "bg-white/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.1)]"
+                        : "bg-transparent text-white/68 hover:!bg-white/7 hover:text-white focus-visible:!bg-white/10 focus-visible:text-white"
                     }`}
                     onFocus={() => setFocusedIndex(index())}
                     onClick={() => select(index())}

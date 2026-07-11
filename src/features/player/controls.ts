@@ -1,7 +1,7 @@
-import { createSignal } from 'solid-js'
+import { createSignal } from "solid-js"
 
-export type SliderControl = 'quality' | 'volume' | 'scale'
-type SliderAnchor = { x: number; bottom: number }
+export type SliderControl = "quality" | "volume" | "scale"
+interface SliderAnchor { x: number, bottom: number }
 
 const CONTROL_IDLE_HIDE_DELAY = 1800
 const CURSOR_IDLE_HIDE_DELAY = 1800
@@ -73,7 +73,7 @@ export function createControls(options: {
 
   const isInControlZone = (event: MouseEvent) => {
     const rect = controlsZone.getBoundingClientRect()
-    const playlistActivationWidth = window.matchMedia('(min-width: 640px)').matches
+    const playlistActivationWidth = window.matchMedia("(min-width: 640px)").matches
       ? 312
       : Math.min(252, window.innerWidth)
     const isInPlaylistZone = options.playlistOpen() && event.clientX <= playlistActivationWidth

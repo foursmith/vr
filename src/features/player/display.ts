@@ -1,11 +1,12 @@
-import { createSignal, createStore } from 'solid-js'
-import { DEFAULT_ZOOM, QUALITY_OPTIONS, type CameraView } from '../vr/scene'
+import type { CameraView } from "../vr/scene"
+import { createSignal, createStore } from "solid-js"
+import { DEFAULT_ZOOM, QUALITY_OPTIONS } from "../vr/scene"
 
 type ValueUpdate<T> = T | ((current: T) => T)
-type ViewRef = { current: CameraView }
+interface ViewRef { current: CameraView }
 
 const resolveUpdate = <T>(current: T, update: ValueUpdate<T>) =>
-  typeof update === 'function' ? (update as (current: T) => T)(current) : update
+  typeof update === "function" ? (update as (current: T) => T)(current) : update
 
 export function createDisplay(options: {
   getPlayer: () => HTMLElement
@@ -26,10 +27,10 @@ export function createDisplay(options: {
       draft[key] = resolveUpdate(draft[key], update)
     })
   }
-  const setPresetId = (update: ValueUpdate<number>) => setValue('presetId', update)
-  const setQualityId = (update: ValueUpdate<number>) => setValue('qualityId', update)
-  const setSplitScreen = (update: ValueUpdate<boolean>) => setValue('splitScreen', update)
-  const setFaceAutoCenter = (update: ValueUpdate<boolean>) => setValue('faceAutoCenter', update)
+  const setPresetId = (update: ValueUpdate<number>) => setValue("presetId", update)
+  const setQualityId = (update: ValueUpdate<number>) => setValue("qualityId", update)
+  const setSplitScreen = (update: ValueUpdate<boolean>) => setValue("splitScreen", update)
+  const setFaceAutoCenter = (update: ValueUpdate<boolean>) => setValue("faceAutoCenter", update)
 
   const setZoom = (next: number) => {
     if (!options.resourcesReady()) return
@@ -55,7 +56,7 @@ export function createDisplay(options: {
 
   const changeQualityBy = (amount: number) => {
     if (!options.resourcesReady()) return
-    setQualityId((current) => Math.min(QUALITY_OPTIONS.length - 1, Math.max(0, current + amount)))
+    setQualityId(current => Math.min(QUALITY_OPTIONS.length - 1, Math.max(0, current + amount)))
   }
 
   const toggleFullscreen = async () => {
@@ -67,7 +68,7 @@ export function createDisplay(options: {
         await options.getPlayer().requestFullscreen()
       }
     } catch (error) {
-      console.warn('fullscreen toggle failed', error)
+      console.warn("fullscreen toggle failed", error)
     }
   }
 

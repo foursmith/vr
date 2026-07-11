@@ -1,6 +1,6 @@
 type NavigatorWithUserAgentData = Navigator & {
   userAgentData?: {
-    brands?: Array<{ brand: string; version: string }>
+    brands?: Array<{ brand: string, version: string }>
   }
 }
 
@@ -8,7 +8,7 @@ export const isChromiumBrowser = () => {
   const nav = navigator as NavigatorWithUserAgentData
   const brands = nav.userAgentData?.brands?.map(({ brand }) => brand.toLowerCase()) ?? []
 
-  if (brands.some((brand) => brand.includes('chromium') || brand.includes('google chrome'))) {
+  if (brands.some(brand => brand.includes("chromium") || brand.includes("google chrome"))) {
     return true
   }
 

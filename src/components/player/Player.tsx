@@ -1,29 +1,39 @@
-import { Show, untrack } from 'solid-js'
-import type { PlayerController } from '../../features/player/controller'
-import { PlaylistPanel } from '../playlist/PlaylistPanel'
-import { createMediaDropTip, MediaDropTip } from '../ui/MediaDropTip'
-import { EmptyState } from './EmptyState'
-import { PlayerControls } from './PlayerControls'
-import { PlayerStage } from './PlayerStage'
+import type { PlayerController } from "../../features/player/controller"
+import { Show, untrack } from "solid-js"
+import { PlaylistPanel } from "../playlist/PlaylistPanel"
+import { createMediaDropTip, MediaDropTip } from "../ui/MediaDropTip"
+import { EmptyState } from "./EmptyState"
+import { PlayerControls } from "./PlayerControls"
+import { PlayerStage } from "./PlayerStage"
 
 export function Player(props: { controller: PlayerController }) {
   const controller = untrack(() => props.controller)
   const { frame, playlist } = controller
   const {
-    chooseFolder, cursorVisible, frameDragActive, handleFile, handleFolder,
-    handlePlayerMouseMove, handleVideoDrop, hasVideo, openVideoFile,
-    setFileInput, setFolderInput, setFrameDragActive, setPlayer,
+    chooseFolder,
+    cursorVisible,
+    frameDragActive,
+    handleFile,
+    handleFolder,
+    handlePlayerMouseMove,
+    handleVideoDrop,
+    hasVideo,
+    openVideoFile,
+    setFileInput,
+    setFolderInput,
+    setFrameDragActive,
+    setPlayer,
   } = frame
   const dropTip = createMediaDropTip()
   return (
     <main
       ref={setPlayer}
       id="player"
-      class={`relative h-dvh overflow-hidden bg-black text-white ${cursorVisible() ? '' : 'cursor-none'}`}
+      class={`relative h-dvh overflow-hidden bg-black text-white ${cursorVisible() ? "" : "cursor-none"}`}
       onMouseMove={handlePlayerMouseMove}
       onDragEnter={(event) => {
         event.preventDefault()
-        if (Array.from(event.dataTransfer?.types ?? []).includes('Files')) {
+        if (Array.from(event.dataTransfer?.types ?? []).includes("Files")) {
           dropTip.updatePosition(event)
           setFrameDragActive(true)
         }
@@ -31,12 +41,12 @@ export function Player(props: { controller: PlayerController }) {
       onDragOver={(event) => {
         event.preventDefault()
         dropTip.updatePosition(event)
-        if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+        if (event.dataTransfer) event.dataTransfer.dropEffect = "copy"
       }}
       onDragLeave={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFrameDragActive(false)
       }}
-      onDrop={(event) => void handleVideoDrop(event)}
+      onDrop={event => void handleVideoDrop(event)}
     >
       <input ref={setFileInput} type="file" accept="video/*,.srt,.vtt,.ass,.ssa" multiple class="hidden" onChange={handleFile} />
       <input
@@ -45,7 +55,7 @@ export function Player(props: { controller: PlayerController }) {
         accept="video/*,.srt,.vtt,.ass,.ssa"
         multiple
         class="hidden"
-        {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
+        {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
         onChange={handleFolder}
       />
       <PlayerStage controller={controller} />
