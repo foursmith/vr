@@ -13,7 +13,7 @@ const glassPillClass = 'text-white transition hover:text-white focus-within:text
 export function PlayerControls(props: { controller: PlayerController }) {
   const controller = untrack(() => props.controller)
   const [settingsOpen, setSettingsOpen] = createSignal(false)
-  const { controls, display, playback, playlist } = controller
+  const { controls, display, playback, playlist, subtitles } = controller
   const {
     activeSlider, cancelHideSlider, containsControlsPanel, controlsVisible, scheduleHideControls,
     scheduleHideSlider, setControlsPanel, setControlsZone, showControls, showSlider,
@@ -85,6 +85,14 @@ export function PlayerControls(props: { controller: PlayerController }) {
             </div>
 
             <div class="flex min-w-0 items-center justify-end gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] max-sm:col-span-2 max-sm:row-start-3 max-sm:w-full max-sm:justify-start max-sm:[&::-webkit-scrollbar]:hidden sm:flex-nowrap lg:justify-end">
+              <Show when={subtitles.hasSubtitle()}>
+                <IconButton
+                  label={subtitles.enabled() ? 'Hide subtitles' : 'Show subtitles'}
+                  icon="subtitles"
+                  pressed={subtitles.enabled()}
+                  onClick={subtitles.toggle}
+                />
+              </Show>
               <LiquidGlass
                 class={[glassPillClass, 'h-9 shrink-0 rounded-full']}
                 cornerRadius={999}

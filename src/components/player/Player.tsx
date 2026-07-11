@@ -38,11 +38,11 @@ export function Player(props: { controller: PlayerController }) {
       }}
       onDrop={(event) => void handleVideoDrop(event)}
     >
-      <input ref={setFileInput} type="file" accept="video/*" multiple class="hidden" onChange={handleFile} />
+      <input ref={setFileInput} type="file" accept="video/*,.srt,.vtt,.ass,.ssa" multiple class="hidden" onChange={handleFile} />
       <input
         ref={setFolderInput}
         type="file"
-        accept="video/*"
+        accept="video/*,.srt,.vtt,.ass,.ssa"
         multiple
         class="hidden"
         {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}

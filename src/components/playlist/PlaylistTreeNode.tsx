@@ -43,6 +43,15 @@ export function PlaylistTreeNode(props: {
           class={`h-4 w-4 shrink-0 ${props.node.kind === 'folder' ? 'text-[#80c7ff]' : 'text-white/52 group-hover:text-white/74'}`}
         />
         <span class="min-w-0 flex-1 truncate">{props.node.name}</span>
+        <Show when={props.node.kind === 'video' && props.node.hasSubtitle}>
+          <span
+            aria-label="Subtitle available"
+            title="Subtitle: matched automatically"
+            class="shrink-0 rounded border border-white/14 bg-white/8 px-1 py-0.5 font-mono text-[8px] font-bold leading-none tracking-wide text-white/52"
+          >
+            CC
+          </span>
+        </Show>
         <Show when={props.node.id === props.selectedId}>
           <span aria-label="Playing" class="flex h-3 items-end gap-[2px] text-[#63b8ff]">
             <i class="playlist-eq h-2 w-[2px] rounded-full bg-current"></i>

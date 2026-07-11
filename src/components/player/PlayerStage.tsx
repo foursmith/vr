@@ -1,8 +1,8 @@
-import { untrack } from 'solid-js'
+import { Show, untrack } from 'solid-js'
 import type { PlayerController } from '../../features/player/controller'
 
 export function PlayerStage(props: { controller: PlayerController }) {
-  const { debug, frame, playback } = untrack(() => props.controller)
+  const { debug, frame, playback, subtitles } = untrack(() => props.controller)
   const { setVideo, setVrMount, setVrRoot } = frame
   return (
     <>
@@ -34,6 +34,17 @@ export function PlayerStage(props: { controller: PlayerController }) {
           ></div>
         </div>
       </section>
+
+      <Show when={subtitles.text()}>
+        <div
+          class="pointer-events-none absolute inset-x-0 bottom-[14%] z-15 flex justify-center px-[6vw] text-center"
+          aria-live="off"
+        >
+          <p class="subtitle-cue m-0 max-w-[min(86vw,72rem)] whitespace-pre-line rounded-lg bg-black/64 px-3.5 py-1.5 text-[clamp(1rem,2.2vw,1.75rem)] font-semibold leading-[1.38] text-white shadow-[0_3px_18px_rgba(0,0,0,0.58)] [text-shadow:0_1px_3px_#000] backdrop-blur-sm">
+            {subtitles.text()}
+          </p>
+        </div>
+      </Show>
 
       <video
         ref={setVideo}
