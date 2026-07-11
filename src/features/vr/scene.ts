@@ -1,50 +1,33 @@
-import {
-  BackSide,
-  BufferAttribute,
-  Color,
-  FrontSide,
-  Group,
-  MathUtils,
-  Mesh,
-  MeshBasicMaterial,
-  Object3D,
-  PerspectiveCamera,
-  PlaneGeometry,
-  Scene,
-  SphereGeometry,
-  SRGBColorSpace,
-  VideoTexture,
-  WebGLRenderer,
-  type BufferGeometry,
-  type Side,
-  type Texture,
-} from 'three'
+import { Color, MathUtils, PerspectiveCamera, Scene, SRGBColorSpace, VideoTexture, WebGLRenderer } from 'three'
 import { getFaceTrackerClient, preloadFaceAutoCenterResources } from '../face-tracking/client'
-import type { FaceInferenceMode, FaceInferenceResult, NormalizedFace } from '../face-tracking/protocol'
+import type { FaceInferenceMode, FaceInferenceResult } from '../face-tracking/protocol'
+import {
+  DEFAULT_FOV,
+  DEFAULT_ZOOM,
+  PRESETS,
+  QUALITY_OPTIONS,
+  type CameraView,
+  type ProjectionPreset,
+  type ProjectionQuality,
+} from './config'
+import { createProjectionGroup, disposeObject } from './projection'
+import {
+  applyDetections,
+  getProjectionYawLimit,
+  mapSampleFaceToPanorama,
+  setPanoramaTarget,
+  setViewportTarget,
+  type DetectionMode,
+  type FaceAutoCenterState,
+  type PanoramaSample,
+} from './face-auto-center'
+import { drawPanoramaInferenceSample, drawSampleBoxes, getViewportInferenceSampleSize } from './face-sampling'
 
 export { preloadFaceAutoCenterResources } from '../face-tracking/client'
+export { DEFAULT_FOV, DEFAULT_ZOOM, PRESETS, QUALITY_OPTIONS } from './config'
+export type { CameraView, ProjectionPreset, ProjectionQuality } from './config'
 
 export type MutableRefObject<T> = { current: T }
-
-export const PRESETS = [
-  { label: 'SBS 180 EQR', component: 'sbs_180_eqr' },
-  { label: 'SBS 180 FE', component: 'sbs_180_fe' },
-  { label: 'TB 360 EQR', component: 'tb_360_eqr' },
-  { label: 'Flat 2D', component: 'flat_2d' },
-  { label: 'Mono 180 EQR', component: 'm_180_eqr' },
-  { label: 'Mono 360 EQR', component: 'mono_360_eqr' },
-  { label: 'Mono 180 FE', component: 'm_180_fe' },
-] as const
-
-export const QUALITY_OPTIONS = [
-  { label: 'Performance', component: 'performance', pixelRatio: 1 },
-  { label: 'Balanced', component: 'balanced', pixelRatio: 1.5 },
-  { label: 'Sharp', component: 'sharp', pixelRatio: 2 },
-  { label: 'Ultra', component: 'ultra', pixelRatio: 2.5 },
-] as const
-
-export const DEFAULT_FOV = 80
-export const DEFAULT_ZOOM = 1
 
 const MIN_ZOOM = 0.8
 const MAX_ZOOM = 2.4
@@ -53,10 +36,7 @@ const VIEWPORT_TARGET_X = 0.5
 const VIEWPORT_TARGET_Y = 1 / 3
 const VIEWPORT_DEAD_ZONE_X = 0.04
 const VIEWPORT_DEAD_ZONE_Y = 0.04
-const MIN_FACE_SCORE = 0.5
-const TARGET_SMOOTHING_TIME_MS = 480
 const PANORAMA_DIRECTION_ANCHOR_WEIGHT = 1.35
-const PANORAMA_SEARCH_DEGREES = 140
 const FACE_TRACK_ACTIVE_INTERVAL_MS = 120
 const FACE_TRACK_STABLE_INTERVAL_MS = 240
 const FACE_RECOVERY_INTERVAL_MS = 80
@@ -65,7 +45,6 @@ const FACE_INFERENCE_MAX_PERIOD_MS = 360
 const FACE_TARGET_GRACE_MS = 900
 const VIEWPORT_SAMPLE_WIDTH = 320
 const PANORAMA_SAMPLE_WIDTH = 320
-const PANORAMA_SAMPLE_MAX_HEIGHT = 384
 const MAX_SPLIT_SCREEN_PANELS = 3
 const MIN_SPLIT_SCREEN_ASPECT = 9 / 16
 const FACE_CENTER_RESPONSE = 0.65
@@ -73,48 +52,10 @@ const FACE_CENTER_MAX_SPEED = 5.5
 const FACE_CENTER_VELOCITY_SMOOTHING_MS = 260
 const FACE_CENTER_STOP_SPEED = 0.025
 
-type ProjectionPreset = (typeof PRESETS)[number]['component']
-type ProjectionQuality = (typeof QUALITY_OPTIONS)[number]['component']
-type SourceCrop = { x: number; y: number; width: number; height: number }
-type FaceBox = NormalizedFace & { lastSeenAt: number }
-type DetectionMode = 'viewport' | 'panorama'
-type FaceTarget = { x: number; y: number; yaw?: number; pitch?: number; mode: DetectionMode; lastSeenAt: number }
-type FaceSelectionAnchor = { x: number; y: number; weight: number; wrapX: boolean }
-type PanoramaSample = { center: { x: number; y: number }; startX: number; widthX: number; wraps: boolean }
 type RenderViewport = { x: number; y: number; width: number; height: number }
-
-export type CameraView = {
-  yaw: number
-  pitch: number
-  zoom: number
-  pausedUntil: number
-}
 
 type OverlayState = {
   hint?: { side: 'left' | 'right'; top: number; text: string }
-}
-
-type FaceAutoCenterState = {
-  faces: FaceBox[]
-  selectedFace?: FaceBox & { mode: DetectionMode }
-  detectionMode: DetectionMode
-  nextDetectionAt: number
-  lastDetectionAt: number
-  recoveryMode?: DetectionMode
-  consecutiveMisses: number
-  isMoving: boolean
-  offCenterSince?: number
-  target?: FaceTarget
-  yawVelocity: number
-  pitchVelocity: number
-  lastErrorAt: number
-}
-
-const QUALITY_SEGMENTS: Record<ProjectionQuality, { eqrHalfWidth: number; eqrFullWidth: number; eqrHeight: number; fisheye: number }> = {
-  performance: { eqrHalfWidth: 48, eqrFullWidth: 64, eqrHeight: 32, fisheye: 48 },
-  balanced: { eqrHalfWidth: 72, eqrFullWidth: 96, eqrHeight: 48, fisheye: 72 },
-  sharp: { eqrHalfWidth: 96, eqrFullWidth: 128, eqrHeight: 64, fisheye: 96 },
-  ultra: { eqrHalfWidth: 128, eqrFullWidth: 192, eqrHeight: 96, fisheye: 128 },
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
@@ -143,416 +84,6 @@ const getRenderViewports = (width: number, height: number, splitScreen: boolean)
     width: panelWidth,
     height,
   }))
-}
-
-const getUv = (geometry: BufferGeometry) => geometry.attributes.uv as BufferAttribute
-
-const setUvCrop = (geometry: BufferGeometry, repeat: { x: number; y: number }, offset: { x: number; y: number }) => {
-  const uv = getUv(geometry)
-  for (let i = 0; i < uv.count; i += 1) {
-    uv.setXY(i, uv.getX(i) * repeat.x + offset.x, uv.getY(i) * repeat.y + offset.y)
-  }
-  uv.needsUpdate = true
-}
-
-const createFisheyeGeometry = (stereo: boolean, segments: number) => {
-  const geometry = new SphereGeometry(100, segments, segments)
-  const fov = Math.PI
-
-  geometry.rotateX(-Math.PI / 2)
-  geometry.rotateY(Math.PI)
-
-  const uv = getUv(geometry)
-  for (let i = 0; i < uv.count; i += 1) {
-    const theta = 2 * Math.PI * uv.getX(i)
-    const phi = Math.PI * uv.getY(i)
-    const radius = phi / fov
-    let u = 0.5 + radius * Math.cos(theta)
-    const v = 0.5 + radius * Math.sin(theta)
-
-    if (stereo) u *= 0.5
-    uv.setXY(i, u, v)
-  }
-  uv.needsUpdate = true
-  return geometry
-}
-
-const createVideoMaterial = (texture: Texture, side: Side) =>
-  new MeshBasicMaterial({
-    map: texture,
-    side,
-    toneMapped: false,
-  })
-
-const disposeObject = (object: Object3D) => {
-  object.traverse((child) => {
-    const mesh = child as Mesh
-    mesh.geometry?.dispose()
-    const material = mesh.material
-    if (Array.isArray(material)) {
-      material.forEach((item) => item.dispose())
-    } else {
-      material?.dispose()
-    }
-  })
-}
-
-const createMask = () => {
-  const mask = new Mesh(
-    new SphereGeometry(99, 32, 8, 0, Math.PI * 2, 0, Math.PI / 2),
-    new MeshBasicMaterial({ color: '#14120f', side: BackSide }),
-  )
-  mask.rotation.x = Math.PI / 2
-  return mask
-}
-
-const createProjectionGroup = (video: HTMLVideoElement, texture: VideoTexture, preset: ProjectionPreset, quality: ProjectionQuality) => {
-  const group = new Group()
-  const segments = QUALITY_SEGMENTS[quality]
-
-  switch (preset) {
-    case 'sbs_180_eqr': {
-      const geometry = new SphereGeometry(100, segments.eqrHalfWidth, segments.eqrHeight, Math.PI, Math.PI, 0, Math.PI)
-      setUvCrop(geometry, { x: -0.5, y: 1 }, { x: 0.5, y: 0 })
-      group.add(new Mesh(geometry, createVideoMaterial(texture, BackSide)))
-      break
-    }
-    case 'sbs_180_fe':
-      group.add(new Mesh(createFisheyeGeometry(true, segments.fisheye), createVideoMaterial(texture, BackSide)))
-      group.add(createMask())
-      break
-    case 'tb_360_eqr': {
-      const geometry = new SphereGeometry(100, segments.eqrFullWidth, segments.eqrHeight, 0, Math.PI * 2, 0, Math.PI)
-      setUvCrop(geometry, { x: 1, y: 0.5 }, { x: 0, y: 0.5 })
-      const mesh = new Mesh(geometry, createVideoMaterial(texture, BackSide))
-      mesh.scale.set(-1, 1, 1)
-      mesh.rotation.y = -Math.PI / 2
-      group.add(mesh)
-      break
-    }
-    case 'flat_2d': {
-      const height = 60
-      const aspect = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 1.77
-      group.add(
-        new Mesh(
-          new SphereGeometry(120, 32, 16),
-          new MeshBasicMaterial({ color: '#14120f', side: BackSide }),
-        ),
-      )
-      const screen = new Mesh(new PlaneGeometry(height * aspect, height), createVideoMaterial(texture, FrontSide))
-      screen.position.set(0, 10, -65)
-      group.add(screen)
-      break
-    }
-    case 'm_180_eqr': {
-      const mesh = new Mesh(
-        new SphereGeometry(100, segments.eqrHalfWidth, segments.eqrHeight, Math.PI, Math.PI, 0, Math.PI),
-        createVideoMaterial(texture, BackSide),
-      )
-      mesh.scale.set(-1, 1, 1)
-      group.add(mesh)
-      break
-    }
-    case 'mono_360_eqr': {
-      const mesh = new Mesh(
-        new SphereGeometry(100, segments.eqrFullWidth, segments.eqrHeight, 0, Math.PI * 2, 0, Math.PI),
-        createVideoMaterial(texture, BackSide),
-      )
-      mesh.scale.set(-1, 1, 1)
-      mesh.rotation.y = -Math.PI / 2
-      group.add(mesh)
-      break
-    }
-    case 'm_180_fe':
-      group.add(new Mesh(createFisheyeGeometry(false, segments.fisheye), createVideoMaterial(texture, BackSide)))
-      group.add(createMask())
-      break
-  }
-
-  return group
-}
-
-const isHalfProjection = (preset: ProjectionPreset) =>
-  preset === 'sbs_180_eqr' || preset === 'sbs_180_fe' || preset === 'm_180_eqr' || preset === 'm_180_fe'
-
-const getProjectionYawSpan = (preset: ProjectionPreset) => (isHalfProjection(preset) ? 180 : 360)
-const getProjectionYawLimit = (preset: ProjectionPreset) => (isHalfProjection(preset) ? 86 : undefined)
-
-const getSourceCrop = (video: HTMLVideoElement, preset: ProjectionPreset): SourceCrop => {
-  switch (preset) {
-    case 'sbs_180_eqr':
-    case 'sbs_180_fe':
-      return { x: 0, y: 0, width: video.videoWidth / 2, height: video.videoHeight }
-    case 'tb_360_eqr':
-      return { x: 0, y: 0, width: video.videoWidth, height: video.videoHeight / 2 }
-    default:
-      return { x: 0, y: 0, width: video.videoWidth, height: video.videoHeight }
-  }
-}
-
-const getPanoramaCenterForView = (
-  view: CameraView,
-  projectionPreset: ProjectionPreset,
-  camera: PerspectiveCamera,
-) => {
-  const yawSpan = getProjectionYawSpan(projectionPreset)
-  const yawLimit = getProjectionYawLimit(projectionPreset)
-  const yaw = yawLimit === undefined ? shortestAngle(view.yaw) : clamp(shortestAngle(view.yaw), -yawLimit, yawLimit)
-  const pitch = clamp(view.pitch, -75, 75)
-  const targetYOffset = getViewportPitchOffset(camera, VIEWPORT_TARGET_Y)
-
-  return {
-    x: yawSpan === 360 ? ((0.5 - yaw / yawSpan) % 1 + 1) % 1 : clamp(VIEWPORT_TARGET_X - yaw / yawSpan, 0, 1),
-    y: clamp(0.5 - (pitch + targetYOffset) / 180, 0, 1),
-  }
-}
-
-const drawPanoramaSample = (
-  context: CanvasRenderingContext2D,
-  video: HTMLVideoElement,
-  crop: SourceCrop,
-  width: number,
-  height: number,
-  view: CameraView,
-  preset: ProjectionPreset,
-  camera: PerspectiveCamera,
-): PanoramaSample => {
-  const center = getPanoramaCenterForView(view, preset, camera)
-  const wraps = getProjectionYawLimit(preset) === undefined
-  const yawSpan = getProjectionYawSpan(preset)
-  const widthX = Math.min(1, PANORAMA_SEARCH_DEGREES / yawSpan)
-  const startX = wraps ? ((center.x - widthX / 2) % 1 + 1) % 1 : clamp(center.x - widthX / 2, 0, 1 - widthX)
-  const drawSlice = (sourceStartX: number, sourceWidthX: number, destStartX: number, destWidthX: number) => {
-    if (sourceWidthX <= 0 || destWidthX <= 0) return
-    context.drawImage(
-      video,
-      crop.x + sourceStartX * crop.width,
-      crop.y,
-      sourceWidthX * crop.width,
-      crop.height,
-      destStartX * width,
-      0,
-      destWidthX * width,
-      height,
-    )
-  }
-
-  if (!wraps || startX + widthX <= 1) {
-    drawSlice(startX, widthX, 0, 1)
-  } else {
-    const firstWidthX = 1 - startX
-    const firstDestWidthX = firstWidthX / widthX
-    drawSlice(startX, firstWidthX, 0, firstDestWidthX)
-    drawSlice(0, widthX - firstWidthX, firstDestWidthX, 1 - firstDestWidthX)
-  }
-
-  return { center, startX, widthX, wraps }
-}
-
-const mapSampleFaceToPanorama = (face: FaceBox, sample: PanoramaSample): FaceBox => {
-  const center = getFaceCenter(face)
-  const rawCenterX = sample.startX + center.x * sample.widthX
-  const panoramaCenterX = sample.wraps ? ((rawCenterX % 1) + 1) % 1 : clamp(rawCenterX, 0, 1)
-  const width = face.width * sample.widthX
-  return {
-    ...face,
-    // Keep the center normalized at the 360-degree seam. Wrapping the box's
-    // left edge would put its computed center above 1 and destabilize yaw.
-    x: sample.wraps ? panoramaCenterX - width / 2 : clamp(panoramaCenterX - width / 2, 0, 1 - width),
-    width,
-  }
-}
-
-const getFaceCenter = (face: FaceBox) => ({
-  x: face.x + face.width / 2,
-  y: face.y + face.height / 2,
-})
-
-const getFaceDistance = (face: FaceBox, previous: FaceBox, wrapX: boolean) => {
-  const currentCenter = getFaceCenter(face)
-  const previousCenter = getFaceCenter(previous)
-  const rawX = Math.abs(currentCenter.x - previousCenter.x)
-  const x = wrapX ? Math.min(rawX, 1 - rawX) : rawX
-  const y = Math.abs(currentCenter.y - previousCenter.y)
-  return Math.hypot(x, y)
-}
-
-const getAnchorDistance = (face: FaceBox, anchor: FaceSelectionAnchor) => {
-  const center = getFaceCenter(face)
-  const rawX = Math.abs(center.x - anchor.x)
-  const x = anchor.wrapX ? Math.min(rawX, 1 - rawX) : rawX
-  const y = Math.abs(center.y - anchor.y)
-  return Math.hypot(x, y)
-}
-
-const selectStableFace = (
-  state: FaceAutoCenterState,
-  faces: FaceBox[],
-  mode: DetectionMode,
-  time: number,
-  anchor?: FaceSelectionAnchor,
-) => {
-  const candidates = faces.filter((face) => face.score >= MIN_FACE_SCORE)
-  if (!candidates.length) return undefined
-
-  const previous = state.selectedFace && time - state.selectedFace.lastSeenAt < 2400 ? state.selectedFace : undefined
-  const wrapX = mode === 'panorama'
-  return candidates
-    .map((face) => {
-      const area = face.width * face.height
-      const base = face.score * 1.2 + area * 2.4
-      const continuity =
-        previous && previous.mode === mode ? Math.max(0, 1 - getFaceDistance(face, previous, wrapX) / 0.32) * 1.6 : 0
-      const directionContinuity = anchor ? Math.max(0, 1 - getAnchorDistance(face, anchor) / 0.42) * anchor.weight : 0
-      return { face, score: base + continuity + directionContinuity }
-    })
-    .sort((a, b) => b.score - a.score)[0]?.face
-}
-
-const applyDetections = (
-  state: FaceAutoCenterState,
-  faces: NormalizedFace[],
-  time: number,
-  mode: DetectionMode,
-  anchor?: FaceSelectionAnchor,
-  transformFace: (face: FaceBox) => FaceBox = (face) => face,
-) => {
-  state.lastDetectionAt = time
-  state.faces = faces.map((face) => ({ ...face, lastSeenAt: time }))
-
-  const selectedFace = selectStableFace(state, state.faces.map(transformFace), mode, time, anchor)
-  state.selectedFace = selectedFace ? { ...selectedFace, mode } : state.selectedFace
-  return selectedFace
-}
-
-const smoothTarget = (state: FaceAutoCenterState, nextTarget: FaceTarget) => {
-  const previous = state.target
-  if (!previous || previous.mode !== nextTarget.mode || nextTarget.lastSeenAt - previous.lastSeenAt > 1800) {
-    state.target = nextTarget
-    return
-  }
-
-  const elapsed = Math.max(0, nextTarget.lastSeenAt - previous.lastSeenAt)
-  const smoothing = 1 - Math.exp(-elapsed / TARGET_SMOOTHING_TIME_MS)
-  state.target = {
-    x: previous.x + (nextTarget.x - previous.x) * smoothing,
-    y: previous.y + (nextTarget.y - previous.y) * smoothing,
-    yaw:
-      previous.yaw === undefined || nextTarget.yaw === undefined
-        ? nextTarget.yaw
-        : previous.yaw + shortestAngle(nextTarget.yaw - previous.yaw) * smoothing,
-    pitch:
-      previous.pitch === undefined || nextTarget.pitch === undefined
-        ? nextTarget.pitch
-        : previous.pitch + (nextTarget.pitch - previous.pitch) * smoothing,
-    mode: nextTarget.mode,
-    lastSeenAt: nextTarget.lastSeenAt,
-  }
-}
-
-const setViewportTarget = (state: FaceAutoCenterState, face: FaceBox | undefined, time: number, center = face ? getFaceCenter(face) : undefined) => {
-  if (!face || !center) return false
-  smoothTarget(state, {
-    x: center.x - VIEWPORT_TARGET_X,
-    y: center.y - VIEWPORT_TARGET_Y,
-    mode: 'viewport',
-    lastSeenAt: time,
-  })
-  return true
-}
-
-const setPanoramaTarget = (
-  state: FaceAutoCenterState,
-  face: FaceBox | undefined,
-  time: number,
-  projectionPreset: ProjectionPreset,
-  camera: PerspectiveCamera,
-) => {
-  if (!face) return false
-
-  const center = getFaceCenter(face)
-  const facePitch = (0.5 - center.y) * 180
-  const targetYOffset = getViewportPitchOffset(camera, VIEWPORT_TARGET_Y)
-  const yawSpan = getProjectionYawSpan(projectionPreset)
-  const yawLimit = getProjectionYawLimit(projectionPreset)
-  const yaw = (VIEWPORT_TARGET_X - center.x) * yawSpan
-  smoothTarget(state, {
-    x: center.x - VIEWPORT_TARGET_X,
-    y: center.y - VIEWPORT_TARGET_Y,
-    yaw: yawLimit === undefined ? yaw : clamp(yaw, -yawLimit, yawLimit),
-    pitch: clamp(facePitch - targetYOffset, -75, 75),
-    mode: 'panorama',
-    lastSeenAt: time,
-  })
-  return true
-}
-
-const drawSampleBoxes = (state: FaceAutoCenterState, canvas: HTMLCanvasElement, context: CanvasRenderingContext2D, time: number, label: string) => {
-  const freshFaces = state.faces.filter((face) => time - face.lastSeenAt < 1200)
-  state.faces = freshFaces
-
-  context.save()
-  context.fillStyle = 'rgba(0, 0, 0, 0.58)'
-  context.fillRect(0, 0, Math.min(110, canvas.width), 22)
-  context.fillStyle = '#fff'
-  context.font = 'bold 12px monospace'
-  context.fillText(label, 8, 15)
-  context.restore()
-
-  freshFaces.forEach((face) => {
-    const x = face.x * canvas.width
-    const y = face.y * canvas.height
-    const width = face.width * canvas.width
-    const height = face.height * canvas.height
-
-    context.save()
-    context.strokeStyle = '#38ff8b'
-    context.lineWidth = Math.max(2, canvas.width / 420)
-    context.shadowColor = 'rgba(56, 255, 139, 0.6)'
-    context.shadowBlur = canvas.width / 80
-    context.strokeRect(x, y, width, height)
-    context.shadowBlur = 0
-    context.fillStyle = 'rgba(10, 132, 255, 0.9)'
-    context.fillRect(x, Math.max(0, y - 18), 42, 18)
-    context.fillStyle = '#fff'
-    context.font = 'bold 12px monospace'
-    context.fillText(`${Math.round(face.score * 100)}%`, x + 5, Math.max(12, y - 5))
-    context.restore()
-  })
-}
-
-const getViewportInferenceSampleSize = (sourceWidth: number, sourceHeight: number, sampleWidth: number) => {
-  if (!sourceWidth || !sourceHeight) return undefined
-  const aspect = sourceWidth / sourceHeight
-  const width = Math.max(160, Math.round(sampleWidth))
-  const height = Math.max(120, Math.round(width / aspect))
-  return { width, height }
-}
-
-const drawPanoramaInferenceSample = (
-  sampleCanvas: HTMLCanvasElement,
-  context: CanvasRenderingContext2D,
-  video: HTMLVideoElement,
-  sampleWidth: number,
-  preset: ProjectionPreset,
-  view: CameraView,
-  camera: PerspectiveCamera,
-): PanoramaSample | undefined => {
-  if (!video.videoWidth || !video.videoHeight || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return undefined
-
-  const crop = getSourceCrop(video, preset)
-  const sampleYawSpan = Math.min(getProjectionYawSpan(preset), PANORAMA_SEARCH_DEGREES)
-  const aspect = (crop.width * (sampleYawSpan / getProjectionYawSpan(preset))) / crop.height
-  let width = Math.max(160, Math.round(sampleWidth))
-  let height = Math.max(120, Math.round(width / Math.max(aspect, 0.25)))
-  if (height > PANORAMA_SAMPLE_MAX_HEIGHT) {
-    const scale = PANORAMA_SAMPLE_MAX_HEIGHT / height
-    width = Math.max(1, Math.round(width * scale))
-    height = PANORAMA_SAMPLE_MAX_HEIGHT
-  }
-  resizeCanvas(sampleCanvas, width, height)
-
-  return drawPanoramaSample(context, video, crop, width, height, view, preset, camera)
 }
 
 export type VrSceneOptions = {

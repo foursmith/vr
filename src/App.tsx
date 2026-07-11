@@ -6,16 +6,7 @@ import { isChromiumBrowser } from './lib/browser'
 function PlayerApp() {
   const player = createPlayerController()
 
-  return (
-    <Player
-      controls={player.controls}
-      debug={player.debug}
-      display={player.display}
-      frame={player.frame}
-      playback={player.playback}
-      playlist={player.playlist}
-    />
-  )
+  return <Player controller={player} />
 }
 
 export function App() {

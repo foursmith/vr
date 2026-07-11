@@ -7,14 +7,8 @@ import { VerticalGlassRange } from '../ui/VerticalGlassRange'
 
 const glassPillClass = 'text-white transition hover:text-white focus-within:text-white'
 
-export function ControlSliderPopover(props: {
-  controls: PlayerController['controls']
-  display: PlayerController['display']
-  playback: PlayerController['playback']
-}) {
-  const controls = untrack(() => props.controls)
-  const display = untrack(() => props.display)
-  const playback = untrack(() => props.playback)
+export function ControlSliderPopover(props: { controller: PlayerController }) {
+  const { controls, display, playback } = untrack(() => props.controller)
   const { activeSlider, cancelHideSlider, scheduleHideSlider, sliderAnchor } = controls
   const { resetView, setQualityId, setZoom, state: displayState, zoom } = display
   const { setVolumeLevel, volume } = playback

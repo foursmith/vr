@@ -9,18 +9,9 @@ import { PlaybackTimeline } from './PlaybackTimeline'
 import { ProjectionSelect } from './ProjectionSelect'
 
 const glassPillClass = 'text-white transition hover:text-white focus-within:text-white'
-export function PlayerControls(props: {
-  controls: PlayerController['controls']
-  debug: PlayerController['debug']
-  display: PlayerController['display']
-  playback: PlayerController['playback']
-  playlist: PlayerController['playlist']
-}) {
-  const controls = untrack(() => props.controls)
-  const debug = untrack(() => props.debug)
-  const display = untrack(() => props.display)
-  const playback = untrack(() => props.playback)
-  const playlist = untrack(() => props.playlist)
+export function PlayerControls(props: { controller: PlayerController }) {
+  const controller = untrack(() => props.controller)
+  const { controls, debug, display, playback, playlist } = controller
   const {
     activeSlider, cancelHideSlider, containsControlsPanel, controlsVisible, scheduleHideControls,
     scheduleHideSlider, setControlsPanel, setControlsZone, showControls, showSlider,
@@ -52,7 +43,7 @@ export function PlayerControls(props: {
             if (loadingState.resourcesReady) scheduleHideControls()
           }}
         >
-          <ControlSliderPopover controls={controls} display={display} playback={playback} />
+          <ControlSliderPopover controller={controller} />
           <div class="grid gap-3 max-sm:grid-cols-[minmax(0,1fr)_auto] max-sm:items-center max-sm:gap-x-3 max-sm:gap-y-2 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
             <div class="flex min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] max-sm:col-start-1 max-sm:row-start-1 max-sm:[&::-webkit-scrollbar]:hidden">
               <LiquidGlass

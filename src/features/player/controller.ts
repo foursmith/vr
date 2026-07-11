@@ -9,6 +9,8 @@ import {
   type VrSceneController,
 } from '../vr/scene'
 import { releaseFaceAutoCenterResources } from '../face-tracking/client'
+import { createControls } from './controls'
+import { createDisplay } from './display'
 import {
   buildPlaylistTree,
   firstVideoNode,
@@ -18,17 +20,12 @@ import {
   type PlaylistStateNode,
 } from '../playlist/model'
 
-type SliderControl = 'quality' | 'volume' | 'scale'
-type SliderAnchor = { x: number; bottom: number }
 type ValueUpdate<T> = T | ((current: T) => T)
 type PlaylistImportPlayback = 'always' | 'when-empty' | 'never'
 
 const resolveUpdate = <T>(current: T, update: ValueUpdate<T>) =>
   typeof update === 'function' ? (update as (current: T) => T)(current) : update
 
-const CONTROL_IDLE_HIDE_DELAY = 1800
-const CURSOR_IDLE_HIDE_DELAY = 1800
-const INITIAL_CONTROL_HIDE_DELAY = 3600
 const VIDEO_SWITCH_DEBOUNCE_MS = 180
 const VIDEO_RELEASE_SETTLE_MS = 160
 const VIDEO_EMPTY_TIMEOUT_MS = 1200
@@ -38,8 +35,6 @@ export function createPlayerController() {
   let fileInput!: HTMLInputElement
   let folderInput!: HTMLInputElement
   let video!: HTMLVideoElement
-  let controlsZone!: HTMLElement
-  let controlsPanel!: HTMLDivElement
   let vrRoot!: HTMLElement
   let vrMount!: HTMLDivElement
   let sampleCanvas!: HTMLCanvasElement
@@ -49,10 +44,6 @@ export function createPlayerController() {
   const viewRef = { current: { yaw: 0, pitch: 0, zoom: DEFAULT_ZOOM, pausedUntil: 0 } satisfies CameraView }
   let scene: VrSceneController | undefined
   let fileUrl: string | undefined
-  let hideControlsTimer: number | undefined
-  let hideCursorTimer: number | undefined
-  let hideSliderTimer: number | undefined
-  let pointerInControlZone = false
   let lastAudibleVolume = 1
   let videoLoadGeneration = 0
   let videoSwitchTimer: number | undefined
@@ -101,36 +92,7 @@ export function createPlayerController() {
   const [currentTime, setCurrentTime] = createSignal(0)
   const [duration, setDuration] = createSignal(0)
   const [volume, setVolume] = createSignal(1)
-  const [displayState, setDisplayState] = createStore({
-    presetId: 0,
-    qualityId: 2,
-    videoOnly: false,
-    splitScreen: true,
-    faceAutoCenter: true,
-  })
-  const presetId = () => displayState.presetId
-  const qualityId = () => displayState.qualityId
-  const [zoom, setZoomSignal] = createSignal(DEFAULT_ZOOM)
-  const [activeSlider, setActiveSlider] = createSignal<SliderControl>()
-  const [sliderAnchor, setSliderAnchor] = createSignal<SliderAnchor>({ x: 0, bottom: 72 })
-  const videoOnly = () => displayState.videoOnly
-  const splitScreen = () => displayState.splitScreen
-  const faceAutoCenter = () => displayState.faceAutoCenter
-  const setDisplayValue = <K extends keyof typeof displayState>(key: K, update: ValueUpdate<(typeof displayState)[K]>) => {
-    setDisplayState((draft) => {
-      draft[key] = resolveUpdate(draft[key], update)
-    })
-  }
-  const setPresetId = (update: ValueUpdate<number>) => setDisplayValue('presetId', update)
-  const setQualityId = (update: ValueUpdate<number>) => setDisplayValue('qualityId', update)
-  const setVideoOnly = (update: ValueUpdate<boolean>) => setDisplayValue('videoOnly', update)
-  const setSplitScreen = (update: ValueUpdate<boolean>) => setDisplayValue('splitScreen', update)
-  const setFaceAutoCenter = (update: ValueUpdate<boolean>) => setDisplayValue('faceAutoCenter', update)
   const [debugPanelOpen, setDebugPanelOpen] = createSignal(false)
-  const [controlsVisible, setControlsVisible] = createSignal(true)
-  const playlistVisible = createMemo(() => playlistOpen() && controlsVisible())
-  const [cursorVisible, setCursorVisible] = createSignal(true)
-  const [fullscreen, setFullscreen] = createSignal(false)
   const [loadingState, setLoadingState] = createStore({
     resourcesReady: false,
     progress: 0,
@@ -153,6 +115,25 @@ export function createPlayerController() {
   const setLoadingError = (error: string | undefined) => setLoadingState((draft) => {
     draft.error = error
   })
+  const displayModule = createDisplay({
+    getPlayer: () => player,
+    resourcesReady,
+    viewRef,
+  })
+  const {
+    changeQualityBy, faceAutoCenter, presetId, qualityId, splitScreen, syncFullscreen,
+    syncZoom, videoOnly,
+  } = displayModule
+  const {
+    resetView, setPresetId, setVideoOnly, setZoom, toggleFullscreen, zoom,
+  } = displayModule.controller
+  const controlsModule = createControls({ hasVideo, playlistOpen, resourcesReady })
+  const {
+    activeSlider, cancelHideSlider, controlsVisible, cursorVisible, dispose: disposeControls,
+    handlePlayerMouseMove, scheduleHideControls, scheduleHideSlider, setActiveSlider,
+    showControls, showSlider, sliderAnchor, startInitialIdleCountdown,
+  } = controlsModule
+  const playlistVisible = createMemo(() => playlistOpen() && controlsVisible())
   let loadingPromise: Promise<void> | undefined
   let appDisposed = false
 
@@ -187,110 +168,6 @@ export function createPlayerController() {
     video.classList.toggle('opacity-[0.01]', !videoOnlyMode)
     video.classList.toggle('pointer-events-none', !videoOnlyMode)
     video.dataset.displayMode = videoOnlyMode ? 'video-only' : 'vr-translation-layer'
-  }
-
-  const cancelHideControls = () => {
-    if (hideControlsTimer) {
-      window.clearTimeout(hideControlsTimer)
-      hideControlsTimer = undefined
-    }
-  }
-
-  const showControls = () => {
-    cancelHideControls()
-    setControlsVisible(true)
-  }
-
-  const scheduleHideControls = (delay = CONTROL_IDLE_HIDE_DELAY) => {
-    if (!hasVideo()) {
-      setControlsVisible(true)
-      return
-    }
-    cancelHideControls()
-    hideControlsTimer = window.setTimeout(() => {
-      setControlsVisible(false)
-      setActiveSlider(undefined)
-      hideControlsTimer = undefined
-    }, delay)
-  }
-
-  const cancelHideCursor = () => {
-    if (hideCursorTimer) {
-      window.clearTimeout(hideCursorTimer)
-      hideCursorTimer = undefined
-    }
-  }
-
-  const scheduleHideCursor = (delay = CURSOR_IDLE_HIDE_DELAY) => {
-    if (!hasVideo()) {
-      setCursorVisible(true)
-      return
-    }
-    cancelHideCursor()
-    hideCursorTimer = window.setTimeout(() => {
-      setCursorVisible(false)
-      hideCursorTimer = undefined
-    }, delay)
-  }
-
-  const showCursor = () => {
-    cancelHideCursor()
-    setCursorVisible(true)
-  }
-
-  const enterControlZone = () => {
-    if (!resourcesReady()) return
-    pointerInControlZone = true
-    showControls()
-    showCursor()
-  }
-
-  const startInitialIdleCountdown = () => {
-    pointerInControlZone = false
-    showControls()
-    showCursor()
-    scheduleHideControls(INITIAL_CONTROL_HIDE_DELAY)
-    scheduleHideCursor(INITIAL_CONTROL_HIDE_DELAY)
-  }
-
-  const isInControlZone = (event: MouseEvent) => {
-    const rect = controlsZone.getBoundingClientRect()
-    const playlistActivationWidth = window.matchMedia('(min-width: 640px)').matches
-      ? 312
-      : Math.min(252, window.innerWidth)
-    const isInPlaylistZone = playlistOpen() && event.clientX <= playlistActivationWidth
-    const isInPlaybackZone = event.clientX >= rect.left && event.clientX <= rect.right
-      && event.clientY >= rect.top && event.clientY <= rect.bottom
-    return isInPlaylistZone || isInPlaybackZone
-  }
-
-  const handlePlayerMouseMove = (event: MouseEvent) => {
-    if (!resourcesReady()) return
-
-    if (isInControlZone(event)) {
-      enterControlZone()
-      return
-    }
-
-    if (pointerInControlZone) pointerInControlZone = false
-    showCursor()
-    scheduleHideCursor()
-    scheduleHideControls()
-  }
-
-  const cancelHideSlider = () => {
-    if (hideSliderTimer) {
-      window.clearTimeout(hideSliderTimer)
-      hideSliderTimer = undefined
-    }
-  }
-
-  const scheduleHideSlider = (delay = 180) => {
-    cancelHideSlider()
-    hideSliderTimer = window.setTimeout(() => {
-      setActiveSlider(undefined)
-      hideSliderTimer = undefined
-    }, delay)
   }
 
   const syncTime = () => {
@@ -334,57 +211,6 @@ export function createPlayerController() {
       setVolumeLevel(lastAudibleVolume || 0.7)
     } else {
       video.muted = true
-    }
-  }
-
-  const setZoom = (next: number) => {
-    if (!resourcesReady()) return
-    const clamped = Math.min(2.4, Math.max(0.8, next))
-    viewRef.current.zoom = clamped
-    viewRef.current.pausedUntil = performance.now() + 900
-    setZoomSignal(clamped)
-  }
-
-  const syncSliderAnchor = (button: HTMLElement) => {
-    const panelRect = controlsPanel.getBoundingClientRect()
-    const buttonRect = button.getBoundingClientRect()
-    setSliderAnchor({
-      x: buttonRect.left + buttonRect.width / 2 - panelRect.left,
-      bottom: panelRect.bottom - buttonRect.top + 10,
-    })
-  }
-
-  const showSlider = (control: SliderControl, button: HTMLElement) => {
-    cancelHideSlider()
-    syncSliderAnchor(button)
-    setActiveSlider(control)
-    showControls()
-  }
-
-  const changeQualityBy = (amount: number) => {
-    if (!resourcesReady()) return
-    setQualityId((current) => Math.min(QUALITY_OPTIONS.length - 1, Math.max(0, current + amount)))
-  }
-
-  const resetView = () => {
-    if (!resourcesReady()) return
-    viewRef.current.yaw = 0
-    viewRef.current.pitch = 0
-    viewRef.current.zoom = DEFAULT_ZOOM
-    viewRef.current.pausedUntil = performance.now() + 900
-    setZoomSignal(DEFAULT_ZOOM)
-  }
-
-  const toggleFullscreen = async () => {
-    if (!resourcesReady()) return
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen()
-      } else {
-        await player.requestFullscreen()
-      }
-    } catch (error) {
-      console.warn('fullscreen toggle failed', error)
     }
   }
 
@@ -660,10 +486,6 @@ export function createPlayerController() {
     }
   }
 
-  const syncFullscreen = () => {
-    setFullscreen(document.fullscreenElement === player)
-  }
-
   const startInitialLoad = () => {
     if (loadingPromise) return
 
@@ -691,10 +513,7 @@ export function createPlayerController() {
           fpsElement: fpsMeter,
           video,
           viewRef,
-          onZoomChange: (nextZoom) => {
-            viewRef.current.zoom = nextZoom
-            setZoomSignal(nextZoom)
-          },
+          onZoomChange: syncZoom,
           ...sceneOptions(),
         })
         updateVideoVisibility(sceneOptions().hidden)
@@ -733,9 +552,7 @@ export function createPlayerController() {
       pendingVideoSwitch = undefined
       autoplayPending = false
       playlistImportGeneration += 1
-      cancelHideControls()
-      cancelHideCursor()
-      cancelHideSlider()
+      disposeControls()
       scene?.destroy()
       releaseFaceAutoCenterResources()
       videoLoadGeneration += 1
@@ -820,29 +637,17 @@ export function createPlayerController() {
       togglePlay,
       volume,
     },
-    display: {
-      fullscreen,
-      resetView,
-      setFaceAutoCenter,
-      setPresetId,
-      setQualityId,
-      setSplitScreen,
-      setVideoOnly,
-      setZoom,
-      state: displayState,
-      toggleFullscreen,
-      zoom,
-    },
+    display: displayModule.controller,
     controls: {
       activeSlider,
       cancelHideSlider,
-      containsControlsPanel: (node: Node | null) => controlsPanel.contains(node),
+      containsControlsPanel: controlsModule.containsControlsPanel,
       controlsVisible,
       scheduleHideControls,
       scheduleHideSlider,
       setActiveSlider,
-      setControlsPanel: (element: HTMLDivElement) => (controlsPanel = element),
-      setControlsZone: (element: HTMLElement) => (controlsZone = element),
+      setControlsPanel: controlsModule.setControlsPanel,
+      setControlsZone: controlsModule.setControlsZone,
       showControls,
       showSlider,
       sliderAnchor,

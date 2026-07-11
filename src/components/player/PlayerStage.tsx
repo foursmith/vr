@@ -1,28 +1,18 @@
 import { untrack } from 'solid-js'
 import type { PlayerController } from '../../features/player/controller'
 
-export function PlayerStage(props: {
-  videoOnly: boolean
-  debug: PlayerController['debug']
-  setVrRoot: (element: HTMLElement) => void
-  setVrMount: (element: HTMLDivElement) => void
-  setVideo: (element: HTMLVideoElement) => void
-  onTimeUpdate: () => void
-  onPlaying: () => void
-  onPause: () => void
-  onEnded: () => void
-  onVolumeChange: () => void
-}) {
-  const debug = untrack(() => props.debug)
+export function PlayerStage(props: { controller: PlayerController }) {
+  const { debug, display, frame, playback } = untrack(() => props.controller)
+  const { setVideo, setVrMount, setVrRoot } = frame
   return (
     <>
       <section
-        ref={props.setVrRoot}
+        ref={setVrRoot}
         id="vr-scene"
         class="absolute inset-0 h-dvh w-full opacity-100"
-        aria-hidden={props.videoOnly ? 'true' : 'false'}
+        aria-hidden={display.state.videoOnly ? 'true' : 'false'}
       >
-        <div ref={props.setVrMount} id="vr-mount" class="h-full w-full"></div>
+        <div ref={setVrMount} id="vr-mount" class="h-full w-full"></div>
         <div class="pointer-events-none absolute inset-0 z-10">
           <div
             ref={debug.setFpsMeter}
@@ -47,17 +37,17 @@ export function PlayerStage(props: {
       </section>
 
       <video
-        ref={props.setVideo}
+        ref={setVideo}
         id="video"
         playsinline
         webkit-playsinline="true"
         class="native-video absolute inset-0 hidden h-full w-full bg-black object-contain"
-        onTimeUpdate={props.onTimeUpdate}
-        onLoadedMetadata={props.onTimeUpdate}
-        onPlaying={props.onPlaying}
-        onPause={props.onPause}
-        onEnded={props.onEnded}
-        onVolumeChange={props.onVolumeChange}
+        onTimeUpdate={playback.syncTime}
+        onLoadedMetadata={playback.syncTime}
+        onPlaying={() => playback.setPlaying(true)}
+        onPause={() => playback.setPlaying(false)}
+        onEnded={playback.playNextPlaylistVideo}
+        onVolumeChange={playback.handleVolumeChange}
       ></video>
     </>
   )
