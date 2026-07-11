@@ -63,6 +63,15 @@ export function ControlSliderPopover(props: {
                     />
                   </Show>
                   <Show when={control() === 'scale'}>
+                    <button
+                      type="button"
+                      aria-label="Reset scale"
+                      title="Reset scale"
+                      class="grid h-7 w-7 place-items-center rounded-full border-0 bg-white/8 p-0 text-white/82"
+                      onClick={resetView}
+                    >
+                      <Icon name="rotate-ccw" class="h-4 w-4" />
+                    </button>
                     <VerticalGlassRange
                       min={0.8}
                       max={2.4}
@@ -73,15 +82,6 @@ export function ControlSliderPopover(props: {
                       title={`Scale: ${Math.round(zoom() * 100)}%`}
                       onInput={setZoom}
                     />
-                    <button
-                      type="button"
-                      aria-label="Reset scale"
-                      title="Reset scale"
-                      class="grid h-7 w-7 place-items-center rounded-full border-0 bg-white/8 p-0 text-white/82"
-                      onClick={resetView}
-                    >
-                      <Icon name="rotate-ccw" class="h-4 w-4" />
-                    </button>
                   </Show>
                 </div>
               </LiquidGlass>
