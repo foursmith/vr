@@ -84,7 +84,7 @@ export function SettingsModal(props: { controller: PlayerController; onClose: ()
             <div class="flex items-start justify-between px-5 pb-3 pt-5">
               <div>
                 <h2 id="settings-title" class="text-sm font-semibold tracking-tight text-white">Settings</h2>
-                <p class="mt-1 text-[11px] text-white/46">Fine-tune how the panorama behaves.</p>
+                <p class="mt-1 text-[11px] text-white/46">Choose how the video view behaves.</p>
               </div>
               <button
                 type="button"
@@ -98,22 +98,22 @@ export function SettingsModal(props: { controller: PlayerController; onClose: ()
 
             <div class="grid gap-1.5 px-2.5 pb-2.5">
               <SettingToggle
-                title="Automatic split screen"
-                description="Choose a split layout when the format supports it."
+                title="Fill wide screens"
+                description="Repeat the view side by side when the screen is wide."
                 icon="columns"
                 pressed={state.splitScreen}
                 onClick={() => setSplitScreen((current) => !current)}
               />
               <SettingToggle
-                title="Face centering"
-                description="Keep the detected face near the center of the view."
+                title="Follow faces"
+                description="Move the view automatically to keep a detected face centered."
                 icon="scan-face"
                 pressed={state.faceAutoCenter}
                 onClick={() => setFaceAutoCenter((current) => !current)}
               />
               <SettingToggle
-                title="Debug panel"
-                description="Show rendering and face-detection diagnostics."
+                title="Show debug info"
+                description="Display frame rate and a preview of face tracking."
                 icon="bug"
                 pressed={debug.panelOpen()}
                 onClick={() => debug.setPanelOpen((current) => !current)}
