@@ -1,16 +1,16 @@
-import { PerspectiveCamera } from 'three'
-import { describe, expect, it, vi } from 'vitest'
-import { drawPanoramaInferenceSample, drawSampleBoxes, getViewportInferenceSampleSize } from '../../src/features/vr/face-sampling'
-import type { FaceAutoCenterState } from '../../src/features/vr/face-auto-center'
+import type { FaceAutoCenterState } from "../../src/features/vr/face-auto-center"
+import { PerspectiveCamera } from "three"
+import { describe, expect, it, vi } from "vitest"
+import { drawPanoramaInferenceSample, drawSampleBoxes, getViewportInferenceSampleSize } from "../../src/features/vr/face-sampling"
 
-describe('face sampling', () => {
-  it('preserves aspect ratio and enforces minimum dimensions', () => {
+describe("face sampling", () => {
+  it("preserves aspect ratio and enforces minimum dimensions", () => {
     expect(getViewportInferenceSampleSize(1920, 1080, 320)).toEqual({ width: 320, height: 180 })
     expect(getViewportInferenceSampleSize(4000, 500, 100)).toEqual({ width: 160, height: 120 })
     expect(getViewportInferenceSampleSize(0, 1080, 320)).toBeUndefined()
   })
 
-  it('refuses to sample videos without a current frame', () => {
+  it("refuses to sample videos without a current frame", () => {
     const context = { drawImage: vi.fn() } as unknown as CanvasRenderingContext2D
     const video = { videoWidth: 1920, videoHeight: 1080, readyState: HTMLMediaElement.HAVE_METADATA } as HTMLVideoElement
     const result = drawPanoramaInferenceSample(
@@ -18,7 +18,7 @@ describe('face sampling', () => {
       context,
       video,
       320,
-      'mono_360_eqr',
+      "mono_360_eqr",
       { yaw: 0, pitch: 0, zoom: 1, pausedUntil: 0 },
       new PerspectiveCamera(80, 16 / 9),
     )
@@ -27,10 +27,10 @@ describe('face sampling', () => {
   })
 
   it.each([
-    ['sbs_180_eqr', 960 * (20 / 180), 960 * (140 / 180), 1080],
-    ['tb_360_eqr', 1920 * (110 / 360), 1920 * (140 / 360), 540],
-    ['flat_2d', 1920 * (110 / 360), 1920 * (140 / 360), 1080],
-  ] as const)('uses the correct source crop for %s', (preset, sourceX, sourceWidth, sourceHeight) => {
+    ["sbs_180_eqr", 960 * (20 / 180), 960 * (140 / 180), 1080],
+    ["tb_360_eqr", 1920 * (110 / 360), 1920 * (140 / 360), 540],
+    ["flat_2d", 1920 * (110 / 360), 1920 * (140 / 360), 1080],
+  ] as const)("uses the correct source crop for %s", (preset, sourceX, sourceWidth, sourceHeight) => {
     const context = { drawImage: vi.fn() } as unknown as CanvasRenderingContext2D
     const canvas = { width: 0, height: 0 } as HTMLCanvasElement
     const video = { videoWidth: 1920, videoHeight: 1080, readyState: HTMLMediaElement.HAVE_CURRENT_DATA } as HTMLVideoElement
@@ -51,7 +51,7 @@ describe('face sampling', () => {
     expect(args[4]).toBeCloseTo(sourceHeight)
   })
 
-  it('splits a wrapped 360-degree sample into two source slices', () => {
+  it("splits a wrapped 360-degree sample into two source slices", () => {
     const context = { drawImage: vi.fn() } as unknown as CanvasRenderingContext2D
     const canvas = { width: 0, height: 0 } as HTMLCanvasElement
     const video = { videoWidth: 2000, videoHeight: 1000, readyState: HTMLMediaElement.HAVE_CURRENT_DATA } as HTMLVideoElement
@@ -60,7 +60,7 @@ describe('face sampling', () => {
       context,
       video,
       320,
-      'mono_360_eqr',
+      "mono_360_eqr",
       { yaw: -179, pitch: 0, zoom: 1, pausedUntil: 0 },
       new PerspectiveCamera(80, 16 / 9),
     )
@@ -72,7 +72,7 @@ describe('face sampling', () => {
     expect(Number(first[7]) + Number(second[7])).toBeCloseTo(canvas.width)
   })
 
-  it('caps tall panorama samples at the inference height limit', () => {
+  it("caps tall panorama samples at the inference height limit", () => {
     const context = { drawImage: vi.fn() } as unknown as CanvasRenderingContext2D
     const canvas = { width: 0, height: 0 } as HTMLCanvasElement
     const video = { videoWidth: 200, videoHeight: 2000, readyState: HTMLMediaElement.HAVE_CURRENT_DATA } as HTMLVideoElement
@@ -81,7 +81,7 @@ describe('face sampling', () => {
       context,
       video,
       640,
-      'mono_360_eqr',
+      "mono_360_eqr",
       { yaw: 0, pitch: 75, zoom: 1, pausedUntil: 0 },
       new PerspectiveCamera(80, 1),
     )
@@ -90,7 +90,7 @@ describe('face sampling', () => {
     expect(canvas.width).toBeLessThan(640)
   })
 
-  it('drops stale boxes and draws fresh detections', () => {
+  it("drops stale boxes and draws fresh detections", () => {
     const context = { save: vi.fn(), restore: vi.fn(), fillRect: vi.fn(), fillText: vi.fn(), strokeRect: vi.fn() } as unknown as CanvasRenderingContext2D
     const value = {
       faces: [
@@ -98,9 +98,9 @@ describe('face sampling', () => {
         { x: 0, y: 0, width: 1, height: 1, score: 1, lastSeenAt: 0 },
       ],
     } as FaceAutoCenterState
-    drawSampleBoxes(value, { width: 200, height: 100 } as HTMLCanvasElement, context, 1500, 'viewport')
+    drawSampleBoxes(value, { width: 200, height: 100 } as HTMLCanvasElement, context, 1500, "viewport")
     expect(value.faces).toHaveLength(1)
     expect(context.strokeRect).toHaveBeenCalledWith(20, 20, 60, 40)
-    expect(context.fillText).toHaveBeenCalledWith('91%', 25, 15)
+    expect(context.fillText).toHaveBeenCalledWith("91%", 25, 15)
   })
 })

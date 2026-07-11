@@ -1,9 +1,9 @@
-import { createEffect, createMemo, createSignal } from 'solid-js'
-import type { JSX } from '@solidjs/web'
+import type { JSX } from "@solidjs/web"
+import { createEffect, createMemo, createSignal } from "solid-js"
 
 type ClassValue = string | false | undefined | Array<string | false | undefined>
 
-type LiquidGlassProps = {
+interface LiquidGlassProps {
   children: JSX.Element
   class?: ClassValue
   style?: JSX.CSSProperties | string
@@ -45,7 +45,7 @@ export function LiquidGlass(props: LiquidGlassProps) {
     const mouse = globalMousePos()
     const size = glassSize()
     const element = glassElement()
-    if (!mouse.x || !mouse.y || !element) return 'translate3d(0, 0, 0) scale(1)'
+    if (!mouse.x || !mouse.y || !element) return "translate3d(0, 0, 0) scale(1)"
 
     const rect = element.getBoundingClientRect()
     const centerX = rect.left + rect.width / 2
@@ -54,7 +54,7 @@ export function LiquidGlass(props: LiquidGlassProps) {
     const deltaY = mouse.y - centerY
     const centerDistance = Math.hypot(deltaX, deltaY)
 
-    if (centerDistance === 0) return 'translate3d(0, 0, 0) scale(1)'
+    if (centerDistance === 0) return "translate3d(0, 0, 0) scale(1)"
 
     const normalizedX = deltaX / centerDistance
     const normalizedY = deltaY / centerDistance
@@ -64,14 +64,14 @@ export function LiquidGlass(props: LiquidGlassProps) {
     const x = deltaX * elasticity() * 0.1 * fadeInFactor()
     const y = deltaY * elasticity() * 0.1 * fadeInFactor()
 
-    if (size.width <= 1 || size.height <= 1) return 'translate3d(0, 0, 0) scale(1)'
+    if (size.width <= 1 || size.height <= 1) return "translate3d(0, 0, 0) scale(1)"
     return `translate3d(${x}px, ${y}px, 0) scaleX(${Math.max(0.8, scaleX)}) scaleY(${Math.max(0.8, scaleY)})`
   })
 
   const shellStyle = createMemo<JSX.CSSProperties>(() => ({
-    'border-radius': `${cornerRadius()}px`,
-    transform: elasticTransform(),
-    transition: 'transform 72ms ease-out',
+    "border-radius": `${cornerRadius()}px`,
+    "transform": elasticTransform(),
+    "transition": "transform 72ms ease-out",
   }))
 
   const updateMouse = (event: MouseEvent) => {
@@ -84,35 +84,35 @@ export function LiquidGlass(props: LiquidGlassProps) {
       const rect = element.getBoundingClientRect()
       const width = Math.max(1, Math.round(rect.width))
       const height = Math.max(1, Math.round(rect.height))
-      setGlassSize((current) => (current.width === width && current.height === height ? current : { width, height }))
+      setGlassSize(current => (current.width === width && current.height === height ? current : { width, height }))
     }
     const resizeObserver = new ResizeObserver(updateSize)
 
     updateSize()
     resizeObserver.observe(element)
-    window.addEventListener('resize', updateSize)
+    window.addEventListener("resize", updateSize)
 
     return () => {
       resizeObserver.disconnect()
-      window.removeEventListener('resize', updateSize)
+      window.removeEventListener("resize", updateSize)
     }
   })
 
   createEffect(glassElement, (element) => {
     if (!element) return
 
-    element.addEventListener('mouseenter', updateMouse)
-    element.addEventListener('mousemove', updateMouse)
+    element.addEventListener("mouseenter", updateMouse)
+    element.addEventListener("mousemove", updateMouse)
     return () => {
-      element.removeEventListener('mouseenter', updateMouse)
-      element.removeEventListener('mousemove', updateMouse)
+      element.removeEventListener("mouseenter", updateMouse)
+      element.removeEventListener("mousemove", updateMouse)
     }
   })
 
   return (
     <div
       ref={setGlassElement}
-      class={['relative isolate overflow-visible', props.class]}
+      class={["relative isolate overflow-visible", props.class]}
       style={props.style}
       onMouseEnter={props.onMouseEnter}
       onMouseLeave={props.onMouseLeave}
@@ -125,13 +125,13 @@ export function LiquidGlass(props: LiquidGlassProps) {
       >
         <span
           class={[
-            'pointer-events-none absolute inset-0 z-1 rounded-[inherit] border border-white/14 transition-colors',
+            "pointer-events-none absolute inset-0 z-1 rounded-[inherit] border border-white/14 transition-colors",
             castShadow()
-              ? 'shadow-[0_8px_24px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.16)]'
-              : 'shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]',
+              ? "shadow-[0_8px_24px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.16)]"
+              : "shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]",
             active()
-              ? 'bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.07)),rgba(38,40,46,0.92)]'
-              : 'bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.03)),rgba(12,14,18,0.88)]',
+              ? "bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.07)),rgba(38,40,46,0.92)]"
+              : "bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.03)),rgba(12,14,18,0.88)]",
           ]}
         />
         <div class="relative z-3 grid h-full min-h-0 w-full min-w-0 place-items-center">{props.children}</div>

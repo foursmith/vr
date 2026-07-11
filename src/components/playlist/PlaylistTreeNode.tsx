@@ -1,6 +1,6 @@
-import { For, Show } from 'solid-js'
-import type { PlaylistStateNode } from '../../features/playlist/model'
-import { Icon } from '../ui/Icon'
+import type { PlaylistStateNode } from "../../features/playlist/model"
+import { For, Show } from "solid-js"
+import { Icon } from "../ui/Icon"
 
 export function PlaylistTreeNode(props: {
   node: PlaylistStateNode
@@ -15,35 +15,36 @@ export function PlaylistTreeNode(props: {
   return (
     <li
       role="treeitem"
-      aria-expanded={props.node.kind === 'folder' ? (isExpanded() ? 'true' : 'false') : undefined}
-      aria-selected={props.node.id === props.selectedId ? 'true' : 'false'}
+      aria-expanded={props.node.kind === "folder" ? (isExpanded() ? "true" : "false") : undefined}
+      aria-selected={props.node.id === props.selectedId ? "true" : "false"}
     >
       <button
         type="button"
         class={`playlist-tree-row group relative flex h-8 w-full min-w-0 items-center gap-1.5 rounded-md border-0 pr-2 text-left text-xs ${
           props.node.id === props.selectedId
-            ? 'bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
-            : 'bg-transparent text-white/68 hover:bg-white/8 hover:text-white/92'
+            ? "bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+            : "bg-transparent text-white/68 hover:bg-white/8 hover:text-white/92"
         }`}
-        style={{ 'padding-left': `${8 + props.depth * 16}px` }}
+        style={{ "padding-left": `${8 + props.depth * 16}px` }}
         title={props.node.name}
-        onClick={() => (props.node.kind === 'folder' ? props.onToggle(props.node.id) : props.onSelect(props.node))}
+        onClick={() => (props.node.kind === "folder" ? props.onToggle(props.node.id) : props.onSelect(props.node))}
       >
         <Show
-          when={props.node.kind === 'folder'}
+          when={props.node.kind === "folder"}
           fallback={<span aria-hidden="true" class="h-3.5 w-3.5 shrink-0"></span>}
         >
           <span
             aria-hidden="true"
-            class={`i-ph-caret-right h-3.5 w-3.5 shrink-0 text-white/42 transition-transform ${isExpanded() ? 'rotate-90' : ''}`}
-          ></span>
+            class={`i-ph-caret-right h-3.5 w-3.5 shrink-0 text-white/42 transition-transform ${isExpanded() ? "rotate-90" : ""}`}
+          >
+          </span>
         </Show>
         <Icon
-          name={props.node.kind === 'folder' ? (isExpanded() ? 'folder-open' : 'folder') : 'file-video'}
-          class={`h-4 w-4 shrink-0 ${props.node.kind === 'folder' ? 'text-[#80c7ff]' : 'text-white/52 group-hover:text-white/74'}`}
+          name={props.node.kind === "folder" ? (isExpanded() ? "folder-open" : "folder") : "file-video"}
+          class={`h-4 w-4 shrink-0 ${props.node.kind === "folder" ? "text-[#80c7ff]" : "text-white/52 group-hover:text-white/74"}`}
         />
         <span class="min-w-0 flex-1 truncate">{props.node.name}</span>
-        <Show when={props.node.kind === 'video' && props.node.hasSubtitle}>
+        <Show when={props.node.kind === "video" && props.node.hasSubtitle}>
           <span
             aria-label="Subtitle available"
             title="Subtitle: matched automatically"
@@ -60,10 +61,10 @@ export function PlaylistTreeNode(props: {
           </span>
         </Show>
       </button>
-      <Show when={props.node.kind === 'folder' && isExpanded()}>
+      <Show when={props.node.kind === "folder" && isExpanded()}>
         <ul role="group" class="m-0 list-none p-0">
           <For each={props.node.children ?? []}>
-            {(child) => (
+            {child => (
               <PlaylistTreeNode
                 node={child}
                 depth={props.depth + 1}

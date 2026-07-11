@@ -1,22 +1,22 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "useDefineForClassFields": true,
+    "jsx": "preserve",
+    "jsxImportSource": "@solidjs/web",
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
-    "allowJs": true,
-    "checkJs": false,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
+    "useDefineForClassFields": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
-    "isolatedModules": true,
+    "allowJs": true,
+    "checkJs": false,
+    "strict": true,
     "noEmit": true,
-    "jsx": "preserve",
-    "jsxImportSource": "@solidjs/web"
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "skipLibCheck": true
   },
   "include": ["src", "vite.config.ts", "uno.config.ts"]
 }

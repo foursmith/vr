@@ -1,7 +1,7 @@
-import { MediaPickerButtons } from '../ui/MediaPickerButtons'
-import { OceanBackground } from './OceanBackground'
+import { MediaPickerButtons } from "../ui/MediaPickerButtons"
+import { OceanBackground } from "./OceanBackground"
 
-export function EmptyState(props: { onChooseFiles: () => void; onChooseFolder: () => void }) {
+export function EmptyState(props: { onChooseFiles: () => void, onChooseFolder: () => void }) {
   return (
     <section class="empty-state-bg absolute inset-0 z-10 box-border flex h-full w-full items-center justify-center overflow-hidden px-5 pb-34 pt-8 text-center text-white sm:px-10 sm:pb-40 sm:pt-12">
       <OceanBackground />

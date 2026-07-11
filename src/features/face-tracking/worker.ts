@@ -1,47 +1,47 @@
 /// <reference lib="webworker" />
 
-type NormalizedLandmark = { x: number; y: number }
-type NormalizedFace = { x: number; y: number; width: number; height: number; score: number }
-type FaceInferenceMode = 'landmarks' | 'detection'
-type FaceInferenceResult = {
+interface NormalizedLandmark { x: number, y: number }
+interface NormalizedFace { x: number, y: number, width: number, height: number, score: number }
+type FaceInferenceMode = "landmarks" | "detection"
+interface FaceInferenceResult {
   id: number
-  type: 'result'
+  type: "result"
   mode: FaceInferenceMode
   timestamp: number
   faces: NormalizedFace[]
-  center?: { x: number; y: number }
+  center?: { x: number, y: number }
   inferenceMs: number
 }
-type FaceWorkerRequest =
-  | { type: 'init' }
-  | { id: number; type: 'infer'; mode: FaceInferenceMode; timestamp: number; bitmap: ImageBitmap }
-type FaceWorkerResponse =
-  | { type: 'progress'; loaded: number; total: number; label: string }
-  | { type: 'ready' }
-  | FaceInferenceResult
-  | { type: 'error'; id?: number; message: string }
-type FaceDetectorBackend = {
+type FaceWorkerRequest
+  = | { type: "init" }
+    | { id: number, type: "infer", mode: FaceInferenceMode, timestamp: number, bitmap: ImageBitmap }
+type FaceWorkerResponse
+  = | { type: "progress", loaded: number, total: number, label: string }
+    | { type: "ready" }
+    | FaceInferenceResult
+    | { type: "error", id?: number, message: string }
+interface FaceDetectorBackend {
   detect: (image: ImageBitmap) => {
     detections: Array<{
-      boundingBox?: { originX: number; originY: number; width: number; height: number }
+      boundingBox?: { originX: number, originY: number, width: number, height: number }
       categories: Array<{ score: number }>
     }>
   }
   close: () => void
 }
-type FaceLandmarkerBackend = {
+interface FaceLandmarkerBackend {
   detectForVideo: (image: ImageBitmap, timestamp: number) => {
     faceLandmarks: NormalizedLandmark[][]
   }
   close: () => void
 }
 
-const WASM_URL = '/mediapipe/tasks-vision/wasm'
-const FACE_MODEL_URL = '/models/face_detector/blaze_face_full_range.tflite'
-const FACE_LANDMARKER_MODEL_URL = '/models/face_landmarker/face_landmarker.task'
+const WASM_URL = "/mediapipe/tasks-vision/wasm"
+const FACE_MODEL_URL = "/models/face_detector/blaze_face_full_range.tflite"
+const FACE_LANDMARKER_MODEL_URL = "/models/face_landmarker/face_landmarker.task"
 const MIN_FACE_SCORE = 0.5
 
-const workerScope = self as unknown as DedicatedWorkerGlobalScope
+const workerScope = globalThis as unknown as DedicatedWorkerGlobalScope
 let detector: FaceDetectorBackend | undefined
 let landmarker: FaceLandmarkerBackend | undefined
 let initializationPromise: Promise<void> | undefined
@@ -51,24 +51,24 @@ const post = (message: FaceWorkerResponse) => workerScope.postMessage(message)
 const initialize = () => {
   initializationPromise ??= (async () => {
     const total = 3
-    post({ type: 'progress', loaded: 0, total, label: 'Loading vision runtime' })
-    const { FaceDetector, FaceLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision')
+    post({ type: "progress", loaded: 0, total, label: "Loading vision runtime" })
+    const { FaceDetector, FaceLandmarker, FilesetResolver } = await import("@mediapipe/tasks-vision")
     const vision = await FilesetResolver.forVisionTasks(WASM_URL)
 
-    post({ type: 'progress', loaded: 1, total, label: 'Loading face detector worker' })
+    post({ type: "progress", loaded: 1, total, label: "Loading face detector worker" })
     // Keep inference on the worker CPU so it does not contend with Three.js
     // for the main rendering GPU context.
     detector = await FaceDetector.createFromOptions(vision, {
-      baseOptions: { modelAssetPath: FACE_MODEL_URL, delegate: 'CPU' },
-      runningMode: 'IMAGE',
+      baseOptions: { modelAssetPath: FACE_MODEL_URL, delegate: "CPU" },
+      runningMode: "IMAGE",
       minDetectionConfidence: MIN_FACE_SCORE,
       minSuppressionThreshold: 0.45,
     }) as FaceDetectorBackend
 
-    post({ type: 'progress', loaded: 2, total, label: 'Loading face landmark worker' })
+    post({ type: "progress", loaded: 2, total, label: "Loading face landmark worker" })
     landmarker = await FaceLandmarker.createFromOptions(vision, {
-      baseOptions: { modelAssetPath: FACE_LANDMARKER_MODEL_URL, delegate: 'CPU' },
-      runningMode: 'VIDEO',
+      baseOptions: { modelAssetPath: FACE_LANDMARKER_MODEL_URL, delegate: "CPU" },
+      runningMode: "VIDEO",
       numFaces: 1,
       minFaceDetectionConfidence: MIN_FACE_SCORE,
       minFacePresenceConfidence: 0.5,
@@ -77,8 +77,8 @@ const initialize = () => {
       outputFacialTransformationMatrixes: false,
     }) as FaceLandmarkerBackend
 
-    post({ type: 'progress', loaded: total, total, label: 'Face worker ready' })
-    post({ type: 'ready' })
+    post({ type: "progress", loaded: total, total, label: "Face worker ready" })
+    post({ type: "ready" })
   })()
   return initializationPromise
 }
@@ -123,17 +123,17 @@ const readLandmarkCenter = (landmarks: NormalizedLandmark[], fallback: Normalize
   }
 }
 
-const infer = async (request: Extract<FaceWorkerRequest, { type: 'infer' }>) => {
+const infer = async (request: Extract<FaceWorkerRequest, { type: "infer" }>) => {
   await initialize()
   const startedAt = performance.now()
   let response: FaceInferenceResult
   try {
-    if (request.mode === 'landmarks') {
+    if (request.mode === "landmarks") {
       const landmarks = landmarker!.detectForVideo(request.bitmap, request.timestamp).faceLandmarks[0]
       const face = landmarks ? readLandmarkFace(landmarks) : undefined
       response = {
         id: request.id,
-        type: 'result',
+        type: "result",
         mode: request.mode,
         timestamp: request.timestamp,
         faces: face ? [face] : [],
@@ -143,7 +143,7 @@ const infer = async (request: Extract<FaceWorkerRequest, { type: 'infer' }>) => 
     } else {
       const detections = detector!.detect(request.bitmap).detections
       const faces = detections
-        .filter((item) => item.boundingBox)
+        .filter(item => item.boundingBox)
         .map((item) => {
           const box = item.boundingBox!
           return {
@@ -158,7 +158,7 @@ const infer = async (request: Extract<FaceWorkerRequest, { type: 'infer' }>) => 
         .slice(0, 8)
       response = {
         id: request.id,
-        type: 'result',
+        type: "result",
         mode: request.mode,
         timestamp: request.timestamp,
         faces,
@@ -173,17 +173,17 @@ const infer = async (request: Extract<FaceWorkerRequest, { type: 'infer' }>) => 
 
 workerScope.onmessage = (event: MessageEvent<FaceWorkerRequest>) => {
   const request = event.data
-  if (request.type === 'init') {
+  if (request.type === "init") {
     void initialize().catch((error) => {
       initializationPromise = undefined
-      post({ type: 'error', message: error instanceof Error ? error.message : String(error) })
+      post({ type: "error", message: error instanceof Error ? error.message : String(error) })
     })
     return
   }
 
   void infer(request).catch((error) => {
     post({
-      type: 'error',
+      type: "error",
       id: request.id,
       message: error instanceof Error ? error.message : String(error),
     })

@@ -1,18 +1,19 @@
-import { MathUtils, type PerspectiveCamera } from 'three'
-import type { CameraView, ProjectionPreset } from './config'
-import type { FaceAutoCenterState, PanoramaSample } from './face-auto-center'
+import type { PerspectiveCamera } from "three"
+import type { CameraView, ProjectionPreset } from "./config"
+import type { FaceAutoCenterState, PanoramaSample } from "./face-auto-center"
+import { MathUtils } from "three"
 
 const VIEWPORT_TARGET_X = 0.5
 const VIEWPORT_TARGET_Y = 1 / 3
 const PANORAMA_SEARCH_DEGREES = 140
 const PANORAMA_SAMPLE_MAX_HEIGHT = 384
 
-type SourceCrop = { x: number; y: number; width: number; height: number }
+interface SourceCrop { x: number, y: number, width: number, height: number }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 const shortestAngle = (degrees: number) => ((degrees + 540) % 360) - 180
 const isHalfProjection = (preset: ProjectionPreset) =>
-  preset === 'sbs_180_eqr' || preset === 'sbs_180_fe' || preset === 'm_180_eqr' || preset === 'm_180_fe'
+  preset === "sbs_180_eqr" || preset === "sbs_180_fe" || preset === "m_180_eqr" || preset === "m_180_fe"
 const getProjectionYawSpan = (preset: ProjectionPreset) => (isHalfProjection(preset) ? 180 : 360)
 const getProjectionYawLimit = (preset: ProjectionPreset) => (isHalfProjection(preset) ? 86 : undefined)
 const getViewportPitchOffset = (camera: PerspectiveCamera, y: number) => {
@@ -27,10 +28,10 @@ const resizeCanvas = (canvas: HTMLCanvasElement, width: number, height: number) 
 
 const getSourceCrop = (video: HTMLVideoElement, preset: ProjectionPreset): SourceCrop => {
   switch (preset) {
-    case 'sbs_180_eqr':
-    case 'sbs_180_fe':
+    case "sbs_180_eqr":
+    case "sbs_180_fe":
       return { x: 0, y: 0, width: video.videoWidth / 2, height: video.videoHeight }
-    case 'tb_360_eqr':
+    case "tb_360_eqr":
       return { x: 0, y: 0, width: video.videoWidth, height: video.videoHeight / 2 }
     default:
       return { x: 0, y: 0, width: video.videoWidth, height: video.videoHeight }
@@ -71,8 +72,9 @@ const drawPanoramaSample = (
       height,
     )
   }
-  if (!wraps || startX + widthX <= 1) drawSlice(startX, widthX, 0, 1)
-  else {
+  if (!wraps || startX + widthX <= 1) {
+    drawSlice(startX, widthX, 0, 1)
+  } else {
     const firstWidthX = 1 - startX
     const firstDestWidthX = firstWidthX / widthX
     drawSlice(startX, firstWidthX, 0, firstDestWidthX)
@@ -118,13 +120,13 @@ export const drawSampleBoxes = (
   time: number,
   label: string,
 ) => {
-  const freshFaces = state.faces.filter((face) => time - face.lastSeenAt < 1200)
+  const freshFaces = state.faces.filter(face => time - face.lastSeenAt < 1200)
   state.faces = freshFaces
   context.save()
-  context.fillStyle = 'rgba(0, 0, 0, 0.58)'
+  context.fillStyle = "rgba(0, 0, 0, 0.58)"
   context.fillRect(0, 0, Math.min(110, canvas.width), 22)
-  context.fillStyle = '#fff'
-  context.font = 'bold 12px monospace'
+  context.fillStyle = "#fff"
+  context.font = "bold 12px monospace"
   context.fillText(label, 8, 15)
   context.restore()
   freshFaces.forEach((face) => {
@@ -133,16 +135,16 @@ export const drawSampleBoxes = (
     const width = face.width * canvas.width
     const height = face.height * canvas.height
     context.save()
-    context.strokeStyle = '#38ff8b'
+    context.strokeStyle = "#38ff8b"
     context.lineWidth = Math.max(2, canvas.width / 420)
-    context.shadowColor = 'rgba(56, 255, 139, 0.6)'
+    context.shadowColor = "rgba(56, 255, 139, 0.6)"
     context.shadowBlur = canvas.width / 80
     context.strokeRect(x, y, width, height)
     context.shadowBlur = 0
-    context.fillStyle = 'rgba(10, 132, 255, 0.9)'
+    context.fillStyle = "rgba(10, 132, 255, 0.9)"
     context.fillRect(x, Math.max(0, y - 18), 42, 18)
-    context.fillStyle = '#fff'
-    context.font = 'bold 12px monospace'
+    context.fillStyle = "#fff"
+    context.font = "bold 12px monospace"
     context.fillText(`${Math.round(face.score * 100)}%`, x + 5, Math.max(12, y - 5))
     context.restore()
   })

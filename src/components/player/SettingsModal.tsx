@@ -1,8 +1,9 @@
-import { onSettled, untrack } from 'solid-js'
-import { Portal } from '@solidjs/web'
-import type { PlayerController } from '../../features/player/controller'
-import { Icon, type IconName } from '../ui/Icon'
-import { LiquidGlass } from '../ui/LiquidGlass'
+import type { PlayerController } from "../../features/player/controller"
+import type { IconName } from "../ui/Icon"
+import { Portal } from "@solidjs/web"
+import { onSettled, untrack } from "solid-js"
+import { Icon } from "../ui/Icon"
+import { LiquidGlass } from "../ui/LiquidGlass"
 
 function SettingToggle(props: {
   title: string
@@ -15,7 +16,7 @@ function SettingToggle(props: {
     <button
       type="button"
       role="switch"
-      aria-checked={props.pressed ? 'true' : 'false'}
+      aria-checked={props.pressed ? "true" : "false"}
       class="group grid w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border-0 bg-white/4 px-3 py-3 text-left text-white outline-none transition hover:!bg-white/8 focus-visible:!bg-white/10"
       onClick={props.onClick}
     >
@@ -29,20 +30,21 @@ function SettingToggle(props: {
       <span
         aria-hidden="true"
         class={`relative h-5 w-9 rounded-full border transition-colors ${
-          props.pressed ? 'border-white/28 bg-white/24' : 'border-white/12 bg-black/20'
+          props.pressed ? "border-white/28 bg-white/24" : "border-white/12 bg-black/20"
         }`}
       >
         <span
           class={`absolute top-0.5 h-3.5 w-3.5 rounded-full bg-white shadow-[0_1px_5px_rgba(0,0,0,.35)] transition-transform ${
-            props.pressed ? 'translate-x-4.5' : 'translate-x-0.5'
+            props.pressed ? "translate-x-4.5" : "translate-x-0.5"
           }`}
-        ></span>
+        >
+        </span>
       </span>
     </button>
   )
 }
 
-export function SettingsModal(props: { controller: PlayerController; onClose: () => void }) {
+export function SettingsModal(props: { controller: PlayerController, onClose: () => void }) {
   const controller = untrack(() => props.controller)
   const { debug, display } = controller
   const { setFaceAutoCenter, setSplitScreen, state } = display
@@ -51,12 +53,12 @@ export function SettingsModal(props: { controller: PlayerController; onClose: ()
   onSettled(() => {
     dialog?.focus()
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
+      if (event.key !== "Escape") return
       event.preventDefault()
       props.onClose()
     }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
   })
 
   return (
@@ -102,21 +104,21 @@ export function SettingsModal(props: { controller: PlayerController; onClose: ()
                 description="Repeat the view side by side when the screen is wide."
                 icon="columns"
                 pressed={state.splitScreen}
-                onClick={() => setSplitScreen((current) => !current)}
+                onClick={() => setSplitScreen(current => !current)}
               />
               <SettingToggle
                 title="Follow faces"
                 description="Move the view automatically to keep a detected face centered."
                 icon="scan-face"
                 pressed={state.faceAutoCenter}
-                onClick={() => setFaceAutoCenter((current) => !current)}
+                onClick={() => setFaceAutoCenter(current => !current)}
               />
               <SettingToggle
                 title="Show debug info"
                 description="Display frame rate and a preview of face tracking."
                 icon="bug"
                 pressed={debug.panelOpen()}
-                onClick={() => debug.setPanelOpen((current) => !current)}
+                onClick={() => debug.setPanelOpen(current => !current)}
               />
             </div>
           </div>

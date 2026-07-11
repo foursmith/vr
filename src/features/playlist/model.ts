@@ -1,30 +1,30 @@
-export type PlaylistStateNode = {
+export interface PlaylistStateNode {
   id: string
   name: string
-  kind: 'folder' | 'video'
+  kind: "folder" | "video"
   hasSubtitle?: boolean
   children?: PlaylistStateNode[]
 }
 
-export type PlaylistNode = {
+export interface PlaylistNode {
   id: string
   name: string
-  kind: 'folder' | 'video' | 'subtitle'
+  kind: "folder" | "video" | "subtitle"
   file?: File
   subtitleFile?: File
   children?: PlaylistNode[]
 }
 
-type DragFileEntry = {
+interface DragFileEntry {
   isFile: true
   isDirectory: false
   name: string
   file: (success: (file: File) => void, error?: (error: DOMException) => void) => void
 }
-type DragDirectoryReader = {
+interface DragDirectoryReader {
   readEntries: (success: (entries: DragEntry[]) => void, error?: (error: DOMException) => void) => void
 }
-type DragDirectoryEntry = {
+interface DragDirectoryEntry {
   isFile: false
   isDirectory: true
   name: string
@@ -36,21 +36,21 @@ let playlistNodeSequence = 0
 const createPlaylistId = () => `playlist-${playlistNodeSequence++}`
 
 export const isVideoFile = (file: File) =>
-  file.type.startsWith('video/') || /\.(mp4|m4v|mov|webm|mkv|avi|ogv|mpeg|mpg)$/i.test(file.name)
+  file.type.startsWith("video/") || /\.(?:mp4|m4v|mov|webm|mkv|avi|ogv|mpeg|mpg)$/i.test(file.name)
 
-export const isSubtitleFile = (file: File) => /\.(srt|vtt|ass|ssa)$/i.test(file.name)
+export const isSubtitleFile = (file: File) => /\.(?:srt|vtt|ass|ssa)$/i.test(file.name)
 
-const fileStem = (name: string) => name.replace(/\.[^.]+$/, '')
+const fileStem = (name: string) => name.replace(/\.[^.]+$/, "")
 
 const normalizedName = (name: string) => fileStem(name)
-  .normalize('NFKD')
+  .normalize("NFKD")
   .toLocaleLowerCase()
-  .replace(/\b(zh|zho|chi|chs|cht|cn|eng|en|english|简体|繁体|字幕|subtitle|sub)\b/g, ' ')
-  .replace(/[^\p{L}\p{N}]+/gu, ' ')
+  .replace(/\b(zh|zho|chi|chs|cht|cn|eng|en|english|简体|繁体|字幕|subtitle|sub)\b/g, " ")
+  .replace(/[^\p{L}\p{N}]+/gu, " ")
   .trim()
 
 const bigrams = (value: string) => {
-  const compact = value.replace(/\s+/g, '')
+  const compact = value.replace(/\s+/g, "")
   if (compact.length < 2) return new Set(compact ? [compact] : [])
   return new Set(Array.from({ length: compact.length - 1 }, (_, index) => compact.slice(index, index + 2)))
 }
@@ -66,12 +66,14 @@ export const subtitleMatchScore = (videoName: string, subtitleName: string) => {
   const left = bigrams(video)
   const right = bigrams(subtitle)
   let overlap = 0
-  left.forEach((part) => { if (right.has(part)) overlap += 1 })
+  left.forEach((part) => {
+    if (right.has(part)) overlap += 1
+  })
   return left.size + right.size ? (2 * overlap) / (left.size + right.size) : 0
 }
 
 const matchSubtitles = (videos: PlaylistNode[], subtitles: File[]) => {
-  const candidates = videos.flatMap((video) => subtitles.map((subtitle) => ({
+  const candidates = videos.flatMap(video => subtitles.map(subtitle => ({
     video,
     subtitle,
     score: subtitleMatchScore(video.name, subtitle.name),
@@ -88,8 +90,8 @@ const matchSubtitles = (videos: PlaylistNode[], subtitles: File[]) => {
 
 const sortPlaylistNodes = (nodes: PlaylistNode[]) =>
   nodes.sort((a, b) => {
-    if (a.kind !== b.kind) return a.kind === 'folder' ? -1 : 1
-    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+    if (a.kind !== b.kind) return a.kind === "folder" ? -1 : 1
+    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
   })
 
 export const buildPlaylistTree = (files: File[]) => {
@@ -97,10 +99,10 @@ export const buildPlaylistTree = (files: File[]) => {
   const subtitlesByFolder = new Map<string, File[]>()
   const videosByFolder = new Map<string, PlaylistNode[]>()
 
-  for (const file of files.filter((candidate) => isVideoFile(candidate) || isSubtitleFile(candidate))) {
+  for (const file of files.filter(candidate => isVideoFile(candidate) || isSubtitleFile(candidate))) {
     const relativePath = file.webkitRelativePath || file.name
-    const parts = relativePath.split('/').filter(Boolean)
-    const folderPath = parts.slice(0, -1).join('/')
+    const parts = relativePath.split("/").filter(Boolean)
+    const folderPath = parts.slice(0, -1).join("/")
     if (isSubtitleFile(file)) {
       subtitlesByFolder.set(folderPath, [...(subtitlesByFolder.get(folderPath) ?? []), file])
       continue
@@ -108,15 +110,15 @@ export const buildPlaylistTree = (files: File[]) => {
     let level = roots
 
     for (const folderName of parts.slice(0, -1)) {
-      let folder = level.find((node) => node.kind === 'folder' && node.name === folderName)
+      let folder = level.find(node => node.kind === "folder" && node.name === folderName)
       if (!folder) {
-        folder = { id: createPlaylistId(), name: folderName, kind: 'folder', children: [] }
+        folder = { id: createPlaylistId(), name: folderName, kind: "folder", children: [] }
         level.push(folder)
       }
       level = folder.children!
     }
 
-    const videoNode = { id: createPlaylistId(), name: parts.at(-1) ?? file.name, kind: 'video' as const, file }
+    const videoNode = { id: createPlaylistId(), name: parts.at(-1) ?? file.name, kind: "video" as const, file }
     level.push(videoNode)
     videosByFolder.set(folderPath, [...(videosByFolder.get(folderPath) ?? []), videoNode])
   }
@@ -125,7 +127,7 @@ export const buildPlaylistTree = (files: File[]) => {
 
   const sortLevel = (nodes: PlaylistNode[]) => {
     sortPlaylistNodes(nodes)
-    nodes.forEach((node) => node.children && sortLevel(node.children))
+    nodes.forEach(node => node.children && sortLevel(node.children))
   }
   sortLevel(roots)
   return roots
@@ -164,40 +166,40 @@ async function playlistNodesFromEntries(entries: DragEntry[]) {
   return nodes
 }
 
-const playlistNodeFromEntry = async (entry: DragEntry): Promise<PlaylistNode | undefined> => {
+async function playlistNodeFromEntry(entry: DragEntry): Promise<PlaylistNode | undefined> {
   if (entry.isFile) {
     const file = await new Promise<File>((resolve, reject) => entry.file(resolve, reject))
-    if (isVideoFile(file)) return { id: createPlaylistId(), name: file.name, kind: 'video', file }
-    if (isSubtitleFile(file)) return { id: createPlaylistId(), name: file.name, kind: 'subtitle', file }
+    if (isVideoFile(file)) return { id: createPlaylistId(), name: file.name, kind: "video", file }
+    if (isSubtitleFile(file)) return { id: createPlaylistId(), name: file.name, kind: "subtitle", file }
     return undefined
   }
 
   const rawChildren = await playlistNodesFromEntries(await readDragDirectory(entry))
-  const subtitleNodes = rawChildren.filter((node) => node.kind === 'subtitle')
-  const children = rawChildren.filter((node) => node.kind !== 'subtitle')
-  matchSubtitles(children.filter((node) => node.kind === 'video'), subtitleNodes.map((node) => node.file!))
+  const subtitleNodes = rawChildren.filter(node => node.kind === "subtitle")
+  const children = rawChildren.filter(node => node.kind !== "subtitle")
+  matchSubtitles(children.filter(node => node.kind === "video"), subtitleNodes.map(node => node.file!))
   if (!children.length) return undefined
   sortPlaylistNodes(children)
-  return { id: createPlaylistId(), name: entry.name, kind: 'folder', children }
+  return { id: createPlaylistId(), name: entry.name, kind: "folder", children }
 }
 
 export const playlistNodesFromTransfer = async (dataTransfer: DataTransfer) => {
   const entries = Array.from(dataTransfer.items)
-    .map((item) => (item as unknown as { webkitGetAsEntry?: () => DragEntry | null }).webkitGetAsEntry?.())
+    .map(item => (item as unknown as { webkitGetAsEntry?: () => DragEntry | null }).webkitGetAsEntry?.())
     .filter((entry): entry is DragEntry => Boolean(entry))
   const imported = entries.length
     ? await playlistNodesFromEntries(entries)
     : buildPlaylistTree(Array.from(dataTransfer.files))
-  const subtitleNodes = imported.filter((node) => node.kind === 'subtitle')
-  const nodes = imported.filter((node) => node.kind !== 'subtitle')
-  matchSubtitles(nodes.filter((node) => node.kind === 'video'), subtitleNodes.map((node) => node.file!))
+  const subtitleNodes = imported.filter(node => node.kind === "subtitle")
+  const nodes = imported.filter(node => node.kind !== "subtitle")
+  matchSubtitles(nodes.filter(node => node.kind === "video"), subtitleNodes.map(node => node.file!))
   sortPlaylistNodes(nodes)
   return nodes
 }
 
 export const firstVideoNode = (nodes: PlaylistNode[]): PlaylistNode | undefined => {
   for (const node of nodes) {
-    if (node.kind === 'video') return node
+    if (node.kind === "video") return node
     const nestedVideo = firstVideoNode(node.children ?? [])
     if (nestedVideo) return nestedVideo
   }

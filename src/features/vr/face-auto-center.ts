@@ -1,6 +1,7 @@
-import { MathUtils, type PerspectiveCamera } from 'three'
-import type { NormalizedFace } from '../face-tracking/protocol'
-import type { ProjectionPreset } from './config'
+import type { PerspectiveCamera } from "three"
+import type { NormalizedFace } from "../face-tracking/protocol"
+import type { ProjectionPreset } from "./config"
+import { MathUtils } from "three"
 
 const VIEWPORT_TARGET_X = 0.5
 const VIEWPORT_TARGET_Y = 1 / 3
@@ -8,12 +9,12 @@ const MIN_FACE_SCORE = 0.5
 const TARGET_SMOOTHING_TIME_MS = 480
 
 export type FaceBox = NormalizedFace & { lastSeenAt: number }
-export type DetectionMode = 'viewport' | 'panorama'
-type FaceTarget = { x: number; y: number; yaw?: number; pitch?: number; mode: DetectionMode; lastSeenAt: number }
-type FaceSelectionAnchor = { x: number; y: number; weight: number; wrapX: boolean }
-export type PanoramaSample = { center: { x: number; y: number }; startX: number; widthX: number; wraps: boolean }
+export type DetectionMode = "viewport" | "panorama"
+interface FaceTarget { x: number, y: number, yaw?: number, pitch?: number, mode: DetectionMode, lastSeenAt: number }
+interface FaceSelectionAnchor { x: number, y: number, weight: number, wrapX: boolean }
+export interface PanoramaSample { center: { x: number, y: number }, startX: number, widthX: number, wraps: boolean }
 
-export type FaceAutoCenterState = {
+export interface FaceAutoCenterState {
   faces: FaceBox[]
   selectedFace?: FaceBox & { mode: DetectionMode }
   detectionMode: DetectionMode
@@ -32,7 +33,7 @@ export type FaceAutoCenterState = {
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 const shortestAngle = (degrees: number) => ((degrees + 540) % 360) - 180
 const isHalfProjection = (preset: ProjectionPreset) =>
-  preset === 'sbs_180_eqr' || preset === 'sbs_180_fe' || preset === 'm_180_eqr' || preset === 'm_180_fe'
+  preset === "sbs_180_eqr" || preset === "sbs_180_fe" || preset === "m_180_eqr" || preset === "m_180_fe"
 const getProjectionYawSpan = (preset: ProjectionPreset) => (isHalfProjection(preset) ? 180 : 360)
 export const getProjectionYawLimit = (preset: ProjectionPreset) => (isHalfProjection(preset) ? 86 : undefined)
 const getViewportPitchOffset = (camera: PerspectiveCamera, y: number) => {
@@ -77,10 +78,10 @@ const selectStableFace = (
   time: number,
   anchor?: FaceSelectionAnchor,
 ) => {
-  const candidates = faces.filter((face) => face.score >= MIN_FACE_SCORE)
+  const candidates = faces.filter(face => face.score >= MIN_FACE_SCORE)
   if (!candidates.length) return undefined
   const previous = state.selectedFace && time - state.selectedFace.lastSeenAt < 2400 ? state.selectedFace : undefined
-  const wrapX = mode === 'panorama'
+  const wrapX = mode === "panorama"
   return candidates
     .map((face) => {
       const base = face.score * 1.2 + face.width * face.height * 2.4
@@ -90,7 +91,8 @@ const selectStableFace = (
       const directionContinuity = anchor ? Math.max(0, 1 - getAnchorDistance(face, anchor) / 0.42) * anchor.weight : 0
       return { face, score: base + continuity + directionContinuity }
     })
-    .sort((a, b) => b.score - a.score)[0]?.face
+    .sort((a, b) => b.score - a.score)[0]
+    ?.face
 }
 
 export const applyDetections = (
@@ -99,10 +101,10 @@ export const applyDetections = (
   time: number,
   mode: DetectionMode,
   anchor?: FaceSelectionAnchor,
-  transformFace: (face: FaceBox) => FaceBox = (face) => face,
+  transformFace: (face: FaceBox) => FaceBox = face => face,
 ) => {
   state.lastDetectionAt = time
-  state.faces = faces.map((face) => ({ ...face, lastSeenAt: time }))
+  state.faces = faces.map(face => ({ ...face, lastSeenAt: time }))
   const selectedFace = selectStableFace(state, state.faces.map(transformFace), mode, time, anchor)
   state.selectedFace = selectedFace ? { ...selectedFace, mode } : state.selectedFace
   return selectedFace
@@ -136,7 +138,7 @@ export const setViewportTarget = (
   center = face ? getFaceCenter(face) : undefined,
 ) => {
   if (!face || !center) return false
-  smoothTarget(state, { x: center.x - VIEWPORT_TARGET_X, y: center.y - VIEWPORT_TARGET_Y, mode: 'viewport', lastSeenAt: time })
+  smoothTarget(state, { x: center.x - VIEWPORT_TARGET_X, y: center.y - VIEWPORT_TARGET_Y, mode: "viewport", lastSeenAt: time })
   return true
 }
 
@@ -156,7 +158,7 @@ export const setPanoramaTarget = (
     y: center.y - VIEWPORT_TARGET_Y,
     yaw: yawLimit === undefined ? yaw : clamp(yaw, -yawLimit, yawLimit),
     pitch: clamp((0.5 - center.y) * 180 - getViewportPitchOffset(camera, VIEWPORT_TARGET_Y), -75, 75),
-    mode: 'panorama',
+    mode: "panorama",
     lastSeenAt: time,
   })
   return true

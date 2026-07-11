@@ -1,31 +1,33 @@
-import { createEffect, createMemo, createSignal, createStore, onSettled } from 'solid-js'
-import {
-  DEFAULT_ZOOM,
-  PRESETS,
-  QUALITY_OPTIONS,
-  createVrScene,
-  preloadFaceAutoCenterResources,
-  type CameraView,
-  type VrSceneController,
-} from '../vr/scene'
-import { releaseFaceAutoCenterResources } from '../face-tracking/client'
-import { createControls } from './controls'
-import { createDisplay } from './display'
-import { activeSubtitleText, parseSubtitle, type SubtitleCue } from '../subtitles/parser'
+import type { PlaylistNode, PlaylistStateNode } from "../playlist/model"
+import type { SubtitleCue } from "../subtitles/parser"
+import type { CameraView, VrSceneController } from "../vr/scene"
+import { createEffect, createMemo, createSignal, createStore, onSettled } from "solid-js"
+import { releaseFaceAutoCenterResources } from "../face-tracking/client"
 import {
   buildPlaylistTree,
   firstVideoNode,
   isVideoFile,
+
   playlistNodesFromTransfer,
-  type PlaylistNode,
-  type PlaylistStateNode,
-} from '../playlist/model'
+
+} from "../playlist/model"
+import { activeSubtitleText, parseSubtitle } from "../subtitles/parser"
+import {
+  createVrScene,
+  DEFAULT_ZOOM,
+  preloadFaceAutoCenterResources,
+  PRESETS,
+  QUALITY_OPTIONS,
+} from "../vr/scene"
+
+import { createControls } from "./controls"
+import { createDisplay } from "./display"
 
 type ValueUpdate<T> = T | ((current: T) => T)
-type PlaylistImportPlayback = 'always' | 'when-empty' | 'never'
+type PlaylistImportPlayback = "always" | "when-empty" | "never"
 
 const resolveUpdate = <T>(current: T, update: ValueUpdate<T>) =>
-  typeof update === 'function' ? (update as (current: T) => T)(current) : update
+  typeof update === "function" ? (update as (current: T) => T)(current) : update
 
 const VIDEO_SWITCH_DEBOUNCE_MS = 180
 const VIDEO_RELEASE_SETTLE_MS = 160
@@ -49,7 +51,7 @@ export function createPlayerController() {
   let videoLoadGeneration = 0
   let videoSwitchTimer: number | undefined
   let videoSwitchInProgress = false
-  let pendingVideoSwitch: { file: File; playlistId?: string } | undefined
+  let pendingVideoSwitch: { file: File, playlistId?: string } | undefined
   let autoplayPending = false
   let playlistImportGeneration = 0
   let resourcesInitialized = false
@@ -74,7 +76,7 @@ export function createPlayerController() {
     return {
       id: node.id,
       name: node.name,
-      kind: node.kind === 'folder' ? 'folder' : 'video',
+      kind: node.kind === "folder" ? "folder" : "video",
       hasSubtitle: Boolean(node.subtitleFile),
       children: node.children ? serializePlaylistNodes(node.children) : undefined,
     }
@@ -104,13 +106,11 @@ export function createPlayerController() {
   const [loadingState, setLoadingState] = createStore({
     resourcesReady: true,
     progress: 100,
-    label: 'Ready',
+    label: "Ready",
     error: undefined as string | undefined,
   })
   const resourcesReady = () => loadingState.resourcesReady
   const loadingProgress = () => loadingState.progress
-  const loadingLabel = () => loadingState.label
-  const loadingError = () => loadingState.error
   const setResourcesReady = (resourcesReady: boolean) => setLoadingState((draft) => {
     draft.resourcesReady = resourcesReady
   })
@@ -129,17 +129,36 @@ export function createPlayerController() {
     viewRef,
   })
   const {
-    changeQualityBy, faceAutoCenter, presetId, qualityId, splitScreen, syncFullscreen,
+    changeQualityBy,
+    faceAutoCenter,
+    presetId,
+    qualityId,
+    splitScreen,
+    syncFullscreen,
     syncZoom,
   } = displayModule
   const {
-    resetView, setPresetId, setZoom, toggleFullscreen, zoom,
+    resetView,
+    setPresetId,
+    setZoom,
+    toggleFullscreen,
+    zoom,
   } = displayModule.controller
   const controlsModule = createControls({ hasVideo, playlistOpen, resourcesReady })
   const {
-    activeSlider, cancelHideSlider, controlsVisible, cursorVisible, dispose: disposeControls,
-    handlePlayerMouseMove, scheduleHideControls, scheduleHideSlider, setActiveSlider,
-    showControls, showSlider, sliderAnchor, startInitialIdleCountdown,
+    activeSlider,
+    cancelHideSlider,
+    controlsVisible,
+    cursorVisible,
+    dispose: disposeControls,
+    handlePlayerMouseMove,
+    scheduleHideControls,
+    scheduleHideSlider,
+    setActiveSlider,
+    showControls,
+    showSlider,
+    sliderAnchor,
+    startInitialIdleCountdown,
   } = controlsModule
   const playlistVisible = createMemo(() => playlistOpen() && controlsVisible())
   let loadingPromise: Promise<void> | undefined
@@ -154,7 +173,7 @@ export function createPlayerController() {
   const playlistVideos = createMemo(() => {
     const videos: PlaylistStateNode[] = []
     const visit = (nodes: PlaylistStateNode[]) => {
-      nodes.forEach((node) => (node.kind === 'video' ? videos.push(node) : visit(node.children ?? [])))
+      nodes.forEach(node => (node.kind === "video" ? videos.push(node) : visit(node.children ?? [])))
     }
     visit(playlist())
     return videos
@@ -170,10 +189,10 @@ export function createPlayerController() {
   })
 
   const showVideoTranslationLayer = () => {
-    video.classList.remove('hidden')
-    video.classList.add('block')
-    video.classList.add('opacity-[0.01]', 'pointer-events-none')
-    video.dataset.displayMode = 'vr-translation-layer'
+    video.classList.remove("hidden")
+    video.classList.add("block")
+    video.classList.add("opacity-[0.01]", "pointer-events-none")
+    video.dataset.displayMode = "vr-translation-layer"
   }
 
   const syncTime = () => {
@@ -183,7 +202,7 @@ export function createPlayerController() {
 
   const subtitleText = createMemo(() => subtitlesEnabled()
     ? activeSubtitleText(subtitleCues(), currentTime())
-    : '')
+    : "")
 
   const loadSubtitle = async (file: File | undefined, generation: number) => {
     if (!file) {
@@ -200,7 +219,7 @@ export function createPlayerController() {
       if (generation !== videoLoadGeneration || appDisposed) return
       setSubtitleCues([])
       setSubtitleFileName(undefined)
-      console.warn('subtitle loading failed', error)
+      console.warn("subtitle loading failed", error)
     }
   }
 
@@ -243,16 +262,16 @@ export function createPlayerController() {
     }
   }
 
-  const openVideoFile = () => {
+  function openVideoFile() {
     fileInput.click()
   }
   const requestVideoPlayback = (generation = videoLoadGeneration) => {
     if (generation !== videoLoadGeneration) return
-    if (!video.currentSrc && !video.getAttribute('src')) return
+    if (!video.currentSrc && !video.getAttribute("src")) return
     autoplayPending = false
     void video.play().catch((error) => {
-      if (generation !== videoLoadGeneration || error instanceof DOMException && error.name === 'AbortError') return
-      console.warn('video playback could not start', error)
+      if (generation !== videoLoadGeneration || (error instanceof DOMException && error.name === "AbortError")) return
+      console.warn("video playback could not start", error)
     })
   }
 
@@ -261,29 +280,30 @@ export function createPlayerController() {
     fileUrl = undefined
     video.pause()
 
-    if (video.currentSrc || video.getAttribute('src')) {
+    if (video.currentSrc || video.getAttribute("src")) {
       await new Promise<void>((resolve) => {
         let completed = false
+        let timeout: number
         const finish = () => {
           if (completed) return
           completed = true
           window.clearTimeout(timeout)
-          video.removeEventListener('emptied', finish)
+          video.removeEventListener("emptied", finish)
           resolve()
         }
-        const timeout = window.setTimeout(finish, VIDEO_EMPTY_TIMEOUT_MS)
-        video.addEventListener('emptied', finish, { once: true })
-        video.removeAttribute('src')
+        timeout = window.setTimeout(finish, VIDEO_EMPTY_TIMEOUT_MS)
+        video.addEventListener("emptied", finish, { once: true })
+        video.removeAttribute("src")
         video.load()
       })
     } else {
-      video.removeAttribute('src')
+      video.removeAttribute("src")
       video.load()
     }
 
     if (previousUrl) URL.revokeObjectURL(previousUrl)
     if (!appDisposed) {
-      await new Promise<void>((resolve) => window.setTimeout(resolve, VIDEO_RELEASE_SETTLE_MS))
+      await new Promise<void>(resolve => window.setTimeout(resolve, VIDEO_RELEASE_SETTLE_MS))
     }
   }
 
@@ -312,7 +332,8 @@ export function createPlayerController() {
     if (videoSwitchInProgress) return
     videoSwitchInProgress = true
     try {
-      while (pendingVideoSwitch && !appDisposed) {
+      while (pendingVideoSwitch) {
+        if (appDisposed) break
         const pending = pendingVideoSwitch
         pendingVideoSwitch = undefined
         await commitVideoFile(pending.file, pending.playlistId)
@@ -359,19 +380,19 @@ export function createPlayerController() {
   }
 
   const countPlaylistVideos = (nodes: PlaylistNode[]): number => nodes.reduce(
-    (count, node) => count + (node.kind === 'video' ? 1 : countPlaylistVideos(node.children ?? [])),
+    (count, node) => count + (node.kind === "video" ? 1 : countPlaylistVideos(node.children ?? [])),
     0,
   )
 
   const importPlaylistNodes = (nodes: PlaylistNode[], playback: PlaylistImportPlayback) => {
     if (!nodes.length) return
     const firstVideo = firstVideoNode(nodes)
-    if (playback === 'always' && !firstVideo?.file) return
+    if (playback === "always" && !firstVideo?.file) return
 
     appendPlaylist(nodes)
     setExpandedFolders((current) => {
       const next = new Set(current)
-      nodes.forEach((node) => node.kind === 'folder' && next.add(node.id))
+      nodes.forEach(node => node.kind === "folder" && next.add(node.id))
       return next
     })
 
@@ -381,7 +402,7 @@ export function createPlayerController() {
     }
 
     const shouldLoadImportedVideo = !playing() && firstVideo?.file
-      && (playback === 'always' || (playback === 'when-empty' && !hasVideo()))
+      && (playback === "always" || (playback === "when-empty" && !hasVideo()))
     if (shouldLoadImportedVideo && firstVideo?.file) {
       loadVideoFile(firstVideo.file, firstVideo.id)
     }
@@ -394,20 +415,20 @@ export function createPlayerController() {
       if (appDisposed || importGeneration !== playlistImportGeneration) return
       importPlaylistNodes(nodes, playback)
     } catch (error) {
-      console.warn('video import failed', error)
+      console.warn("video import failed", error)
     }
   }
 
   const handleFile = () => {
     const files = Array.from(fileInput.files ?? [])
-    fileInput.value = ''
-    importPlaylistNodes(buildPlaylistTree(files), 'always')
+    fileInput.value = ""
+    importPlaylistNodes(buildPlaylistTree(files), "always")
   }
 
   const handleFolder = () => {
     const files = Array.from(folderInput.files ?? [])
-    folderInput.value = ''
-    importPlaylistNodes(buildPlaylistTree(files), 'when-empty')
+    folderInput.value = ""
+    importPlaylistNodes(buildPlaylistTree(files), "when-empty")
   }
 
   const togglePlaylistFolder = (id: string) => {
@@ -421,7 +442,7 @@ export function createPlayerController() {
 
   const playNextPlaylistVideo = () => {
     const videos = playlistVideos()
-    const currentIndex = videos.findIndex((node) => node.id === selectedPlaylistId())
+    const currentIndex = videos.findIndex(node => node.id === selectedPlaylistId())
     if (currentIndex < 0) return
     const next = videos[currentIndex + 1]
     if (next) playPlaylistNode(next.id)
@@ -432,7 +453,7 @@ export function createPlayerController() {
     setFrameDragActive(false)
     const dataTransfer = event.dataTransfer
     if (!dataTransfer) return
-    await importPlaylistTransfer(dataTransfer, 'always')
+    await importPlaylistTransfer(dataTransfer, "always")
   }
 
   const handleKeydown = (event: KeyboardEvent) => {
@@ -442,66 +463,66 @@ export function createPlayerController() {
     }
 
     const target = event.target
-    const isTyping =
-      target instanceof HTMLInputElement ||
-      target instanceof HTMLSelectElement ||
-      target instanceof HTMLTextAreaElement ||
-      (target instanceof HTMLElement && target.isContentEditable)
+    const isTyping
+      = target instanceof HTMLInputElement
+        || target instanceof HTMLSelectElement
+        || target instanceof HTMLTextAreaElement
+        || (target instanceof HTMLElement && target.isContentEditable)
     if (isTyping) return
 
     const seekAmount = event.shiftKey ? 60 : 10
 
     switch (event.key) {
-      case ' ':
-      case 'k':
-      case 'K':
+      case " ":
+      case "k":
+      case "K":
         event.preventDefault()
         togglePlay()
         break
-      case 'ArrowLeft':
-      case 'j':
-      case 'J':
+      case "ArrowLeft":
+      case "j":
+      case "J":
         event.preventDefault()
         seekBy(-seekAmount)
         break
-      case 'ArrowRight':
-      case 'l':
-      case 'L':
+      case "ArrowRight":
+      case "l":
+      case "L":
         event.preventDefault()
         seekBy(seekAmount)
         break
-      case 'ArrowUp':
+      case "ArrowUp":
         event.preventDefault()
         setVolumeLevel(volume() + 0.05)
         break
-      case 'ArrowDown':
+      case "ArrowDown":
         event.preventDefault()
         setVolumeLevel(volume() - 0.05)
         break
-      case 'm':
-      case 'M':
+      case "m":
+      case "M":
         toggleMute()
         break
-      case 'f':
-      case 'F':
+      case "f":
+      case "F":
         void toggleFullscreen()
         break
-      case 'r':
-      case 'R':
+      case "r":
+      case "R":
         resetView()
         break
-      case '[':
-      case '-':
+      case "[":
+      case "-":
         setZoom(zoom() - 0.1)
         break
-      case ']':
-      case '=':
+      case "]":
+      case "=":
         setZoom(zoom() + 0.1)
         break
-      case ',':
+      case ",":
         changeQualityBy(-1)
         break
-      case '.':
+      case ".":
         changeQualityBy(1)
         break
       default: {
@@ -519,7 +540,7 @@ export function createPlayerController() {
     loadingPromise = (async () => {
       setResourcesReady(false)
       setLoadingError(undefined)
-      setLoadingLabel('Preparing player')
+      setLoadingLabel("Preparing player")
       setLoadingProgress(4)
 
       try {
@@ -530,7 +551,7 @@ export function createPlayerController() {
         })
         if (appDisposed) return
 
-        setLoadingLabel('Starting renderer')
+        setLoadingLabel("Starting renderer")
         setLoadingProgress(96)
         scene = createVrScene({
           root: vrRoot,
@@ -544,7 +565,7 @@ export function createPlayerController() {
           ...sceneOptions(),
         })
         showVideoTranslationLayer()
-        setLoadingLabel('Ready')
+        setLoadingLabel("Ready")
         setLoadingProgress(100)
         resourcesInitialized = true
         setResourcesReady(true)
@@ -554,9 +575,9 @@ export function createPlayerController() {
         }
       } catch (error) {
         if (appDisposed) return
-        console.warn('initial resource loading failed', error)
-        setLoadingError('Resource loading failed')
-        setLoadingLabel('Unable to load resources')
+        console.warn("initial resource loading failed", error)
+        setLoadingError("Resource loading failed")
+        setLoadingLabel("Unable to load resources")
       }
     })().finally(() => {
       loadingPromise = undefined
@@ -564,13 +585,13 @@ export function createPlayerController() {
   }
 
   onSettled(() => {
-    window.addEventListener('keydown', handleKeydown)
-    document.addEventListener('fullscreenchange', syncFullscreen)
+    window.addEventListener("keydown", handleKeydown)
+    document.addEventListener("fullscreenchange", syncFullscreen)
 
     return () => {
       appDisposed = true
-      window.removeEventListener('keydown', handleKeydown)
-      document.removeEventListener('fullscreenchange', syncFullscreen)
+      window.removeEventListener("keydown", handleKeydown)
+      document.removeEventListener("fullscreenchange", syncFullscreen)
       if (videoSwitchTimer !== undefined) window.clearTimeout(videoSwitchTimer)
       pendingVideoSwitch = undefined
       autoplayPending = false
@@ -580,7 +601,7 @@ export function createPlayerController() {
       releaseFaceAutoCenterResources()
       videoLoadGeneration += 1
       video.pause()
-      video.removeAttribute('src')
+      video.removeAttribute("src")
       video.load()
       if (fileUrl) URL.revokeObjectURL(fileUrl)
       fileUrl = undefined
@@ -672,7 +693,7 @@ export function createPlayerController() {
       fileName: subtitleFileName,
       hasSubtitle: () => subtitleCues().length > 0,
       text: subtitleText,
-      toggle: () => setSubtitlesEnabled((current) => !current),
+      toggle: () => setSubtitlesEnabled(current => !current),
     },
     display: displayModule.controller,
     controls: {

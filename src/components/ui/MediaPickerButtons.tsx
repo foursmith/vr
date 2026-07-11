@@ -1,7 +1,7 @@
-import { Icon } from './Icon'
-import { LiquidGlass } from './LiquidGlass'
+import { Icon } from "./Icon"
+import { LiquidGlass } from "./LiquidGlass"
 
-export function MediaPickerButtons(props: { onChooseFiles: () => void; onChooseFolder: () => void }) {
+export function MediaPickerButtons(props: { onChooseFiles: () => void, onChooseFolder: () => void }) {
   return (
     <LiquidGlass
       class="h-10 w-64 max-w-full rounded-full text-white"

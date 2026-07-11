@@ -1,6 +1,6 @@
-export type FaceInferenceMode = 'landmarks' | 'detection'
+export type FaceInferenceMode = "landmarks" | "detection"
 
-export type NormalizedFace = {
+export interface NormalizedFace {
   x: number
   y: number
   width: number
@@ -8,28 +8,28 @@ export type NormalizedFace = {
   score: number
 }
 
-export type FaceInferenceResult = {
+export interface FaceInferenceResult {
   id: number
-  type: 'result'
+  type: "result"
   mode: FaceInferenceMode
   timestamp: number
   faces: NormalizedFace[]
-  center?: { x: number; y: number }
+  center?: { x: number, y: number }
   inferenceMs: number
 }
 
-export type FaceWorkerRequest =
-  | { type: 'init' }
-  | {
+export type FaceWorkerRequest
+  = | { type: "init" }
+    | {
       id: number
-      type: 'infer'
+      type: "infer"
       mode: FaceInferenceMode
       timestamp: number
       bitmap: ImageBitmap
     }
 
-export type FaceWorkerResponse =
-  | { type: 'progress'; loaded: number; total: number; label: string }
-  | { type: 'ready' }
-  | FaceInferenceResult
-  | { type: 'error'; id?: number; message: string }
+export type FaceWorkerResponse
+  = | { type: "progress", loaded: number, total: number, label: string }
+    | { type: "ready" }
+    | FaceInferenceResult
+    | { type: "error", id?: number, message: string }

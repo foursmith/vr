@@ -1,5 +1,5 @@
-import { Show, untrack } from 'solid-js'
-import type { PlayerController } from '../../features/player/controller'
+import type { PlayerController } from "../../features/player/controller"
+import { Show, untrack } from "solid-js"
 
 export function PlayerStage(props: { controller: PlayerController }) {
   const { debug, frame, playback, subtitles } = untrack(() => props.controller)
@@ -25,13 +25,15 @@ export function PlayerStage(props: { controller: PlayerController }) {
             ref={debug.setSampleCanvas}
             id="sample-canvas"
             class="absolute right-3 top-3 hidden aspect-auto w-[min(16rem,24vw)] max-w-[calc(100vw-24px)] rounded-md border border-white/22 bg-black shadow-[0_12px_34px_rgba(0,0,0,0.48),0_0_0_1px_rgba(0,0,0,0.55)]"
-          ></canvas>
+          >
+          </canvas>
           <div
             ref={debug.setFaceHint}
             id="face-hint"
             class="absolute top-1/2 -translate-y-1/2 rounded-full border border-[#38ff8b]/44 bg-black/58 px-3 py-2.5 font-mono text-sm text-white font-extrabold leading-none shadow-[0_10px_30px_rgba(0,0,0,0.42),0_0_20px_rgba(56,255,139,0.22)] [text-shadow:0_1px_1px_rgba(0,0,0,0.55)]"
             hidden
-          ></div>
+          >
+          </div>
         </div>
       </section>
 
@@ -58,7 +60,8 @@ export function PlayerStage(props: { controller: PlayerController }) {
         onPause={() => playback.setPlaying(false)}
         onEnded={playback.playNextPlaylistVideo}
         onVolumeChange={playback.handleVolumeChange}
-      ></video>
+      >
+      </video>
     </>
   )
 }
