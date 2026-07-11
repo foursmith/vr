@@ -540,7 +540,9 @@ export function createPlayerController() {
       showControls()
     }
 
-    if (firstVideo?.file && (playback === 'always' || (playback === 'when-empty' && !hasVideo()))) {
+    const shouldLoadImportedVideo = !playing() && firstVideo?.file
+      && (playback === 'always' || (playback === 'when-empty' && !hasVideo()))
+    if (shouldLoadImportedVideo && firstVideo?.file) {
       loadVideoFile(firstVideo.file, firstVideo.id)
     }
   }
