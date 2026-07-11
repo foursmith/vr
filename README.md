@@ -7,8 +7,8 @@ ___Watch VR like TikTok LIVE___
 
 ## Usage
 
-> [!TIP]
-> Not Support Safari and any iOS browsers。
+> [!Important]
+> Not support Safari and any iOS browsers。
 
 Open [Foursmith VR](https://vr.foursmith.com/) in Chrome, Edge, or another Chromium-based desktop browser, then choose or drop a video file or folder.
 
