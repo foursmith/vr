@@ -1,18 +1,18 @@
-# Face Cam VR
+# Foursmith VR
 
-An Elegant Way to Watch VR in 2D — Like a Face Cam.
+Watch VR like TikTok LIVE
 
 ## Features
 
 - Plays local 180°, 360°, side-by-side, top-bottom, fisheye, and flat videos.
-- Converts VR video into a 2D face-cam-style view.
+- Converts VR video into an automatically framed 2D view.
 - Keeps faces centered automatically.
 - Supports mouse, keyboard, and on-screen controls.
 - Offers adjustable projection and quality presets.
 
 ## Usage
 
-Open [Face Cam VR](https://facecam.busiyi.world/) in Chrome, Edge, or another Chromium-based desktop browser, then choose or drop a video file or folder.
+Open [Foursmith VR](https://vr.foursmith.com/) in Chrome, Edge, or another Chromium-based desktop browser, then choose or drop a video file or folder.
 
 ## Keyboard Shortcuts
 

@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://facecam.busiyi.world/sitemap.xml
+Sitemap: https://vr.foursmith.com/sitemap.xml

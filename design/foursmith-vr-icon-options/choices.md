@@ -1,4 +1,4 @@
-# Face Cam VR Icon Directions
+# Foursmith VR Icon Directions
 
 These are concept directions for the next SVG app icon. They intentionally avoid headset, literal monitor, and padlock-first symbolism.
 

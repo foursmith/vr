@@ -56,7 +56,7 @@ export function PlaylistPanel(props: { controller: PlayerController['playlist'] 
                   <div class="grid min-h-full w-full content-end justify-items-center gap-4 rounded-xl px-1 pb-2 text-center">
                     <img
                       src="/icon.svg"
-                      alt="Face Cam VR"
+                      alt="Foursmith VR"
                       class="h-16 w-16 drop-shadow-[0_12px_28px_rgba(0,0,0,0.45)]"
                     />
                     <div class="grid gap-1.5">

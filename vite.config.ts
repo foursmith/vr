@@ -30,9 +30,9 @@ export default defineConfig(({ command})=>({
       },
       manifest: {
         id: '/',
-        name: 'Face Cam VR',
-        short_name: 'Face Cam VR',
-        description: 'An Elegant Way to Watch VR in 2D — Like a Face Cam.',
+        name: 'Foursmith VR',
+        short_name: 'Foursmith VR',
+        description: 'Watch VR like TikTok LIVE',
         start_url: '/',
         scope: '/',
         theme_color: '#061a28',
