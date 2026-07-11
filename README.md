@@ -1,18 +1,26 @@
 # Foursmith VR
 
-Watch VR like TikTok LIVE
+
+___Watch VR like TikTok LIVE___
+
+> This might be the most enjoyable way to experience VR — no headset required, and no worries if you suffer from motion sickness. Sit back and enjoy!
+
+## Usage
+
+> [!TIP]
+> Not Support Safari and any iOS browsers。
+
+Open [Foursmith VR](https://vr.foursmith.com/) in Chrome, Edge, or another Chromium-based desktop browser, then choose or drop a video file or folder.
+
 
 ## Features
 
 - Plays local 180°, 360°, side-by-side, top-bottom, fisheye, and flat videos.
 - Converts VR video into an automatically framed 2D view.
 - Keeps faces centered automatically.
+- Works with browsers and browser extensions that provide live speech translation.
 - Supports mouse, keyboard, and on-screen controls.
 - Offers adjustable projection and quality presets.
-
-## Usage
-
-Open [Foursmith VR](https://vr.foursmith.com/) in Chrome, Edge, or another Chromium-based desktop browser, then choose or drop a video file or folder.
 
 ## Keyboard Shortcuts
 
@@ -26,7 +34,6 @@ Open [Foursmith VR](https://vr.foursmith.com/) in Chrome, Edge, or another Chrom
 | Up / Down | Adjust volume |
 | M | Mute or unmute |
 | F | Toggle fullscreen |
-| V | Toggle video-only mode |
 | R | Reset view and zoom |
 | [ / - | Zoom out |
 | ] / = | Zoom in |
