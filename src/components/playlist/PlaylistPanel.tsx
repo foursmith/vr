@@ -53,12 +53,17 @@ export function PlaylistPanel(props: { controller: PlayerController['playlist'] 
               <Show
                 when={state.nodes.length}
                 fallback={
-                  <div
-                    role="status"
-                    class="grid min-h-full w-full place-content-center justify-items-center gap-2 rounded-xl px-5 py-10 text-center text-white/34"
-                  >
-                    <Icon name="folder" class="h-4.5 w-4.5" />
-                    <span class="text-[11px] font-medium">No videos</span>
+                  <div class="grid min-h-full w-full content-end justify-items-center gap-4 rounded-xl px-1 pb-2 text-center">
+                    <img
+                      src="/icon.svg"
+                      alt="Face Cam VR"
+                      class="h-16 w-16 drop-shadow-[0_12px_28px_rgba(0,0,0,0.45)]"
+                    />
+                    <div class="grid gap-1.5">
+                      <span class="text-balance text-sm font-semibold text-white/92">Drop video files or folders here</span>
+                      <span class="text-balance text-[11px] font-medium text-white/48">or choose what to add</span>
+                    </div>
+                    <MediaPickerButtons onChooseFiles={chooseFiles} onChooseFolder={chooseFolder} />
                   </div>
                 }
               >
@@ -79,9 +84,11 @@ export function PlaylistPanel(props: { controller: PlayerController['playlist'] 
               </Show>
             </div>
 
-            <footer class="grid shrink-0 place-items-center border-t border-white/9 p-2">
-              <MediaPickerButtons onChooseFiles={chooseFiles} onChooseFolder={chooseFolder} />
-            </footer>
+            <Show when={state.nodes.length}>
+              <footer class="grid shrink-0 place-items-center border-t border-white/9 p-2">
+                <MediaPickerButtons onChooseFiles={chooseFiles} onChooseFolder={chooseFolder} />
+              </footer>
+            </Show>
           </aside>
         </LiquidGlass>
       </div>
