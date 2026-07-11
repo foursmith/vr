@@ -3,6 +3,10 @@
   user-select: none;
 }
 
+img {
+  -webkit-user-drag: none;
+}
+
 button,
 input {
   -webkit-tap-highlight-color: transparent;
