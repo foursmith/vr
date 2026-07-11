@@ -120,7 +120,7 @@ export function LiquidGlass(props: LiquidGlassProps) {
       onFocusOut={props.onFocusOut}
     >
       <div
-        class="relative grid h-full w-full min-w-0 origin-center overflow-hidden will-change-transform [&_button]:cursor-default [&_button]:transition [&_button:hover]:bg-white/7 [&_button:hover]:text-white [&_button:active]:scale-95 [&_button:focus-visible]:bg-white/10 [&_button:focus-visible]:outline-none"
+        class="relative grid h-full min-h-0 w-full min-w-0 origin-center overflow-hidden will-change-transform [&_button]:cursor-default [&_button]:transition [&_button:hover]:bg-white/7 [&_button:hover]:text-white [&_button:active]:scale-95 [&_button:focus-visible]:bg-white/10 [&_button:focus-visible]:outline-none"
         style={shellStyle()}
       >
         <span
@@ -134,7 +134,7 @@ export function LiquidGlass(props: LiquidGlassProps) {
               : 'bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.03)),rgba(12,14,18,0.88)]',
           ]}
         />
-        <div class="relative z-3 grid h-full w-full min-w-0 place-items-center">{props.children}</div>
+        <div class="relative z-3 grid h-full min-h-0 w-full min-w-0 place-items-center">{props.children}</div>
       </div>
     </div>
   )
