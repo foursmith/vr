@@ -4,6 +4,10 @@ import UnoCSS from 'unocss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig(({ command})=>({
+  server: {
+    port: 2333,
+    strictPort: true
+  },
   build: {
     chunkSizeWarningLimit: 550,
     rolldownOptions: {
