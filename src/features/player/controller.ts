@@ -51,6 +51,7 @@ export function createPlayerController() {
   let pendingVideoSwitch: { file: File; playlistId?: string } | undefined
   let autoplayPending = false
   let playlistImportGeneration = 0
+  let resourcesInitialized = false
   const playlistFiles = new Map<string, File>()
 
   const [fileName, setFileName] = createSignal<string>()
@@ -94,9 +95,9 @@ export function createPlayerController() {
   const [volume, setVolume] = createSignal(1)
   const [debugPanelOpen, setDebugPanelOpen] = createSignal(false)
   const [loadingState, setLoadingState] = createStore({
-    resourcesReady: false,
-    progress: 0,
-    label: 'Preparing to start',
+    resourcesReady: true,
+    progress: 100,
+    label: 'Ready',
     error: undefined as string | undefined,
   })
   const resourcesReady = () => loadingState.resourcesReady
@@ -270,7 +271,7 @@ export function createPlayerController() {
     setSelectedPlaylistId(playlistId && playlistFiles.has(playlistId) ? playlistId : undefined)
     video.src = fileUrl
     video.load()
-    if (resourcesReady()) {
+    if (resourcesInitialized && resourcesReady()) {
       requestVideoPlayback(generation)
       startInitialIdleCountdown()
     }
@@ -481,7 +482,7 @@ export function createPlayerController() {
   }
 
   const startInitialLoad = () => {
-    if (loadingPromise) return
+    if (loadingPromise || resourcesInitialized) return
 
     loadingPromise = (async () => {
       setResourcesReady(false)
@@ -513,6 +514,7 @@ export function createPlayerController() {
         showVideoTranslationLayer()
         setLoadingLabel('Ready')
         setLoadingProgress(100)
+        resourcesInitialized = true
         setResourcesReady(true)
         if (hasVideo()) {
           if (autoplayPending) requestVideoPlayback()
@@ -530,16 +532,11 @@ export function createPlayerController() {
   }
 
   onSettled(() => {
-    const bootPlayer = window.requestAnimationFrame(() => {
-      startInitialLoad()
-    })
-
     window.addEventListener('keydown', handleKeydown)
     document.addEventListener('fullscreenchange', syncFullscreen)
 
     return () => {
       appDisposed = true
-      window.cancelAnimationFrame(bootPlayer)
       window.removeEventListener('keydown', handleKeydown)
       document.removeEventListener('fullscreenchange', syncFullscreen)
       if (videoSwitchTimer !== undefined) window.clearTimeout(videoSwitchTimer)
@@ -557,6 +554,13 @@ export function createPlayerController() {
       fileUrl = undefined
     }
   })
+
+  createEffect(
+    () => hasVideo(),
+    (videoSelected) => {
+      if (videoSelected) startInitialLoad()
+    },
+  )
 
   createEffect(
     () => sceneOptions(),
