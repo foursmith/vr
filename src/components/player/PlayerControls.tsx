@@ -52,7 +52,7 @@ export function PlayerControls(props: { controller: PlayerController }) {
                 elasticity={0.16}
                 castShadow={false}
               >
-                <div class="box-border flex h-full w-full min-w-0 items-center rounded-full px-3">
+                <div class="box-border flex h-full w-full min-w-0 items-center rounded-full">
                   <ProjectionSelect value={displayState.presetId} onChange={setPresetId} />
                 </div>
               </LiquidGlass>

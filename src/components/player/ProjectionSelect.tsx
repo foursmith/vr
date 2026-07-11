@@ -60,7 +60,7 @@ export function ProjectionSelect(props: {
     <div ref={root} class="relative h-full min-w-0 flex-1">
       <button
         type="button"
-        class="flex h-full w-full min-w-0 items-center gap-2 border-0 bg-transparent p-0 text-left text-xs font-medium text-white outline-none"
+        class="flex h-full w-full min-w-0 items-center gap-2 rounded-full border-0 bg-transparent px-3 py-0 text-left text-xs font-medium text-white outline-none"
         aria-label="Projection"
         aria-haspopup="listbox"
         aria-expanded={open() ? 'true' : 'false'}
