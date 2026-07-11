@@ -13,20 +13,20 @@ export function PlaylistPanel(props: { controller: PlayerController['playlist'] 
   } = untrack(() => props.controller)
   return (
       <div
-        class={`pointer-events-auto absolute bottom-40 left-3 top-3 z-30 w-[min(15rem,calc(100vw-1.5rem))] transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:bottom-6 sm:left-6 sm:top-6 sm:w-72 ${
+        class={`pointer-events-auto absolute left-3 top-3 z-30 max-h-[calc(100dvh-14.75rem)] w-[min(15rem,calc(100vw-1.5rem))] transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:left-6 sm:top-6 sm:max-h-[calc(100dvh-13.5rem)] sm:w-72 ${
           visible() ? 'translate-x-0 opacity-100' : 'pointer-events-none -translate-x-[calc(100%+1.5rem)] opacity-0'
         }`}
         aria-hidden={visible() ? 'false' : 'true'}
         inert={!visible()}
       >
         <LiquidGlass
-          class="h-full w-full rounded-[20px] text-white"
+          class="min-h-0 w-full rounded-[20px] text-white"
           cornerRadius={20}
           elasticity={0}
           castShadow
         >
           <aside
-            class="flex h-full w-full flex-col overflow-hidden rounded-[20px] border border-white/12 text-white"
+            class="flex max-h-[calc(100dvh-14.75rem)] w-full flex-col overflow-hidden rounded-[20px] border border-white/12 text-white sm:max-h-[calc(100dvh-13.5rem)]"
             aria-label="Playlist"
           >
             <header class="flex h-14 shrink-0 items-center gap-2 border-b border-white/9 px-3">
@@ -50,38 +50,20 @@ export function PlaylistPanel(props: { controller: PlayerController['playlist'] 
             </header>
 
             <div class="playlist-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2">
-              <Show
-                when={state.nodes.length}
-                fallback={
-                  <div class="grid min-h-full w-full content-end justify-items-center gap-4 rounded-xl px-1 pb-2 text-center">
-                    <img
-                      src="/icon.svg"
-                      alt="Foursmith VR"
-                      class="h-16 w-16 drop-shadow-[0_12px_28px_rgba(0,0,0,0.45)]"
+              <ul role="tree" aria-label="Video folders" class="m-0 list-none p-0">
+                <For each={state.nodes}>
+                  {(node) => (
+                    <PlaylistTreeNode
+                      node={node}
+                      depth={0}
+                      expanded={expandedFolders()}
+                      selectedId={state.selectedId}
+                      onToggle={togglePlaylistFolder}
+                      onSelect={(selected) => playPlaylistNode(selected.id)}
                     />
-                    <div class="grid gap-1.5">
-                      <span class="text-balance text-sm font-semibold text-white/92">Drop video files or folders here</span>
-                      <span class="text-balance text-[11px] font-medium text-white/48">or choose what to add</span>
-                    </div>
-                    <MediaPickerButtons onChooseFiles={chooseFiles} onChooseFolder={chooseFolder} />
-                  </div>
-                }
-              >
-                <ul role="tree" aria-label="Video folders" class="m-0 list-none p-0">
-                  <For each={state.nodes}>
-                    {(node) => (
-                      <PlaylistTreeNode
-                        node={node}
-                        depth={0}
-                        expanded={expandedFolders()}
-                        selectedId={state.selectedId}
-                        onToggle={togglePlaylistFolder}
-                        onSelect={(selected) => playPlaylistNode(selected.id)}
-                      />
-                    )}
-                  </For>
-                </ul>
-              </Show>
+                  )}
+                </For>
+              </ul>
             </div>
 
             <Show when={state.nodes.length}>
