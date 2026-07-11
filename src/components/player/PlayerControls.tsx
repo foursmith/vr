@@ -1,4 +1,4 @@
-import { Show, untrack } from 'solid-js'
+import { Show, createSignal, untrack } from 'solid-js'
 import { QUALITY_OPTIONS } from '../../features/vr/scene'
 import type { PlayerController } from '../../features/player/controller'
 import { Icon } from '../ui/Icon'
@@ -7,11 +7,13 @@ import { LiquidGlass } from '../ui/LiquidGlass'
 import { ControlSliderPopover } from './ControlSliderPopover'
 import { PlaybackTimeline } from './PlaybackTimeline'
 import { ProjectionSelect } from './ProjectionSelect'
+import { SettingsModal } from './SettingsModal'
 
 const glassPillClass = 'text-white transition hover:text-white focus-within:text-white'
 export function PlayerControls(props: { controller: PlayerController }) {
   const controller = untrack(() => props.controller)
-  const { controls, debug, display, playback, playlist } = controller
+  const [settingsOpen, setSettingsOpen] = createSignal(false)
+  const { controls, display, playback, playlist } = controller
   const {
     activeSlider, cancelHideSlider, containsControlsPanel, controlsVisible, scheduleHideControls,
     scheduleHideSlider, setControlsPanel, setControlsZone, showControls, showSlider,
@@ -21,8 +23,7 @@ export function PlayerControls(props: { controller: PlayerController }) {
     loadingState, playing, seekBy, startInitialLoad, togglePlay, volume,
   } = playback
   const {
-    fullscreen, setFaceAutoCenter, setPresetId, setSplitScreen,
-    setVideoOnly, state: displayState, toggleFullscreen, zoom,
+    fullscreen, setPresetId, state: displayState, toggleFullscreen, zoom,
   } = display
   return (
       <aside
@@ -134,33 +135,7 @@ export function PlayerControls(props: { controller: PlayerController }) {
                 </div>
               </LiquidGlass>
 
-              <IconButton
-                label={displayState.splitScreen ? 'Disable automatic split screen' : 'Enable automatic split screen'}
-                icon="columns"
-                pressed={displayState.splitScreen}
-                onClick={() => setSplitScreen((current) => !current)}
-              />
-              <IconButton
-                label={displayState.videoOnly ? 'Show panorama' : 'Show video only'}
-                icon={displayState.videoOnly ? 'screen-share' : 'video'}
-                pressed={displayState.videoOnly}
-                onClick={() => setVideoOnly((current) => !current)}
-              />
-              <IconButton
-                label={displayState.faceAutoCenter ? 'Stop face centering' : 'Center detected face'}
-                icon="scan-face"
-                pressed={displayState.faceAutoCenter}
-                onClick={() => setFaceAutoCenter((current) => !current)}
-              />
-              <IconButton
-                label={debug.panelOpen() ? 'Hide debug panel' : 'Show debug panel'}
-                icon="bug"
-                pressed={debug.panelOpen()}
-                onClick={() => {
-                  debug.setPanelOpen((current) => !current)
-                  showControls()
-                }}
-              />
+              <IconButton label="Settings" icon="settings" onClick={() => setSettingsOpen(true)} />
               <IconButton
                 label={fullscreen() ? 'Exit fullscreen' : 'Enter fullscreen'}
                 icon={fullscreen() ? 'corners-in' : 'corners-out'}
@@ -172,6 +147,9 @@ export function PlayerControls(props: { controller: PlayerController }) {
 
           <PlaybackTimeline controller={playback} />
         </div>
+        <Show when={settingsOpen()}>
+          <SettingsModal controller={controller} onClose={() => setSettingsOpen(false)} />
+        </Show>
       </aside>
   )
 }

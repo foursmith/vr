@@ -15,6 +15,7 @@ const ICONS = {
   plus: 'i-ph-plus',
   rewind: 'i-ph-rewind',
   scale: 'i-ph-magnifying-glass-plus',
+  settings: 'i-ph-gear-six',
   'rotate-ccw': 'i-ph-arrow-counter-clockwise',
   'scan-face': 'i-ph-scan-smiley',
   'screen-share': 'i-ph-screencast',
