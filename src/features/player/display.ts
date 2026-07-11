@@ -15,7 +15,6 @@ export function createDisplay(options: {
   const [state, setState] = createStore({
     presetId: 0,
     qualityId: 2,
-    videoOnly: false,
     splitScreen: true,
     faceAutoCenter: true,
   })
@@ -29,7 +28,6 @@ export function createDisplay(options: {
   }
   const setPresetId = (update: ValueUpdate<number>) => setValue('presetId', update)
   const setQualityId = (update: ValueUpdate<number>) => setValue('qualityId', update)
-  const setVideoOnly = (update: ValueUpdate<boolean>) => setValue('videoOnly', update)
   const setSplitScreen = (update: ValueUpdate<boolean>) => setValue('splitScreen', update)
   const setFaceAutoCenter = (update: ValueUpdate<boolean>) => setValue('faceAutoCenter', update)
 
@@ -84,7 +82,6 @@ export function createDisplay(options: {
     setPresetId,
     setQualityId,
     setSplitScreen,
-    setVideoOnly,
     setZoom,
     state,
     toggleFullscreen,
@@ -100,6 +97,5 @@ export function createDisplay(options: {
     splitScreen: () => state.splitScreen,
     syncFullscreen,
     syncZoom,
-    videoOnly: () => state.videoOnly,
   }
 }

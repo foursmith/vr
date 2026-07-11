@@ -45,7 +45,7 @@ function SettingToggle(props: {
 export function SettingsModal(props: { controller: PlayerController; onClose: () => void }) {
   const controller = untrack(() => props.controller)
   const { debug, display } = controller
-  const { setFaceAutoCenter, setSplitScreen, setVideoOnly, state } = display
+  const { setFaceAutoCenter, setSplitScreen, state } = display
   let dialog: HTMLDivElement | undefined
 
   onSettled(() => {
@@ -103,13 +103,6 @@ export function SettingsModal(props: { controller: PlayerController; onClose: ()
                 icon="columns"
                 pressed={state.splitScreen}
                 onClick={() => setSplitScreen((current) => !current)}
-              />
-              <SettingToggle
-                title="Video only"
-                description="Hide the panorama renderer and show the source video."
-                icon={state.videoOnly ? 'screen-share' : 'video'}
-                pressed={state.videoOnly}
-                onClick={() => setVideoOnly((current) => !current)}
               />
               <SettingToggle
                 title="Face centering"
