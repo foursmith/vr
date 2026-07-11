@@ -1,21 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-labelledby="title desc">
   <title id="title">Face Cam VR</title>
-  <desc id="desc">An abstract locked gaze mark with a soft center focus.</desc>
+  <desc id="desc">A focused gaze carved from a circular lens using negative space.</desc>
   <defs>
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
-      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0b4a5a" flood-opacity=".12" />
-    </filter>
-    <linearGradient id="glass" x1="70" y1="52" x2="244" y2="270" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#fff" stop-opacity=".92" />
-      <stop offset=".5" stop-color="#fff" stop-opacity=".28" />
-      <stop offset="1" stop-color="#fff" stop-opacity=".62" />
+    <linearGradient id="lens" x1="70" y1="54" x2="250" y2="270" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f5fffc" />
+      <stop offset=".42" stop-color="#b8f3ec" />
+      <stop offset="1" stop-color="#62cfd8" />
     </linearGradient>
+    <filter id="shadow" x="-14%" y="-12%" width="128%" height="136%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#03131f" flood-opacity=".28" />
+    </filter>
+    <clipPath id="lens-boundary">
+      <circle cx="160" cy="160" r="112" />
+    </clipPath>
   </defs>
 
-  <g filter="url(#shadow)">
-    <circle cx="160" cy="160" r="112" fill="#061a28" opacity=".28" />
-    <path d="M70 160c50-61 129-86 218-74-33 45-48 91-45 148-74 20-135-5-173-74Z" fill="url(#glass)" />
-    <circle cx="160" cy="160" r="42" fill="#07111f" opacity=".88" />
-    <circle cx="160" cy="160" r="17" fill="#e9fff7" />
+  <g filter="url(#shadow)" clip-path="url(#lens-boundary)">
+    <path fill="url(#lens)" fill-rule="evenodd" d="
+      M160 48a112 112 0 1 1 0 224 112 112 0 1 1 0-224Z
+      M60 160Q136 60 235 92Q205 160 235 228Q136 260 60 160Z
+      M160 118a42 42 0 1 1 0 84 42 42 0 1 1 0-84Z
+      M160 143a17 17 0 1 1 0 34 17 17 0 1 1 0-34Z
+    " />
   </g>
 </svg>
