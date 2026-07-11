@@ -58,10 +58,6 @@ export function PlayerControls(props: {
               <LiquidGlass
                 class={[glassPillClass, 'h-9 w-36 shrink-0 rounded-full max-sm:w-34']}
                 cornerRadius={999}
-                displacementScale={34}
-                blurAmount={0.055}
-                saturation={150}
-                aberrationIntensity={2.2}
                 elasticity={0.16}
                 castShadow={false}
               >
@@ -119,10 +115,6 @@ export function PlayerControls(props: {
               <LiquidGlass
                 class={[glassPillClass, 'h-9 shrink-0 rounded-full']}
                 cornerRadius={999}
-                displacementScale={34}
-                blurAmount={0.055}
-                saturation={150}
-                aberrationIntensity={2.2}
                 elasticity={0.16}
                 castShadow={false}
                 onMouseEnter={cancelHideSlider}
@@ -134,7 +126,7 @@ export function PlayerControls(props: {
                     aria-label="Adjust quality"
                     aria-pressed={activeSlider() === 'quality' ? 'true' : 'false'}
                     title={`Quality: ${QUALITY_OPTIONS[displayState.qualityId]?.label ?? 'Quality'}`}
-                    class="grid h-7 w-7 cursor-default place-items-center rounded-full border-0 bg-transparent p-0 text-white/92 transition hover:bg-white/8 hover:text-white active:scale-95 focus-visible:bg-white/12 focus-visible:outline-none"
+                    class="grid h-7 w-7 place-items-center rounded-full border-0 bg-transparent p-0 text-white/92"
                     onMouseEnter={(event) => showSlider('quality', event.currentTarget)}
                     onFocus={(event) => showSlider('quality', event.currentTarget)}
                     onClick={(event) => showSlider('quality', event.currentTarget)}
@@ -146,7 +138,7 @@ export function PlayerControls(props: {
                     aria-label="Adjust volume"
                     aria-pressed={activeSlider() === 'volume' ? 'true' : 'false'}
                     title={`Volume: ${Math.round(volume() * 100)}%`}
-                    class="grid h-7 w-7 cursor-default place-items-center rounded-full border-0 bg-transparent p-0 text-white/92 transition hover:bg-white/8 hover:text-white active:scale-95 focus-visible:bg-white/12 focus-visible:outline-none"
+                    class="grid h-7 w-7 place-items-center rounded-full border-0 bg-transparent p-0 text-white/92"
                     onMouseEnter={(event) => showSlider('volume', event.currentTarget)}
                     onFocus={(event) => showSlider('volume', event.currentTarget)}
                     onClick={(event) => showSlider('volume', event.currentTarget)}
@@ -158,7 +150,7 @@ export function PlayerControls(props: {
                     aria-label="Adjust scale"
                     aria-pressed={activeSlider() === 'scale' ? 'true' : 'false'}
                     title={`Scale: ${Math.round(zoom() * 100)}%`}
-                    class="grid h-7 w-7 cursor-default place-items-center rounded-full border-0 bg-transparent p-0 text-white/92 transition hover:bg-white/8 hover:text-white active:scale-95 focus-visible:bg-white/12 focus-visible:outline-none"
+                    class="grid h-7 w-7 place-items-center rounded-full border-0 bg-transparent p-0 text-white/92"
                     onMouseEnter={(event) => showSlider('scale', event.currentTarget)}
                     onFocus={(event) => showSlider('scale', event.currentTarget)}
                     onClick={(event) => showSlider('scale', event.currentTarget)}

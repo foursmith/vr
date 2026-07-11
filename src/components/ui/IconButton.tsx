@@ -18,10 +18,6 @@ export function IconButton(props: {
     <LiquidGlass
       class={[iconButtonClass, props.pressed && activeButtonClass, props.class]}
       cornerRadius={999}
-      displacementScale={34}
-      blurAmount={0.055}
-      saturation={150}
-      aberrationIntensity={2.2}
       elasticity={0.18}
       active={props.pressed}
       castShadow={false}
@@ -30,7 +26,7 @@ export function IconButton(props: {
         type="button"
         aria-label={props.label}
         aria-pressed={props.pressed === undefined ? undefined : props.pressed ? 'true' : 'false'}
-        class="relative grid h-full w-full cursor-default place-items-center rounded-full border-0 bg-transparent p-0 text-inherit transition focus-visible:bg-white/12 focus-visible:outline-none"
+        class="relative grid h-full w-full place-items-center rounded-full border-0 bg-transparent p-0 text-inherit"
         onClick={props.onClick}
       >
         <Icon name={props.icon} class={props.iconClass} />
@@ -39,10 +35,6 @@ export function IconButton(props: {
             class="pointer-events-none !absolute bottom-1 h-1.5 w-1.5 rounded-full"
             style={{ left: 'calc(50% - 0.1875rem)' }}
             cornerRadius={999}
-            displacementScale={8}
-            blurAmount={0.04}
-            saturation={155}
-            aberrationIntensity={1.2}
             elasticity={0}
             active
             castShadow={false}

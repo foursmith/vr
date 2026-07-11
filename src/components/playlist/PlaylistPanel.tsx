@@ -22,10 +22,6 @@ export function PlaylistPanel(props: { controller: PlayerController['playlist'] 
         <LiquidGlass
           class="h-full w-full rounded-[20px] text-white"
           cornerRadius={20}
-          displacementScale={46}
-          blurAmount={0.06}
-          saturation={150}
-          aberrationIntensity={2.2}
           elasticity={0}
           castShadow
         >

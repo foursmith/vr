@@ -45,10 +45,6 @@ export function VerticalGlassRange(props: {
           top: 'calc(100% - var(--progress) - 0.5rem)',
         }}
         cornerRadius={999}
-        displacementScale={12}
-        blurAmount={0.05}
-        saturation={155}
-        aberrationIntensity={1.5}
         elasticity={0}
         active
         castShadow={false}

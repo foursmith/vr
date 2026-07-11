@@ -28,10 +28,6 @@ export function ControlSliderPopover(props: {
                   bottom: `${sliderAnchor().bottom}px`,
                 }}
                 cornerRadius={999}
-                displacementScale={38}
-                blurAmount={0.058}
-                saturation={150}
-                aberrationIntensity={2.2}
                 elasticity={0.12}
                 castShadow={false}
                 onMouseEnter={cancelHideSlider}
@@ -81,7 +77,7 @@ export function ControlSliderPopover(props: {
                       type="button"
                       aria-label="Reset scale"
                       title="Reset scale"
-                      class="grid h-7 w-7 cursor-default place-items-center rounded-full border-0 bg-white/8 p-0 text-white/82 transition hover:bg-white/14 hover:text-white focus-visible:bg-white/16 focus-visible:outline-none"
+                      class="grid h-7 w-7 place-items-center rounded-full border-0 bg-white/8 p-0 text-white/82"
                       onClick={resetView}
                     >
                       <Icon name="rotate-ccw" class="h-4 w-4" />
