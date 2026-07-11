@@ -122,10 +122,10 @@ export function createPlayerController() {
   })
   const {
     changeQualityBy, faceAutoCenter, presetId, qualityId, splitScreen, syncFullscreen,
-    syncZoom, videoOnly,
+    syncZoom,
   } = displayModule
   const {
-    resetView, setPresetId, setVideoOnly, setZoom, toggleFullscreen, zoom,
+    resetView, setPresetId, setZoom, toggleFullscreen, zoom,
   } = displayModule.controller
   const controlsModule = createControls({ hasVideo, playlistOpen, resourcesReady })
   const {
@@ -155,19 +155,17 @@ export function createPlayerController() {
   const sceneOptions = () => ({
     preset: PRESETS[presetId()].component,
     quality: QUALITY_OPTIONS[qualityId()].component,
-    hidden: videoOnly(),
+    hidden: false,
     splitScreen: splitScreen(),
     faceAutoCenter: faceAutoCenter(),
     debugPanelOpen: debugPanelOpen(),
   })
 
-  const updateVideoVisibility = (videoOnlyMode: boolean) => {
+  const showVideoTranslationLayer = () => {
     video.classList.remove('hidden')
     video.classList.add('block')
-    video.classList.toggle('opacity-100', videoOnlyMode)
-    video.classList.toggle('opacity-[0.01]', !videoOnlyMode)
-    video.classList.toggle('pointer-events-none', !videoOnlyMode)
-    video.dataset.displayMode = videoOnlyMode ? 'video-only' : 'vr-translation-layer'
+    video.classList.add('opacity-[0.01]', 'pointer-events-none')
+    video.dataset.displayMode = 'vr-translation-layer'
   }
 
   const syncTime = () => {
@@ -455,10 +453,6 @@ export function createPlayerController() {
       case 'F':
         void toggleFullscreen()
         break
-      case 'v':
-      case 'V':
-        setVideoOnly((current) => !current)
-        break
       case 'r':
       case 'R':
         resetView()
@@ -516,7 +510,7 @@ export function createPlayerController() {
           onZoomChange: syncZoom,
           ...sceneOptions(),
         })
-        updateVideoVisibility(sceneOptions().hidden)
+        showVideoTranslationLayer()
         setLoadingLabel('Ready')
         setLoadingProgress(100)
         setResourcesReady(true)
@@ -568,7 +562,7 @@ export function createPlayerController() {
     () => sceneOptions(),
     (options) => {
       scene?.update(options)
-      updateVideoVisibility(options.hidden)
+      showVideoTranslationLayer()
     },
   )
 

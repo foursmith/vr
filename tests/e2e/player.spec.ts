@@ -121,14 +121,15 @@ test('detects a face with the real MediaPipe backend', async ({ page }) => {
 test('toggles player display settings and playlist visibility', async ({ page }) => {
   await blockModels(page)
   await page.goto('/')
-  const split = page.getByRole('button', { name: 'Disable automatic split screen' })
-  await expect(split).toHaveAttribute('aria-pressed', 'true')
-  await split.click()
-  await expect(page.getByRole('button', { name: 'Enable automatic split screen' })).toHaveAttribute('aria-pressed', 'false')
 
-  await page.getByRole('button', { name: 'Show video only' }).click()
-  await expect(page.locator('#video')).toHaveAttribute('data-display-mode', 'video-only')
-  await expect(page.locator('#vr-scene')).toHaveAttribute('aria-hidden', 'true')
+  await page.getByRole('button', { name: 'Settings' }).click()
+  const settings = page.getByRole('dialog', { name: 'Settings' })
+  await expect(settings.getByText('Video only')).toHaveCount(0)
+  const split = settings.getByRole('switch', { name: /Automatic split screen/ })
+  await expect(split).toHaveAttribute('aria-checked', 'true')
+  await split.click()
+  await expect(split).toHaveAttribute('aria-checked', 'false')
+  await settings.getByRole('button', { name: 'Close settings' }).click()
 
   await page.getByRole('button', { name: 'Playlist' }).click()
   await expect(page.getByRole('complementary', { name: 'Playlist' })).toBeVisible()

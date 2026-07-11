@@ -115,10 +115,8 @@ describe('player controller', () => {
     expect(video.volume).toBe(0)
     expect(video.muted).toBe(true)
 
-    controller.display.setVideoOnly(true)
     controller.display.setPresetId(2)
     await settle()
-    expect(controller.display.state.videoOnly).toBe(true)
     expect(controller.display.state.presetId).toBe(2)
     dispose()
   })

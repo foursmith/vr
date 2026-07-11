@@ -2,7 +2,7 @@ import { untrack } from 'solid-js'
 import type { PlayerController } from '../../features/player/controller'
 
 export function PlayerStage(props: { controller: PlayerController }) {
-  const { debug, display, frame, playback } = untrack(() => props.controller)
+  const { debug, frame, playback } = untrack(() => props.controller)
   const { setVideo, setVrMount, setVrRoot } = frame
   return (
     <>
@@ -10,7 +10,6 @@ export function PlayerStage(props: { controller: PlayerController }) {
         ref={setVrRoot}
         id="vr-scene"
         class="absolute inset-0 h-dvh w-full opacity-100"
-        aria-hidden={display.state.videoOnly ? 'true' : 'false'}
       >
         <div ref={setVrMount} id="vr-mount" class="h-full w-full"></div>
         <div class="pointer-events-none absolute inset-0 z-10">
