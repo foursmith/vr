@@ -57,9 +57,8 @@ bun run build
 The Web app remains available as a standalone static deployment for browser-selected files. The optional `fsvr` executable embeds the same Web UI and adds local media directories plus DLNA discovery.
 
 ```sh
-cd cli
 bun install
-bun run dev -- serve --root ~/Movies
+bun run cli:dev -- serve --root ~/Movies
 ```
 
 Pass `--token <token>` to keep a stable access token across restarts. Otherwise, `fsvr` generates and prints a new token. A link may include `?token=<token>` for sign-in; after validation, the Web UI removes it from the address bar and stores it in an HttpOnly authentication cookie.
