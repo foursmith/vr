@@ -41,6 +41,7 @@
     "@playwright/test": "^1.61.1",
     "@types/three": "^0.185.0",
     "@typescript/native-preview": "catalog:",
+    "@unocss/reset": "^66.7.5",
     "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^10.6.0",
     "jsdom": "^29.1.1",
