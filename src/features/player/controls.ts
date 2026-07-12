@@ -22,6 +22,7 @@ export function createControls(options: {
   let controlsZoneRect: DOMRect | undefined
   let controlsZoneResizeObserver: ResizeObserver | undefined
   let pointerInControlZone = false
+  let touchStart: { id: number, x: number, y: number } | undefined
 
   const [activeSlider, setActiveSlider] = createSignal<SliderControl>()
   const [sliderAnchor, setSliderAnchor] = createSignal<SliderAnchor>({ x: 0, bottom: 72 })
@@ -105,11 +106,32 @@ export function createControls(options: {
     scheduleHideControls()
   }
 
-  const handlePlayerMouseMove = (event: MouseEvent) => {
+  const handlePlayerPointerMove = (event: PointerEvent) => {
+    if (event.pointerType !== "mouse") return
     if (!options.resourcesReady()) return
     pendingMousePosition = { x: event.clientX, y: event.clientY }
     if (!mouseMoveFrame) mouseMoveFrame = window.requestAnimationFrame(applyPlayerMouseMove)
   }
+
+  const handlePlayerPointerDown = (event: PointerEvent) => {
+    if (event.pointerType !== "touch") return
+    touchStart = { id: event.pointerId, x: event.clientX, y: event.clientY }
+  }
+
+  const handlePlayerPointerUp = (event: PointerEvent) => {
+    if (event.pointerType !== "touch" || touchStart?.id !== event.pointerId) return
+    const movement = Math.hypot(event.clientX - touchStart.x, event.clientY - touchStart.y)
+    touchStart = undefined
+    if (movement > 12) return
+    if (!options.hasVideo()) {
+      showControls()
+      return
+    }
+    cancelHideControls()
+    setActiveSlider(undefined)
+    setControlsVisible(current => !current)
+  }
+
   const startInitialIdleCountdown = () => {
     pointerInControlZone = false
     showControls()
@@ -170,7 +192,9 @@ export function createControls(options: {
     controlsVisible,
     cursorVisible,
     dispose,
-    handlePlayerMouseMove,
+    handlePlayerPointerMove,
+    handlePlayerPointerDown,
+    handlePlayerPointerUp,
     scheduleHideControls,
     scheduleHideSlider,
     setActiveSlider,
