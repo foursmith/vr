@@ -75,7 +75,6 @@ export function createPlayerController() {
     dlnaDevices: [] as DlnaDevice[],
     scanningDlna: false,
   })
-  const [frameDragActive, setFrameDragActive] = createSignal(false)
   const [playlistState, setPlaylistState] = createStore({
     nodes: [] as PlaylistStateNode[],
     expandedFolderIds: [] as string[],
@@ -554,7 +553,6 @@ export function createPlayerController() {
 
   const handleVideoDrop = async (event: DragEvent) => {
     event.preventDefault()
-    setFrameDragActive(false)
     const dataTransfer = event.dataTransfer
     if (!dataTransfer) return
     await importPlaylistTransfer(dataTransfer, "always")
@@ -860,7 +858,6 @@ export function createPlayerController() {
     frame: {
       chooseFolder: () => folderInput.click(),
       cursorVisible,
-      frameDragActive,
       handleFile,
       handleFolder,
       handlePlayerMouseMove,
@@ -869,7 +866,6 @@ export function createPlayerController() {
       openVideoFile,
       setFileInput: (element: HTMLInputElement) => (fileInput = element),
       setFolderInput: (element: HTMLInputElement) => (folderInput = element),
-      setFrameDragActive,
       setPlayer: (element: HTMLElement) => (player = element),
       setVideo: (element: HTMLVideoElement) => (video = element),
       setVrMount: (element: HTMLDivElement) => (vrMount = element),
