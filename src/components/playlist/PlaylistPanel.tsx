@@ -34,10 +34,10 @@ export function PlaylistPanel(props: { controller: PlayerController["playlist"] 
         castShadow
       >
         <aside
-          class="flex max-h-[calc(100dvh-14.75rem)] w-full flex-col overflow-hidden rounded-[20px] border border-white/12 text-white sm:max-h-[calc(100dvh-13.5rem)]"
+          class="flex max-h-[calc(100dvh-14.75rem)] w-full flex-col overflow-hidden rounded-[20px] text-white sm:max-h-[calc(100dvh-13.5rem)]"
           aria-label="Playlist"
         >
-          <header class="flex h-14 shrink-0 items-center gap-2 border-b border-white/9 px-3">
+          <header class="flex h-14 shrink-0 items-center gap-2 px-3">
             <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/8 text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
               <Icon name="playlist" class="h-4.5 w-4.5" />
             </span>
@@ -77,7 +77,7 @@ export function PlaylistPanel(props: { controller: PlayerController["playlist"] 
           </div>
 
           <Show when={state.nodes.length}>
-            <footer class="grid shrink-0 place-items-center border-t border-white/9 p-2">
+            <footer class="grid shrink-0 place-items-center p-2">
               <MediaPickerButtons onChooseFiles={chooseFiles} onChooseFolder={chooseFolder} />
             </footer>
           </Show>

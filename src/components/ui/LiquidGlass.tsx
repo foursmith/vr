@@ -125,10 +125,10 @@ export function LiquidGlass(props: LiquidGlassProps) {
       >
         <span
           class={[
-            "pointer-events-none absolute inset-0 z-1 rounded-[inherit] border border-white/14 transition-colors",
+            "pointer-events-none absolute inset-0 z-1 rounded-[inherit] border-t border-white/14 transition-colors",
             castShadow()
-              ? "shadow-[0_8px_24px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.16)]"
-              : "shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]",
+              ? "shadow-[0_8px_24px_rgba(0,0,0,0.28)]"
+              : "shadow-none",
             active()
               ? "bg-[linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.07)),rgba(38,40,46,0.92)]"
               : "bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.03)),rgba(12,14,18,0.88)]",

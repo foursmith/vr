@@ -1,3 +1,17 @@
+/* Keep the reset's predictable box model without letting its 1.5 base
+   line-height inflate the compact glass controls designed against `normal`. */
+html {
+  line-height: normal;
+}
+
+button,
+input,
+optgroup,
+select,
+textarea {
+  line-height: normal;
+}
+
 #root {
   -webkit-user-select: none;
   user-select: none;

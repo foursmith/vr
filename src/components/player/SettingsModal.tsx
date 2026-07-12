@@ -29,13 +29,13 @@ function SettingToggle(props: {
       </span>
       <span
         aria-hidden="true"
-        class={`relative h-5 w-9 rounded-full border transition-colors ${
-          props.pressed ? "border-white/28 bg-white/24" : "border-white/12 bg-black/20"
+        class={`relative h-5 w-9 rounded-full border border-white/14 transition-colors ${
+          props.pressed ? "bg-white/24" : "bg-black/20"
         }`}
       >
         <span
-          class={`absolute top-0.5 h-3.5 w-3.5 rounded-full bg-white shadow-[0_1px_5px_rgba(0,0,0,.35)] transition-transform ${
-            props.pressed ? "translate-x-4.5" : "translate-x-0.5"
+          class={`absolute left-0.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-white shadow-[0_1px_5px_rgba(0,0,0,.35)] transition-transform ${
+            props.pressed ? "translate-x-4" : "translate-x-0"
           }`}
         >
         </span>
