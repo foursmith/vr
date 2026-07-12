@@ -7,7 +7,7 @@ const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" }
 const json = (value: unknown, init?: ResponseInit) => Response.json(value, init)
 const AUTH_COOKIE_MAX_AGE = 365 * 24 * 60 * 60
 
-const tokenMatches = (supplied: string | undefined, expected: string) => {
+const passwordMatches = (supplied: string | undefined, expected: string) => {
   if (supplied === undefined) return false
   const suppliedBytes = Buffer.from(supplied)
   const expectedBytes = Buffer.from(expected)
@@ -38,14 +38,14 @@ const parseRange = (header: string | null, size: number) => {
 export function createMediaServer(options: {
   hostname: string
   port: number
-  token: string
+  password: string
   sources: Map<string, MediaSource>
   discoverDlna?: () => Promise<MediaSource[]>
   webAssets?: Record<string, string>
   allowedOrigins: string[]
 }) {
-  const readCookieToken = (request: Request) => {
-    const value = /(?:^|;\s*)fsvr_token=([^;]+)/.exec(request.headers.get("cookie") ?? "")?.[1]
+  const readCookiePassword = (request: Request) => {
+    const value = /(?:^|;\s*)fsvr_password=([^;]+)/.exec(request.headers.get("cookie") ?? "")?.[1]
     if (!value) return undefined
     try {
       return decodeURIComponent(value)
@@ -81,28 +81,28 @@ export function createMediaServer(options: {
       }
 
       if (url.pathname === "/api/v1/auth" && request.method === "GET") {
-        return json({ authenticated: tokenMatches(readCookieToken(request), options.token) }, { headers: corsHeaders })
+        return json({ authenticated: passwordMatches(readCookiePassword(request), options.password) }, { headers: corsHeaders })
       }
 
       if (url.pathname === "/api/v1/auth" && request.method === "POST") {
-        const body = await request.json().catch(() => ({})) as { token?: unknown }
-        if (typeof body.token !== "string" || !tokenMatches(body.token, options.token)) {
+        const body = await request.json().catch(() => ({})) as { password?: unknown }
+        if (typeof body.password !== "string" || !passwordMatches(body.password, options.password)) {
           return json({ error: "unauthorized" }, {
             status: 401,
-            headers: { ...corsHeaders, "set-cookie": "fsvr_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0" },
+            headers: { ...corsHeaders, "set-cookie": "fsvr_password=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0" },
           })
         }
         return json({ authenticated: true }, {
           headers: {
             ...corsHeaders,
-            "set-cookie": `fsvr_token=${encodeURIComponent(body.token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${AUTH_COOKIE_MAX_AGE}`,
+            "set-cookie": `fsvr_password=${encodeURIComponent(body.password)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${AUTH_COOKIE_MAX_AGE}`,
           },
         })
       }
 
       if (url.pathname === "/api/v1/auth" && request.method === "DELETE") {
         return json({ authenticated: false }, {
-          headers: { ...corsHeaders, "set-cookie": "fsvr_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0" },
+          headers: { ...corsHeaders, "set-cookie": "fsvr_password=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0" },
         })
       }
 
@@ -118,7 +118,7 @@ export function createMediaServer(options: {
         }
       }
 
-      if (!tokenMatches(readCookieToken(request), options.token)) {
+      if (!passwordMatches(readCookiePassword(request), options.password)) {
         return json({ error: "unauthorized" }, { status: 401, headers: corsHeaders })
       }
 

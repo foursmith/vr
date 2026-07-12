@@ -9,19 +9,19 @@ interface ServerEntry {
   kind: "folder" | "video" | "subtitle"
 }
 
-const requestJson = async <T>(url: URL, _token: string): Promise<T> => {
+const requestJson = async <T>(url: URL): Promise<T> => {
   const response = await fetch(url)
   if (!response.ok) throw new Error(`fsvr request failed (${response.status})`)
   return response.json() as Promise<T>
 }
 
-export async function authenticateFsvr(endpoint: string, token: string) {
+export async function authenticateFsvr(endpoint: string, password: string) {
   const response = await fetch(new URL("/api/v1/auth", endpoint), {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ token }),
+    body: JSON.stringify({ password }),
   })
-  if (!response.ok) throw new Error("Invalid access token")
+  if (!response.ok) throw new Error("Invalid password")
 }
 
 export async function hasFsvrAuth(endpoint: string) {
@@ -37,9 +37,9 @@ export async function detectFsvr(endpoint: string) {
   return status.name === "fsvr"
 }
 
-export async function loadFsvrPlaylist(endpoint: string, token: string): Promise<PlaylistNode[]> {
+export async function loadFsvrPlaylist(endpoint: string): Promise<PlaylistNode[]> {
   const baseUrl = new URL(endpoint)
-  const sources = await requestJson<ServerSource[]>(new URL("/api/v1/sources", baseUrl), token)
+  const sources = await requestJson<ServerSource[]>(new URL("/api/v1/sources", baseUrl))
   return sources.map(source => ({
     id: `source:${source.id}`,
     name: source.name,
@@ -49,16 +49,16 @@ export async function loadFsvrPlaylist(endpoint: string, token: string): Promise
   }))
 }
 
-export async function loadFsvrDlnaDevices(endpoint: string, token: string): Promise<DlnaDevice[]> {
-  const sources = await requestJson<ServerSource[]>(new URL("/api/v1/sources", new URL(endpoint)), token)
+export async function loadFsvrDlnaDevices(endpoint: string): Promise<DlnaDevice[]> {
+  const sources = await requestJson<ServerSource[]>(new URL("/api/v1/sources", new URL(endpoint)))
   return sources.filter(source => source.kind === "dlna")
 }
 
-export async function loadFsvrEntries(endpoint: string, token: string, sourceId: string, parentId = ""): Promise<PlaylistNode[]> {
+export async function loadFsvrEntries(endpoint: string, sourceId: string, parentId = ""): Promise<PlaylistNode[]> {
   const baseUrl = new URL(endpoint)
   const url = new URL(`/api/v1/sources/${encodeURIComponent(sourceId)}/entries`, baseUrl)
   if (parentId) url.searchParams.set("path", parentId)
-  const entries = await requestJson<ServerEntry[]>(url, token)
+  const entries = await requestJson<ServerEntry[]>(url)
   const mediaUrlFor = (entry: ServerEntry) => {
     const mediaUrl = new URL(`/api/v1/media/${encodeURIComponent(sourceId)}/${encodeURIComponent(entry.id)}`, baseUrl)
     return mediaUrl.href
@@ -94,7 +94,7 @@ export async function loadFsvrEntries(endpoint: string, token: string, sourceId:
   return nodes
 }
 
-export async function discoverFsvrDlna(endpoint: string, _token: string): Promise<DlnaDevice[]> {
+export async function discoverFsvrDlna(endpoint: string): Promise<DlnaDevice[]> {
   const url = new URL("/api/v1/dlna/discover", new URL(endpoint))
   const response = await fetch(url, {
     method: "POST",

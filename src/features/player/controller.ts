@@ -69,7 +69,6 @@ export function createPlayerController() {
   const [fileName, setFileName] = createSignal<string>()
   const [serverState, setServerState] = createStore({
     endpoint: "",
-    token: "",
     status: "disconnected" as "disconnected" | "connecting" | "authentication-required" | "connected" | "error",
     error: undefined as string | undefined,
     dlnaDevices: [] as DlnaDevice[],
@@ -495,7 +494,7 @@ export function createPlayerController() {
   const loadRemoteFolder = async (id: string) => {
     const remoteFolder = playlistRemoteFolders.get(id)
     if (!remoteFolder || serverState.status !== "connected") return
-    const nodes = await loadFsvrEntries(serverState.endpoint, serverState.token, remoteFolder.sourceId, remoteFolder.path)
+    const nodes = await loadFsvrEntries(serverState.endpoint, remoteFolder.sourceId, remoteFolder.path)
     setPlaylistState((draft) => {
       const visit = (items: PlaylistStateNode[]): boolean => {
         for (const item of items) {
@@ -560,8 +559,8 @@ export function createPlayerController() {
 
   const loadServerPlaylist = async () => {
     const [nodes, dlnaDevices] = await Promise.all([
-      loadFsvrPlaylist(serverState.endpoint, ""),
-      loadFsvrDlnaDevices(serverState.endpoint, ""),
+      loadFsvrPlaylist(serverState.endpoint),
+      loadFsvrDlnaDevices(serverState.endpoint),
     ])
     if (appDisposed) return
     clearPlaylist()
@@ -570,22 +569,21 @@ export function createPlayerController() {
     setServerState((draft) => {
       draft.status = "connected"
       draft.error = undefined
-      draft.token = ""
       draft.dlnaDevices = dlnaDevices
     })
   }
 
-  const authenticateServer = async (token: string) => {
-    if (!token.trim()) throw new Error("Enter an access token")
+  const authenticateServer = async (password: string) => {
+    if (!password.trim()) throw new Error("Enter a password")
     setServerState((draft) => {
       draft.status = "connecting"
       draft.error = undefined
     })
     try {
-      await authenticateFsvr(serverState.endpoint || window.location.origin, token)
+      await authenticateFsvr(serverState.endpoint || window.location.origin, password)
       await loadServerPlaylist()
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Invalid access token"
+      const message = error instanceof Error ? error.message : "Invalid password"
       clearPlaylist()
       setServerState((draft) => {
         draft.status = "authentication-required"
@@ -598,14 +596,13 @@ export function createPlayerController() {
   const connectServer = async () => {
     const endpoint = window.location.origin
     const pageUrl = new URL(window.location.href)
-    const urlToken = pageUrl.searchParams.get("token")
-    if (urlToken !== null) {
-      pageUrl.searchParams.delete("token")
+    const urlPassword = pageUrl.searchParams.get("password")
+    if (urlPassword !== null) {
+      pageUrl.searchParams.delete("password")
       window.history.replaceState(window.history.state, "", `${pageUrl.pathname}${pageUrl.search}${pageUrl.hash}`)
     }
     setServerState((draft) => {
       draft.endpoint = endpoint
-      draft.token = ""
       draft.status = "connecting"
       draft.error = undefined
     })
@@ -616,8 +613,8 @@ export function createPlayerController() {
         })
         return
       }
-      if (urlToken) {
-        await authenticateServer(urlToken)
+      if (urlPassword) {
+        await authenticateServer(urlPassword)
         return
       }
       if (!(await hasFsvrAuth(endpoint))) {
@@ -644,10 +641,10 @@ export function createPlayerController() {
       draft.error = undefined
     })
     try {
-      await discoverFsvrDlna(serverState.endpoint, serverState.token)
+      await discoverFsvrDlna(serverState.endpoint)
       const [nodes, devices] = await Promise.all([
-        loadFsvrPlaylist(serverState.endpoint, serverState.token),
-        loadFsvrDlnaDevices(serverState.endpoint, serverState.token),
+        loadFsvrPlaylist(serverState.endpoint),
+        loadFsvrDlnaDevices(serverState.endpoint),
       ])
       if (appDisposed) return
       clearPlaylist()

@@ -14,6 +14,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "citty": "^0.2.2",
     "fast-xml-parser": "^5.3.5"
   },
   "devDependencies": {
