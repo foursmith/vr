@@ -1,7 +1,7 @@
 # Foursmith VR
 
 
-___Watch VR like TikTok LIVE___
+___Watch VR like TikTok___
 
 > This might be the most enjoyable way to experience VR — no headset required, and no worries if you suffer from motion sickness. Sit back and enjoy!
 
