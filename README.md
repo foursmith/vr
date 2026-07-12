@@ -79,3 +79,7 @@ bun run cli:build
 ```
 
 The Web UI embedded in `fsvr` is built without the PWA manifest or service worker. The standalone official Web build keeps PWA support.
+
+## License
+
+Foursmith VR is licensed under the [Mozilla Public License 2.0](LICENSE).
