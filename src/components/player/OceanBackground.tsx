@@ -113,7 +113,6 @@ export function OceanBackground() {
     let disposed = false
     const startedAt = performance.now()
     const frameInterval = 1000 / 12
-    const root = canvas.parentElement
 
     const resize = () => {
       const width = Math.max(1, canvas.clientWidth)
@@ -128,11 +127,6 @@ export function OceanBackground() {
       if (disposed) return
       const elapsed = (performance.now() - startedAt) / 1000
       uniforms.uTime.value = elapsed
-      if (!reducedMotion && root) {
-        const rayTime = elapsed * 0.65
-        root.style.setProperty("--ocean-flow-x", `${Math.sin(rayTime * 0.41 + 2.1) * 18}px`)
-        root.style.setProperty("--ocean-flow-y", `${Math.sin(rayTime * 0.27 - 0.8) * 8}px`)
-      }
       renderer.render(scene, camera)
       if (!reducedMotion && !document.hidden) renderTimer = window.setTimeout(render, frameInterval)
     }
@@ -158,8 +152,6 @@ export function OceanBackground() {
       window.clearTimeout(renderTimer)
       resizeObserver.disconnect()
       document.removeEventListener("visibilitychange", handleVisibility)
-      root?.style.removeProperty("--ocean-flow-x")
-      root?.style.removeProperty("--ocean-flow-y")
       geometry.dispose()
       material.dispose()
       renderer.dispose()

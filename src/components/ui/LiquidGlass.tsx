@@ -27,20 +27,6 @@ export function LiquidGlass(props: LiquidGlassProps) {
   const active = () => props.active ?? false
   const castShadow = () => props.castShadow ?? true
 
-  const fadeInFactor = createMemo(() => {
-    const mouse = globalMousePos()
-    const element = glassElement()
-    if (!mouse.x || !mouse.y || !element) return 0
-
-    const rect = element.getBoundingClientRect()
-    const edgeDistanceX = Math.max(0, Math.abs(mouse.x - (rect.left + rect.width / 2)) - glassSize().width / 2)
-    const edgeDistanceY = Math.max(0, Math.abs(mouse.y - (rect.top + rect.height / 2)) - glassSize().height / 2)
-    const edgeDistance = Math.hypot(edgeDistanceX, edgeDistanceY)
-    const activationZone = 200
-
-    return edgeDistance > activationZone ? 0 : 1 - edgeDistance / activationZone
-  })
-
   const elasticTransform = createMemo(() => {
     const mouse = globalMousePos()
     const size = glassSize()
@@ -58,11 +44,11 @@ export function LiquidGlass(props: LiquidGlassProps) {
 
     const normalizedX = deltaX / centerDistance
     const normalizedY = deltaY / centerDistance
-    const stretchIntensity = Math.min(centerDistance / 300, 1) * elasticity() * fadeInFactor()
+    const stretchIntensity = Math.min(centerDistance / 300, 1) * elasticity()
     const scaleX = 1 + Math.abs(normalizedX) * stretchIntensity * 0.3 - Math.abs(normalizedY) * stretchIntensity * 0.15
     const scaleY = 1 + Math.abs(normalizedY) * stretchIntensity * 0.3 - Math.abs(normalizedX) * stretchIntensity * 0.15
-    const x = deltaX * elasticity() * 0.1 * fadeInFactor()
-    const y = deltaY * elasticity() * 0.1 * fadeInFactor()
+    const x = deltaX * elasticity() * 0.1
+    const y = deltaY * elasticity() * 0.1
 
     if (size.width <= 1 || size.height <= 1) return "translate3d(0, 0, 0) scale(1)"
     return `translate3d(${x}px, ${y}px, 0) scaleX(${Math.max(0.8, scaleX)}) scaleY(${Math.max(0.8, scaleY)})`
@@ -73,10 +59,6 @@ export function LiquidGlass(props: LiquidGlassProps) {
     "transform": elasticTransform(),
     "transition": "transform 72ms ease-out",
   }))
-
-  const updateMouse = (event: MouseEvent) => {
-    setGlobalMousePos({ x: event.clientX, y: event.clientY })
-  }
 
   createEffect(glassElement, (element) => {
     if (!element) return
@@ -100,12 +82,31 @@ export function LiquidGlass(props: LiquidGlassProps) {
 
   createEffect(glassElement, (element) => {
     if (!element) return
+    let frameId = 0
+    let pendingMousePos = { x: 0, y: 0 }
+
+    const updateMouse = (event: MouseEvent) => {
+      pendingMousePos = { x: event.clientX, y: event.clientY }
+      if (frameId) return
+      frameId = window.requestAnimationFrame(() => {
+        frameId = 0
+        setGlobalMousePos(pendingMousePos)
+      })
+    }
+    const resetMouse = () => {
+      if (frameId) window.cancelAnimationFrame(frameId)
+      frameId = 0
+      setGlobalMousePos({ x: 0, y: 0 })
+    }
 
     element.addEventListener("mouseenter", updateMouse)
     element.addEventListener("mousemove", updateMouse)
+    element.addEventListener("mouseleave", resetMouse)
     return () => {
+      if (frameId) window.cancelAnimationFrame(frameId)
       element.removeEventListener("mouseenter", updateMouse)
       element.removeEventListener("mousemove", updateMouse)
+      element.removeEventListener("mouseleave", resetMouse)
     }
   })
 
