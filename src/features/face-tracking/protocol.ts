@@ -1,4 +1,5 @@
 export type FaceInferenceMode = "landmarks" | "detection"
+export type FaceDetectionRange = "short" | "full"
 
 export interface NormalizedFace {
   x: number
@@ -24,6 +25,7 @@ export type FaceWorkerRequest
       id: number
       type: "infer"
       mode: FaceInferenceMode
+      detectionRange: FaceDetectionRange
       timestamp: number
       bitmap: ImageBitmap
     }

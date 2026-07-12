@@ -43,10 +43,10 @@ describe("faceTrackerClient worker backend", () => {
     expect(client.getBackendLabel()).toBe("Worker CPU")
 
     const bitmap = { close: vi.fn() } as unknown as ImageBitmap
-    const inference = client.infer("detection", bitmap, 42)
+    const inference = client.infer("detection", bitmap, 42, "short")
     await Promise.resolve()
     expect(worker.postMessage).toHaveBeenLastCalledWith(
-      { id: 1, type: "infer", mode: "detection", timestamp: 42, bitmap },
+      { id: 1, type: "infer", mode: "detection", detectionRange: "short", timestamp: 42, bitmap },
       [bitmap],
     )
     worker.emit({ id: 1, type: "result", mode: "detection", timestamp: 42, faces: [], inferenceMs: 3 })
@@ -88,7 +88,7 @@ describe("faceTrackerClient worker backend", () => {
     const secondInference = client.infer("landmarks", secondBitmap, 1000)
     await Promise.resolve()
     expect(worker.postMessage).toHaveBeenLastCalledWith(
-      { id: 2, type: "infer", mode: "landmarks", timestamp: 1001, bitmap: secondBitmap },
+      { id: 2, type: "infer", mode: "landmarks", detectionRange: "full", timestamp: 1001, bitmap: secondBitmap },
       [secondBitmap],
     )
     client.destroy()

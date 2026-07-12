@@ -554,7 +554,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
           bitmap.close()
           throw error
         }
-        return faceTracker.infer(mode, bitmap, now)
+        return faceTracker.infer(mode, bitmap, now, detectionMode === "viewport" ? "short" : "full")
       })
       .then((result) => {
         completedInferenceMs = result.inferenceMs
