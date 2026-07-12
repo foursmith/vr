@@ -1,5 +1,6 @@
 import { isChromiumBrowser } from "../../lib/browser"
 import { BrowserCompatibilityNotice } from "../BrowserCompatibilityNotice"
+import { FsvrLogo } from "../ui/FsvrLogo"
 import { MediaPickerButtons } from "../ui/MediaPickerButtons"
 import { OceanBackground } from "./OceanBackground"
 
@@ -27,7 +28,10 @@ export function EmptyState(props: { onChooseFiles: () => void, onChooseFolder: (
             <circle cx="120" cy="120" r="100" fill="none" stroke="url(#depth-ring-outer)" stroke-width="0.72" stroke-linecap="round" stroke-dasharray="2 11" opacity="0.56" transform="rotate(32 120 120)" />
             <circle cx="120" cy="120" r="114" fill="none" stroke="url(#depth-ring-outer)" stroke-width="0.48" stroke-linecap="round" stroke-dasharray="1.5 14" opacity="0.36" transform="rotate(48 120 120)" />
           </svg>
-          <img src="/icon.svg" alt="Foursmith VR" class="absolute left-1/2 top-1/2 z-10 h-40 w-40 -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_16px_40px_rgba(70,205,205,.2)] sm:h-48 sm:w-48" />
+          <FsvrLogo
+            title="Foursmith VR"
+            class="absolute left-1/2 top-1/2 z-10 h-40 w-40 -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_16px_40px_rgba(70,205,205,.2)] sm:h-48 sm:w-48"
+          />
 
           <div class="empty-orbit-badges absolute inset-0 z-20">
             <a
