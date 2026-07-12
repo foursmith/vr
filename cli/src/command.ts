@@ -28,7 +28,7 @@ export const mainCommand = defineCommand({
   },
   args: {
     "directory": { type: "positional", description: "Media directory", required: false, default: process.cwd() },
-    "host": { type: "string", description: "Address to listen on", valueHint: "address", default: "127.0.0.1" },
+    "host": { type: "string", description: "Address to listen on", valueHint: "address", default: "0.0.0.0" },
     "port": { type: "string", description: "Port to listen on", valueHint: "port", default: "4190" },
     "password": { type: "string", description: "Stable access password", valueHint: "password" },
     "origin": { type: "string", description: "Allowed browser origin (repeatable)", valueHint: "origin" },
