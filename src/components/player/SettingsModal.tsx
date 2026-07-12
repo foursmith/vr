@@ -49,7 +49,7 @@ export function SettingsModal(props: { controller: PlayerController, onClose: ()
   const { debug, display, server } = controller
   const { setFaceAutoCenter, setSplitScreen, state } = display
   let dialog: HTMLDivElement | undefined
-  const [accessToken, setAccessToken] = createSignal("")
+  const [password, setPassword] = createSignal("")
 
   onSettled(() => {
     dialog?.focus()
@@ -142,26 +142,26 @@ export function SettingsModal(props: { controller: PlayerController, onClose: ()
                     class="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3 border-t border-white/7 px-3 py-2.5"
                     onSubmit={(event) => {
                       event.preventDefault()
-                      const token = accessToken()
-                      setAccessToken("")
-                      void server.authenticate(token).catch(() => {})
+                      const nextPassword = password()
+                      setPassword("")
+                      void server.authenticate(nextPassword).catch(() => {})
                     }}
                   >
                     <div class="col-start-2 flex items-center gap-2">
-                      <label for="fsvr-access-token" class="w-18 shrink-0 text-[10px] font-semibold text-white/56">Access token</label>
+                      <label for="fsvr-password" class="w-18 shrink-0 text-[10px] font-semibold text-white/56">Password</label>
                       <div class="flex h-8 min-w-0 flex-1 overflow-hidden rounded-lg border border-white/10 bg-black/16 focus-within:border-white/24">
                         <input
-                          id="fsvr-access-token"
+                          id="fsvr-password"
                           type="password"
                           autocomplete="current-password"
-                          value={accessToken()}
-                          onInput={event => setAccessToken(event.currentTarget.value)}
-                          placeholder="Enter a new token"
+                          value={password()}
+                          onInput={event => setPassword(event.currentTarget.value)}
+                          placeholder="Enter a new password"
                           class="h-full min-w-0 flex-1 border-0 bg-transparent px-2.5 text-[10px] text-white outline-none placeholder:text-white/24"
                         />
                         <button
                           type="submit"
-                          disabled={server.state.status === "connecting" || !accessToken()}
+                          disabled={server.state.status === "connecting" || !password()}
                           class="m-0.5 rounded-md border-0 bg-white/9 px-2.5 text-[9px] font-semibold text-white/68 transition hover:!bg-white/14 hover:text-white disabled:cursor-wait disabled:opacity-35"
                         >
                           {server.state.status === "connecting" ? "Checking…" : "Update"}

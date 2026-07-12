@@ -61,7 +61,7 @@ bun install
 bun run cli:dev -- serve --root ~/Movies
 ```
 
-Pass `--token <token>` to keep a stable access token across restarts. Otherwise, `fsvr` generates and prints a new token. A link may include `?token=<token>` for sign-in; after validation, the Web UI removes it from the address bar and stores it in an HttpOnly authentication cookie.
+Pass `--password <password>` to keep a stable password across restarts. Otherwise, `fsvr` generates and prints a random password. A link may include `?password=<password>` for sign-in; after validation, the Web UI removes it from the address bar and stores it in an HttpOnly authentication cookie.
 
 `fsvr` opens its integrated Web UI at `http://127.0.0.1:4190`. To make the complete Web UI and API available to other devices on the LAN, pass `--host 0.0.0.0`; the CLI will print the available LAN addresses.
 

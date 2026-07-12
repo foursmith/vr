@@ -1,8 +1,8 @@
 // @ts-nocheck -- generated file imports arbitrary Vite output as embedded Bun assets.
-import asset0 from "../../dist/assets/index-BntwT2ck.js" with { type: "file" }
+import asset0 from "../../dist/assets/index-B9wtgYlf.js" with { type: "file" }
 import asset1 from "../../dist/assets/index-IjyJSLJ7.css" with { type: "file" }
 import asset2 from "../../dist/assets/vendor-three-BlelvmD5.js" with { type: "file" }
-import asset3 from "../../dist/assets/vision_bundle-BYYu24jt.js" with { type: "file" }
+import asset3 from "../../dist/assets/vision_bundle-BjgREr1s.js" with { type: "file" }
 import asset4 from "../../dist/assets/worker-CNa9h-Pe.js" with { type: "file" }
 import asset5 from "../../dist/icon-background.png" with { type: "file" }
 import asset6 from "../../dist/icon-background.svg" with { type: "file" }
@@ -23,10 +23,10 @@ import asset20 from "../../dist/robots.txt" with { type: "file" }
 import asset21 from "../../dist/sitemap.xml" with { type: "file" }
 
 export const webAssets: Record<string, string> = {
-  "/assets/index-BntwT2ck.js": asset0,
+  "/assets/index-B9wtgYlf.js": asset0,
   "/assets/index-IjyJSLJ7.css": asset1,
   "/assets/vendor-three-BlelvmD5.js": asset2,
-  "/assets/vision_bundle-BYYu24jt.js": asset3,
+  "/assets/vision_bundle-BjgREr1s.js": asset3,
   "/assets/worker-CNa9h-Pe.js": asset4,
   "/icon-background.png": asset5,
   "/icon-background.svg": asset6,

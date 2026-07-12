@@ -29,7 +29,7 @@ describe("fsvr media server", () => {
     const server = createMediaServer({
       hostname: "127.0.0.1",
       port: 0,
-      token: "secret",
+      password: "secret",
       sources: new Map([[source.id, source]]),
       discoverDlna: async () => [dlnaSource],
       allowedOrigins: ["https://vr.foursmith.com"],
@@ -46,30 +46,30 @@ describe("fsvr media server", () => {
     expect(await fetch(`${base}/api/v1/auth`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ token: "wrong" }),
+      body: JSON.stringify({ password: "wrong" }),
     }).then(response => response.status)).toBe(401)
     const authResponse = await fetch(`${base}/api/v1/auth`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ token: "secret" }),
+      body: JSON.stringify({ password: "secret" }),
     })
     expect(authResponse.status).toBe(200)
     const authCookie = authResponse.headers.get("set-cookie")!.split(";", 1)[0]
-    expect(authCookie).toBe("fsvr_token=secret")
+    expect(authCookie).toBe("fsvr_password=secret")
     expect(await fetch(`${base}/api/v1/auth`, { headers: { cookie: authCookie } }).then(response => response.json()))
       .toEqual({ authenticated: true })
     expect((await fetch(`${base}/api/v1/sources`, { headers: { cookie: authCookie } })).status).toBe(200)
     const rejectedReplacement = await fetch(`${base}/api/v1/auth`, {
       method: "POST",
       headers: { "content-type": "application/json", "cookie": authCookie },
-      body: JSON.stringify({ token: "wrong" }),
+      body: JSON.stringify({ password: "wrong" }),
     })
     expect(rejectedReplacement.status).toBe(401)
     expect(rejectedReplacement.headers.get("set-cookie")).toContain("Max-Age=0")
     const replacementAuth = await fetch(`${base}/api/v1/auth`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ token: "secret" }),
+      body: JSON.stringify({ password: "secret" }),
     })
     const replacementCookie = replacementAuth.headers.get("set-cookie")!.split(";", 1)[0]
     expect((await fetch(`${base}/api/v1/sources`, {
@@ -85,7 +85,7 @@ describe("fsvr media server", () => {
     }).then(response => response.json()) as Array<{ id: string, kind: string, name: string }>
     expect(children.map(entry => entry.name)).toEqual(["sample.mp4"])
 
-    expect((await fetch(`${base}/api/v1/media/local/${children[0].id}?token=secret`)).status).toBe(401)
+    expect((await fetch(`${base}/api/v1/media/local/${children[0].id}?password=secret`)).status).toBe(401)
     const response = await fetch(`${base}/api/v1/media/local/${children[0].id}`, {
       headers: { range: "bytes=2-5", origin: "https://vr.foursmith.com", cookie: replacementCookie },
     })
