@@ -31,9 +31,16 @@ input {
 }
 
 .empty-state-content {
-  transform: translate3d(var(--ocean-flow-x, 0), var(--ocean-flow-y, 0), 0);
-  transition: transform 160ms linear;
+  animation: empty-content-flow 36s ease-in-out infinite alternate;
   will-change: transform;
+}
+
+@keyframes empty-content-flow {
+  0% { transform: translate3d(16px, -6px, 0); }
+  28% { transform: translate3d(-18px, 1px, 0); }
+  55% { transform: translate3d(0, 8px, 0); }
+  78% { transform: translate3d(18px, 2px, 0); }
+  100% { transform: translate3d(-6px, -8px, 0); }
 }
 
 .empty-depth-rings {

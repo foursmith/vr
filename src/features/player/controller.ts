@@ -800,15 +800,45 @@ export function createPlayerController() {
     document.addEventListener("fullscreenchange", syncFullscreen)
 
     void connectServer().catch(error => console.warn("fsvr connection failed", error))
-    const localPlaylistRefreshTimer = window.setInterval(() => {
-      void refreshLoadedLocalFolders().catch(error => console.warn("local playlist refresh failed", error))
-    }, LOCAL_PLAYLIST_REFRESH_INTERVAL_MS)
+    let localPlaylistRefreshTimer: number | undefined
+    let localPlaylistRefreshInFlight = false
+    const refreshLocalPlaylist = async () => {
+      if (localPlaylistRefreshInFlight) return
+      localPlaylistRefreshInFlight = true
+      try {
+        await refreshLoadedLocalFolders()
+      } catch (error) {
+        console.warn("local playlist refresh failed", error)
+      } finally {
+        localPlaylistRefreshInFlight = false
+      }
+    }
+    const stopLocalPlaylistRefresh = () => {
+      if (localPlaylistRefreshTimer === undefined) return
+      window.clearInterval(localPlaylistRefreshTimer)
+      localPlaylistRefreshTimer = undefined
+    }
+    const startLocalPlaylistRefresh = () => {
+      if (localPlaylistRefreshTimer !== undefined || document.hidden) return
+      localPlaylistRefreshTimer = window.setInterval(() => void refreshLocalPlaylist(), LOCAL_PLAYLIST_REFRESH_INTERVAL_MS)
+    }
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopLocalPlaylistRefresh()
+      } else {
+        void refreshLocalPlaylist()
+        startLocalPlaylistRefresh()
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    startLocalPlaylistRefresh()
 
     return () => {
       appDisposed = true
       window.removeEventListener("keydown", handleKeydown)
       document.removeEventListener("fullscreenchange", syncFullscreen)
-      window.clearInterval(localPlaylistRefreshTimer)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+      stopLocalPlaylistRefresh()
       if (videoSwitchTimer !== undefined) window.clearTimeout(videoSwitchTimer)
       pendingVideoSwitch = undefined
       autoplayPending = false

@@ -17,6 +17,10 @@ export function createControls(options: {
   let hideControlsTimer: number | undefined
   let hideCursorTimer: number | undefined
   let hideSliderTimer: number | undefined
+  let mouseMoveFrame = 0
+  let pendingMousePosition = { x: 0, y: 0 }
+  let controlsZoneRect: DOMRect | undefined
+  let controlsZoneResizeObserver: ResizeObserver | undefined
   let pointerInControlZone = false
 
   const [activeSlider, setActiveSlider] = createSignal<SliderControl>()
@@ -71,20 +75,25 @@ export function createControls(options: {
     }, delay)
   }
 
-  const isInControlZone = (event: MouseEvent) => {
-    const rect = controlsZone.getBoundingClientRect()
+  const updateControlsZoneRect = () => {
+    controlsZoneRect = controlsZone.getBoundingClientRect()
+  }
+
+  const isInControlZone = (x: number, y: number) => {
+    const rect = controlsZoneRect
+    if (!rect) return false
     const playlistActivationWidth = window.matchMedia("(min-width: 640px)").matches
       ? 312
       : Math.min(252, window.innerWidth)
-    const isInPlaylistZone = options.playlistOpen() && event.clientX <= playlistActivationWidth
-    const isInPlaybackZone = event.clientX >= rect.left && event.clientX <= rect.right
-      && event.clientY >= rect.top && event.clientY <= rect.bottom
+    const isInPlaylistZone = options.playlistOpen() && x <= playlistActivationWidth
+    const isInPlaybackZone = x >= rect.left && x <= rect.right
+      && y >= rect.top && y <= rect.bottom
     return isInPlaylistZone || isInPlaybackZone
   }
 
-  const handlePlayerMouseMove = (event: MouseEvent) => {
-    if (!options.resourcesReady()) return
-    if (isInControlZone(event)) {
+  const applyPlayerMouseMove = () => {
+    mouseMoveFrame = 0
+    if (isInControlZone(pendingMousePosition.x, pendingMousePosition.y)) {
       pointerInControlZone = true
       showControls()
       showCursor()
@@ -96,6 +105,11 @@ export function createControls(options: {
     scheduleHideControls()
   }
 
+  const handlePlayerMouseMove = (event: MouseEvent) => {
+    if (!options.resourcesReady()) return
+    pendingMousePosition = { x: event.clientX, y: event.clientY }
+    if (!mouseMoveFrame) mouseMoveFrame = window.requestAnimationFrame(applyPlayerMouseMove)
+  }
   const startInitialIdleCountdown = () => {
     pointerInControlZone = false
     showControls()
@@ -134,6 +148,19 @@ export function createControls(options: {
     cancelHideControls()
     cancelHideCursor()
     cancelHideSlider()
+    if (mouseMoveFrame) window.cancelAnimationFrame(mouseMoveFrame)
+    controlsZoneResizeObserver?.disconnect()
+    window.removeEventListener("resize", updateControlsZoneRect)
+  }
+
+  const setControlsZone = (element: HTMLElement) => {
+    controlsZone = element
+    controlsZoneResizeObserver?.disconnect()
+    controlsZoneResizeObserver = new ResizeObserver(updateControlsZoneRect)
+    controlsZoneResizeObserver.observe(element)
+    window.removeEventListener("resize", updateControlsZoneRect)
+    window.addEventListener("resize", updateControlsZoneRect)
+    updateControlsZoneRect()
   }
 
   return {
@@ -148,7 +175,7 @@ export function createControls(options: {
     scheduleHideSlider,
     setActiveSlider,
     setControlsPanel: (element: HTMLDivElement) => (controlsPanel = element),
-    setControlsZone: (element: HTMLElement) => (controlsZone = element),
+    setControlsZone,
     showControls,
     showSlider,
     sliderAnchor,
