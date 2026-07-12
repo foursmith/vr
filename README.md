@@ -40,6 +40,11 @@ Open [Foursmith VR](https://vr.foursmith.com/) in Chrome, Edge, or another Chrom
 | 1-7 | Select projection preset |
 | , / . | Previous or next quality preset |
 
+## Deployment
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/foursmith/vr)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ffoursmith%2Fvr&root-directory=.)
+
 ## Development
 
 ```sh
