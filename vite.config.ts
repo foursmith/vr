@@ -3,7 +3,7 @@ import { defineConfig } from "vite"
 import { VitePWA } from "vite-plugin-pwa"
 import solid from "vite-plugin-solid"
 
-export default defineConfig(({ command }) => ({
+export default defineConfig(({ command, mode }) => ({
   server: {
     port: 2333,
     strictPort: true,
@@ -58,7 +58,7 @@ export default defineConfig(({ command }) => ({
           },
         ],
       },
-      disable: command === "serve",
+      disable: command === "serve" || mode === "fsvr",
     }),
   ],
 }))

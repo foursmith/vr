@@ -20,6 +20,7 @@ const ICONS = {
   "rotate-ccw": "i-ph-arrow-counter-clockwise",
   "scan-face": "i-ph-scan-smiley",
   "screen-share": "i-ph-screencast",
+  "server": "i-ph-hard-drives",
   "upload": "i-ph-upload",
   "video": "i-ph-video",
   "trash": "i-ph-trash",

@@ -1,0 +1,22 @@
+{
+  "name": "fsvr",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "bin": {
+    "fsvr": "./src/cli.ts"
+  },
+  "scripts": {
+    "prepare:web": "bun run scripts/prepare-web.ts",
+    "dev": "bun run prepare:web && bun run src/cli.ts",
+    "build": "bun run scripts/build.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.3.5"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.9.3"
+  }
+}

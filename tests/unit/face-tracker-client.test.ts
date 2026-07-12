@@ -71,6 +71,30 @@ describe("faceTrackerClient worker backend", () => {
     expect(lateBitmap.close).toHaveBeenCalledOnce()
   })
 
+  it("sends strictly increasing timestamps to MediaPipe", async () => {
+    const client = new FaceTrackerClient()
+    const initializing = client.initialize(() => {})
+    const worker = FakeWorker.instances[0]
+    worker.emit({ type: "ready" })
+    await initializing
+
+    const firstBitmap = { close: vi.fn() } as unknown as ImageBitmap
+    const firstInference = client.infer("landmarks", firstBitmap, 1000)
+    await Promise.resolve()
+    worker.emit({ id: 1, type: "result", mode: "landmarks", timestamp: 1000, faces: [], inferenceMs: 3 })
+    await firstInference
+
+    const secondBitmap = { close: vi.fn() } as unknown as ImageBitmap
+    const secondInference = client.infer("landmarks", secondBitmap, 1000)
+    await Promise.resolve()
+    expect(worker.postMessage).toHaveBeenLastCalledWith(
+      { id: 2, type: "infer", mode: "landmarks", timestamp: 1001, bitmap: secondBitmap },
+      [secondBitmap],
+    )
+    client.destroy()
+    await expect(secondInference).rejects.toThrow("Face tracker was destroyed")
+  })
+
   it("rejects inference when posting a transferable bitmap fails", async () => {
     const client = new FaceTrackerClient()
     const initializing = client.initialize(() => {})

@@ -51,6 +51,7 @@ export function PlayerStage(props: { controller: PlayerController }) {
       <video
         ref={setVideo}
         id="video"
+        crossorigin="anonymous"
         playsinline
         webkit-playsinline="true"
         class="native-video absolute inset-0 hidden h-full w-full bg-black object-contain"

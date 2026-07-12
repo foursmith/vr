@@ -177,6 +177,7 @@ class MainThreadFaceBackend {
 
 export class FaceTrackerClient {
   private worker?: Worker
+  private lastInferenceTimestamp = Number.NEGATIVE_INFINITY
   private fallback?: MainThreadFaceBackend
   private initializationPromise?: Promise<void>
   private pending = new Map<number, PendingInference>()
@@ -323,11 +324,13 @@ export class FaceTrackerClient {
       throw new Error("Face tracker was destroyed")
     }
     const id = this.nextRequestId++
+    const inferenceTimestamp = Math.max(Math.ceil(timestamp), this.lastInferenceTimestamp + 1)
+    this.lastInferenceTimestamp = inferenceTimestamp
     if (this.worker && this.workerReady && !this.workerFailed) {
       return new Promise<FaceInferenceResult>((resolve, reject) => {
         this.pending.set(id, { resolve, reject })
         try {
-          this.worker!.postMessage({ id, type: "infer", mode, timestamp, bitmap }, [bitmap])
+          this.worker!.postMessage({ id, type: "infer", mode, timestamp: inferenceTimestamp, bitmap }, [bitmap])
         } catch (error) {
           this.pending.delete(id)
           this.workerFailed = true
@@ -356,7 +359,7 @@ export class FaceTrackerClient {
         throw new Error("Face tracker was destroyed")
       }
     }
-    return this.fallback.infer(id, mode, bitmap, timestamp)
+    return this.fallback.infer(id, mode, bitmap, inferenceTimestamp)
   }
 
   private disposeWorker() {
