@@ -23,3 +23,7 @@
 
 - All commit messages must follow Conventional Commits: `<type>(<scope>): <summary>`.
 - Example: `chore(init): initial import`.
+
+### Testing
+
+- Do not run end-to-end (e2e) tests unless the user explicitly requests them.
