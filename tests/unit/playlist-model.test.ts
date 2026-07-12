@@ -44,6 +44,8 @@ describe("playlist model", () => {
       ["root.webm", "video"],
     ])
     expect(tree[1].children?.map(node => node.name)).toEqual(["clip2.mp4", "clip10.mp4"])
+    expect(tree[0].sourceKind).toBe("browser")
+    expect(tree[0].children?.[0].sourceKind).toBe("browser")
     expect(firstVideoNode(tree)?.name).toBe("nested.mov")
   })
 
@@ -66,7 +68,7 @@ describe("playlist model", () => {
     }
     const transfer = { items: [{ webkitGetAsEntry: () => folderEntry }], files: [] } as unknown as DataTransfer
     const nodes = await playlistNodesFromTransfer(transfer)
-    expect(nodes[0]).toMatchObject({ name: "Folder", kind: "folder" })
+    expect(nodes[0]).toMatchObject({ name: "Folder", kind: "folder", sourceKind: "browser" })
     expect(nodes[0].children?.[0]).toMatchObject({ name: "inside.webm", kind: "video", file: video })
   })
 })

@@ -1,7 +1,7 @@
-import type { PlaylistNode } from "../playlist/model"
+import type { PlaylistNode, PlaylistSourceKind } from "../playlist/model"
 import { subtitleMatchScore } from "../playlist/model"
 
-interface ServerSource { id: string, name: string, kind: string }
+interface ServerSource { id: string, name: string, kind: Exclude<PlaylistSourceKind, "browser"> }
 export interface DlnaDevice { id: string, name: string, kind: string }
 interface ServerEntry {
   id: string
@@ -44,6 +44,7 @@ export async function loadFsvrPlaylist(endpoint: string): Promise<PlaylistNode[]
     id: `source:${source.id}`,
     name: source.name,
     kind: "folder" as const,
+    sourceKind: source.kind,
     remotePath: "",
     remoteSourceId: source.id,
   }))

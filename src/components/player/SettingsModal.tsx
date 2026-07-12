@@ -180,7 +180,7 @@ export function SettingsModal(props: { controller: PlayerController, onClose: ()
                           <div class="flex items-center gap-2">
                             <h4 class="text-[10px] font-semibold text-white/56">DLNA devices</h4>
                             <Show when={server.state.dlnaDevices.length}>
-                              <span class="font-mono text-[9px] text-[#80c7ff]/70">{server.state.dlnaDevices.length}</span>
+                              <span class="font-mono text-[9px] text-accent/70">{server.state.dlnaDevices.length}</span>
                             </Show>
                           </div>
                           <p class="mt-0.5 text-[9px] text-white/32">Visible on the server network</p>

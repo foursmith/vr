@@ -11,11 +11,11 @@ export function EmptyState(props: { onChooseFiles: () => void, onChooseFolder: (
             <defs>
               <linearGradient id="depth-ring-inner" x1="52" y1="42" x2="186" y2="194" gradientUnits="userSpaceOnUse">
                 <stop offset="0" stop-color="#d9fffc" stop-opacity="0.12" />
-                <stop offset="0.42" stop-color="#8ae7e4" stop-opacity="0.62" />
+                <stop offset="0.42" stop-color="currentColor" stop-opacity="0.62" class="text-accent" />
                 <stop offset="1" stop-color="#62cfd8" stop-opacity="0.16" />
               </linearGradient>
               <linearGradient id="depth-ring-outer" x1="32" y1="24" x2="208" y2="216" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="#8ae7e4" stop-opacity="0.04" />
+                <stop offset="0" stop-color="currentColor" stop-opacity="0.04" class="text-accent" />
                 <stop offset="0.56" stop-color="#62cfd8" stop-opacity="0.24" />
                 <stop offset="1" stop-color="#62cfd8" stop-opacity="0.02" />
               </linearGradient>
@@ -62,7 +62,7 @@ export function EmptyState(props: { onChooseFiles: () => void, onChooseFolder: (
         <div class="relative z-10 mt-3 flex flex-col items-center sm:mt-4">
           <h1 class="flex items-center gap-2.5 text-[10px] font-medium tracking-[0.18em] sm:text-[11px] sm:tracking-[0.21em]">
             <span class="text-[#d9fffc]/72">Foursmith VR</span>
-            <span aria-hidden="true" class="h-0.5 w-0.5 rounded-full bg-[#8ae7e4]/38"></span>
+            <span aria-hidden="true" class="h-0.5 w-0.5 rounded-full bg-accent/38"></span>
             <span class="italic text-[#b9fffb]/42">Watch VR like TikTok LIVE</span>
           </h1>
           <div class="mt-5 sm:mt-6">

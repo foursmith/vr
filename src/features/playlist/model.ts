@@ -2,14 +2,27 @@ export interface PlaylistStateNode {
   id: string
   name: string
   kind: "folder" | "video"
+  sourceKind?: PlaylistSourceKind
   hasSubtitle?: boolean
   children?: PlaylistStateNode[]
+}
+
+export type PlaylistSourceKind = "browser" | "local" | "dlna"
+
+export const applyPlaylistSource = (nodes: PlaylistNode[], sourceKind: PlaylistSourceKind) => {
+  nodes.forEach((node) => {
+    if (node.kind !== "folder") return
+    node.sourceKind = sourceKind
+    applyPlaylistSource(node.children ?? [], sourceKind)
+  })
+  return nodes
 }
 
 export interface PlaylistNode {
   id: string
   name: string
   kind: "folder" | "video" | "subtitle"
+  sourceKind?: PlaylistSourceKind
   file?: File
   mediaUrl?: string
   remotePath?: string
@@ -135,7 +148,7 @@ export const buildPlaylistTree = (files: File[]) => {
     nodes.forEach(node => node.children && sortLevel(node.children))
   }
   sortLevel(roots)
-  return roots
+  return applyPlaylistSource(roots, "browser")
 }
 
 const readDragDirectory = (entry: DragDirectoryEntry) =>
@@ -197,6 +210,7 @@ export const playlistNodesFromTransfer = async (dataTransfer: DataTransfer) => {
     : buildPlaylistTree(Array.from(dataTransfer.files))
   const subtitleNodes = imported.filter(node => node.kind === "subtitle")
   const nodes = imported.filter(node => node.kind !== "subtitle")
+  applyPlaylistSource(nodes, "browser")
   matchSubtitles(nodes.filter(node => node.kind === "video"), subtitleNodes.map(node => node.file!))
   sortPlaylistNodes(nodes)
   return nodes

@@ -1,6 +1,24 @@
-import type { PlaylistStateNode } from "../../features/playlist/model"
+import type { PlaylistSourceKind, PlaylistStateNode } from "../../features/playlist/model"
 import { For, Show } from "solid-js"
 import { Icon } from "../ui/Icon"
+
+function SourceFolderIcon(props: { expanded: boolean, source?: PlaylistSourceKind }) {
+  const folderColor = () => {
+    if (props.source === "dlna") return "#a78bfa"
+    return "#e9ad58"
+  }
+  const badgeIcon = () => {
+    if (props.source === "dlna") return "source-dlna" as const
+    return "source-local" as const
+  }
+
+  return (
+    <span aria-hidden="true" class="relative h-4.5 w-5 shrink-0" style={{ color: folderColor() }}>
+      <Icon name={props.expanded ? "folder-open-fill" : "folder-fill"} class="absolute left-0 top-0 h-4.5 w-4.5 text-current" />
+      <Icon name={badgeIcon()} class="absolute bottom-0 right-0 size-3 text-[#f4fbff]/70" />
+    </span>
+  )
+}
 
 export function PlaylistTreeNode(props: {
   node: PlaylistStateNode
@@ -11,7 +29,10 @@ export function PlaylistTreeNode(props: {
   onSelect: (node: PlaylistStateNode) => void
 }) {
   const isExpanded = () => props.expanded.has(props.node.id)
-
+  const iconName = () => {
+    if (props.node.kind === "folder") return isExpanded() ? "folder-open" as const : "folder" as const
+    return "file-video" as const
+  }
   return (
     <li
       role="treeitem"
@@ -39,10 +60,17 @@ export function PlaylistTreeNode(props: {
           >
           </span>
         </Show>
-        <Icon
-          name={props.node.kind === "folder" ? (isExpanded() ? "folder-open" : "folder") : "file-video"}
-          class={`h-4 w-4 shrink-0 ${props.node.kind === "folder" ? "text-[#80c7ff]" : "text-white/52 group-hover:text-white/74"}`}
-        />
+        <Show
+          when={props.node.kind === "folder" && props.node.sourceKind && props.node.sourceKind !== "browser"}
+          fallback={(
+            <Icon
+              name={iconName()}
+              class={`h-4 w-4 shrink-0 ${props.node.kind === "folder" ? "text-accent" : "text-white/52 group-hover:text-white/74"}`}
+            />
+          )}
+        >
+          <SourceFolderIcon expanded={isExpanded()} source={props.node.sourceKind} />
+        </Show>
         <span class="min-w-0 flex-1 truncate">{props.node.name}</span>
         <Show when={props.node.kind === "video" && props.node.hasSubtitle}>
           <span
@@ -54,7 +82,7 @@ export function PlaylistTreeNode(props: {
           </span>
         </Show>
         <Show when={props.node.id === props.selectedId}>
-          <span aria-label="Playing" class="flex h-3 items-end gap-[2px] text-[#63b8ff]">
+          <span aria-label="Playing" class="flex h-3 items-end gap-[2px] text-accent">
             <i class="playlist-eq h-2 w-[2px] rounded-full bg-current"></i>
             <i class="playlist-eq h-3 w-[2px] rounded-full bg-current [animation-delay:-.35s]"></i>
             <i class="playlist-eq h-1.5 w-[2px] rounded-full bg-current [animation-delay:-.7s]"></i>

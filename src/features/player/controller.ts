@@ -5,6 +5,7 @@ import type { CameraView, VrSceneController } from "../vr/scene"
 import { createEffect, createMemo, createSignal, createStore, onSettled } from "solid-js"
 import { releaseFaceAutoCenterResources } from "../face-tracking/client"
 import {
+  applyPlaylistSource,
   buildPlaylistTree,
   firstVideoNode,
   isVideoFile,
@@ -97,6 +98,7 @@ export function createPlayerController() {
       id: node.id,
       name: node.name,
       kind: node.kind === "folder" ? "folder" : "video",
+      sourceKind: node.sourceKind,
       hasSubtitle: Boolean(node.subtitleFile || node.subtitleUrl),
       children: node.children ? serializePlaylistNodes(node.children) : undefined,
     }
@@ -499,6 +501,7 @@ export function createPlayerController() {
       const visit = (items: PlaylistStateNode[]): boolean => {
         for (const item of items) {
           if (item.id === id) {
+            if (item.sourceKind) applyPlaylistSource(nodes, item.sourceKind)
             const previousChildren = item.children ?? []
             item.children = serializePlaylistNodes(nodes).map((child) => {
               if (child.kind !== "folder") return child
