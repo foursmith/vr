@@ -40,10 +40,9 @@ export function Player(props: { controller: PlayerController }) {
       <input
         ref={setFolderInput}
         type="file"
-        accept="video/*,.srt,.vtt,.ass,.ssa"
         multiple
+        webkitdirectory=""
         class="hidden"
-        {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
         onChange={handleFolder}
       />
       <PlayerStage controller={controller} />

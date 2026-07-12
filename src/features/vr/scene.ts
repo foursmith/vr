@@ -152,7 +152,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   renderer.outputColorSpace = SRGBColorSpace
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, QUALITY_OPTIONS.find(item => item.component === options.quality)?.pixelRatio ?? 1))
   renderer.setSize(mount.clientWidth, mount.clientHeight, false)
-  renderer.domElement.className = "block h-dvh w-full saturate-105 contrast-102"
+  renderer.domElement.className = "block h-dvh w-full touch-none saturate-105 contrast-102"
   mount.appendChild(renderer.domElement)
 
   const texture = new VideoTexture(video)
