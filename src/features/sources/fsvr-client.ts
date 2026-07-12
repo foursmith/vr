@@ -1,5 +1,5 @@
 import type { PlaylistNode, PlaylistSourceKind } from "../playlist/model"
-import { subtitleMatchScore } from "../playlist/model"
+import { isAppleDoublePath, subtitleMatchScore } from "../playlist/model"
 
 interface ServerSource { id: string, name: string, kind: Exclude<PlaylistSourceKind, "browser"> }
 export interface DlnaDevice { id: string, name: string, kind: string }
@@ -59,7 +59,7 @@ export async function loadFsvrEntries(endpoint: string, sourceId: string, parent
   const baseUrl = new URL(endpoint)
   const url = new URL(`/api/v1/sources/${encodeURIComponent(sourceId)}/entries`, baseUrl)
   if (parentId) url.searchParams.set("path", parentId)
-  const entries = await requestJson<ServerEntry[]>(url)
+  const entries = (await requestJson<ServerEntry[]>(url)).filter(entry => !isAppleDoublePath(entry.name))
   const mediaUrlFor = (entry: ServerEntry) => {
     const mediaUrl = new URL(`/api/v1/media/${encodeURIComponent(sourceId)}/${encodeURIComponent(entry.id)}`, baseUrl)
     return mediaUrl.href

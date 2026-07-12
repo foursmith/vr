@@ -53,6 +53,10 @@ type DragEntry = DragFileEntry | DragDirectoryEntry
 let playlistNodeSequence = 0
 const createPlaylistId = () => `playlist-${playlistNodeSequence++}`
 
+export const isAppleDoublePath = (path: string) => path
+  .split(/[\\/]/)
+  .some(part => part.startsWith("._"))
+
 export const isVideoFile = (file: File) =>
   file.type.startsWith("video/") || /\.(?:mp4|m4v|mov|webm|mkv|avi|ogv|mpeg|mpg)$/i.test(file.name)
 
@@ -117,7 +121,10 @@ export const buildPlaylistTree = (files: File[]) => {
   const subtitlesByFolder = new Map<string, File[]>()
   const videosByFolder = new Map<string, PlaylistNode[]>()
 
-  for (const file of files.filter(candidate => isVideoFile(candidate) || isSubtitleFile(candidate))) {
+  for (const file of files.filter((candidate) => {
+    const relativePath = candidate.webkitRelativePath || candidate.name
+    return !isAppleDoublePath(relativePath) && (isVideoFile(candidate) || isSubtitleFile(candidate))
+  })) {
     const relativePath = file.webkitRelativePath || file.name
     const parts = relativePath.split("/").filter(Boolean)
     const folderPath = parts.slice(0, -1).join("/")
@@ -185,6 +192,8 @@ async function playlistNodesFromEntries(entries: DragEntry[]) {
 }
 
 async function playlistNodeFromEntry(entry: DragEntry): Promise<PlaylistNode | undefined> {
+  if (isAppleDoublePath(entry.name)) return undefined
+
   if (entry.isFile) {
     const file = await new Promise<File>((resolve, reject) => entry.file(resolve, reject))
     if (isVideoFile(file)) return { id: createPlaylistId(), name: file.name, kind: "video", file }

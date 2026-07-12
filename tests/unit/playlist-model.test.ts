@@ -49,6 +49,17 @@ describe("playlist model", () => {
     expect(firstVideoNode(tree)?.name).toBe("nested.mov")
   })
 
+  it("ignores AppleDouble files and folders from browser imports", () => {
+    const tree = buildPlaylistTree([
+      file("movie.mp4", "video/mp4", "Movies/movie.mp4"),
+      file("._movie.mp4", "video/mp4", "Movies/._movie.mp4"),
+      file("hidden.mp4", "video/mp4", "._Metadata/hidden.mp4"),
+    ])
+
+    expect(tree).toHaveLength(1)
+    expect(tree[0].children?.map(node => node.name)).toEqual(["movie.mp4"])
+  })
+
   it("falls back to DataTransfer files when directory entries are unavailable", async () => {
     const files = [file("movie.mp4", "video/mp4"), file("readme.txt", "text/plain")]
     const transfer = { items: [{}, {}], files } as unknown as DataTransfer
@@ -70,5 +81,13 @@ describe("playlist model", () => {
     const nodes = await playlistNodesFromTransfer(transfer)
     expect(nodes[0]).toMatchObject({ name: "Folder", kind: "folder", sourceKind: "browser" })
     expect(nodes[0].children?.[0]).toMatchObject({ name: "inside.webm", kind: "video", file: video })
+  })
+
+  it("ignores AppleDouble entries during drag and drop", async () => {
+    const metadata = file("._inside.webm", "video/webm")
+    const metadataEntry = { isFile: true, isDirectory: false, name: metadata.name, file: (resolve: (file: File) => void) => resolve(metadata) }
+    const transfer = { items: [{ webkitGetAsEntry: () => metadataEntry }], files: [metadata] } as unknown as DataTransfer
+
+    expect(await playlistNodesFromTransfer(transfer)).toEqual([])
   })
 })
