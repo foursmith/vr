@@ -82,6 +82,8 @@ export function LiquidGlass(props: LiquidGlassProps) {
 
   createEffect(glassElement, (element) => {
     if (!element) return
+    const canHover = window.matchMedia?.("(hover: hover) and (pointer: fine)").matches ?? true
+    if (!canHover) return
     let frameId = 0
     let pendingMousePos = { x: 0, y: 0 }
 
