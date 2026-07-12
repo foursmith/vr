@@ -3,6 +3,7 @@
 interface NormalizedLandmark { x: number, y: number }
 interface NormalizedFace { x: number, y: number, width: number, height: number, score: number }
 type FaceInferenceMode = "landmarks" | "detection"
+type FaceDetectionRange = "short" | "full"
 interface FaceInferenceResult {
   id: number
   type: "result"
@@ -14,7 +15,7 @@ interface FaceInferenceResult {
 }
 type FaceWorkerRequest
   = | { type: "init" }
-    | { id: number, type: "infer", mode: FaceInferenceMode, timestamp: number, bitmap: ImageBitmap }
+    | { id: number, type: "infer", mode: FaceInferenceMode, detectionRange: FaceDetectionRange, timestamp: number, bitmap: ImageBitmap }
 type FaceWorkerResponse
   = | { type: "progress", loaded: number, total: number, label: string }
     | { type: "ready" }
@@ -37,12 +38,18 @@ interface FaceLandmarkerBackend {
 }
 
 const WASM_URL = "/mediapipe/tasks-vision/wasm"
-const FACE_MODEL_URL = "/models/face_detector/blaze_face_full_range.tflite"
+const VISION_WASM_FILESET = {
+  wasmLoaderPath: `${WASM_URL}/vision_wasm_internal.js`,
+  wasmBinaryPath: `${WASM_URL}/vision_wasm_internal.wasm`,
+}
+const FULL_RANGE_FACE_MODEL_URL = "/models/face_detector/blaze_face_full_range.tflite"
+const SHORT_RANGE_FACE_MODEL_URL = "/models/face_detector/blaze_face_short_range.tflite"
 const FACE_LANDMARKER_MODEL_URL = "/models/face_landmarker/face_landmarker.task"
 const MIN_FACE_SCORE = 0.5
 
 const workerScope = globalThis as unknown as DedicatedWorkerGlobalScope
-let detector: FaceDetectorBackend | undefined
+let fullRangeDetector: FaceDetectorBackend | undefined
+let shortRangeDetector: FaceDetectorBackend | undefined
 let landmarker: FaceLandmarkerBackend | undefined
 let initializationPromise: Promise<void> | undefined
 
@@ -50,22 +57,30 @@ const post = (message: FaceWorkerResponse) => workerScope.postMessage(message)
 
 const initialize = () => {
   initializationPromise ??= (async () => {
-    const total = 3
+    const total = 4
     post({ type: "progress", loaded: 0, total, label: "Loading vision runtime" })
-    const { FaceDetector, FaceLandmarker, FilesetResolver } = await import("@mediapipe/tasks-vision")
-    const vision = await FilesetResolver.forVisionTasks(WASM_URL)
+    const { FaceDetector, FaceLandmarker } = await import("@mediapipe/tasks-vision")
+    const vision = VISION_WASM_FILESET
 
-    post({ type: "progress", loaded: 1, total, label: "Loading face detector worker" })
+    post({ type: "progress", loaded: 1, total, label: "Loading full-range face detector" })
     // Keep inference on the worker CPU so it does not contend with Three.js
     // for the main rendering GPU context.
-    detector = await FaceDetector.createFromOptions(vision, {
-      baseOptions: { modelAssetPath: FACE_MODEL_URL, delegate: "CPU" },
+    fullRangeDetector = await FaceDetector.createFromOptions(vision, {
+      baseOptions: { modelAssetPath: FULL_RANGE_FACE_MODEL_URL, delegate: "CPU" },
       runningMode: "IMAGE",
       minDetectionConfidence: MIN_FACE_SCORE,
       minSuppressionThreshold: 0.45,
     }) as FaceDetectorBackend
 
-    post({ type: "progress", loaded: 2, total, label: "Loading face landmark worker" })
+    post({ type: "progress", loaded: 2, total, label: "Loading short-range face detector" })
+    shortRangeDetector = await FaceDetector.createFromOptions(vision, {
+      baseOptions: { modelAssetPath: SHORT_RANGE_FACE_MODEL_URL, delegate: "CPU" },
+      runningMode: "IMAGE",
+      minDetectionConfidence: MIN_FACE_SCORE,
+      minSuppressionThreshold: 0.45,
+    }) as FaceDetectorBackend
+
+    post({ type: "progress", loaded: 3, total, label: "Loading face landmark worker" })
     landmarker = await FaceLandmarker.createFromOptions(vision, {
       baseOptions: { modelAssetPath: FACE_LANDMARKER_MODEL_URL, delegate: "CPU" },
       runningMode: "VIDEO",
@@ -123,6 +138,17 @@ const readLandmarkCenter = (landmarks: NormalizedLandmark[], fallback: Normalize
   }
 }
 
+const readDetectedFaces = (detector: FaceDetectorBackend, bitmap: ImageBitmap) => detector.detect(bitmap).detections.filter(item => item.boundingBox).map((item) => {
+  const box = item.boundingBox!
+  return {
+    x: box.originX / bitmap.width,
+    y: box.originY / bitmap.height,
+    width: box.width / bitmap.width,
+    height: box.height / bitmap.height,
+    score: item.categories[0]?.score ?? 0,
+  }
+}).sort((a, b) => b.width * b.height - a.width * a.height).slice(0, 8)
+
 const infer = async (request: Extract<FaceWorkerRequest, { type: "infer" }>) => {
   await initialize()
   const startedAt = performance.now()
@@ -141,21 +167,13 @@ const infer = async (request: Extract<FaceWorkerRequest, { type: "infer" }>) => 
         inferenceMs: performance.now() - startedAt,
       }
     } else {
-      const detections = detector!.detect(request.bitmap).detections
-      const faces = detections
-        .filter(item => item.boundingBox)
-        .map((item) => {
-          const box = item.boundingBox!
-          return {
-            x: box.originX / request.bitmap.width,
-            y: box.originY / request.bitmap.height,
-            width: box.width / request.bitmap.width,
-            height: box.height / request.bitmap.height,
-            score: item.categories[0]?.score ?? 0,
-          }
-        })
-        .sort((a, b) => b.width * b.height - a.width * a.height)
-        .slice(0, 8)
+      let faces = readDetectedFaces(
+        request.detectionRange === "short" ? shortRangeDetector! : fullRangeDetector!,
+        request.bitmap,
+      )
+      if (request.detectionRange === "short" && !faces.length) {
+        faces = readDetectedFaces(fullRangeDetector!, request.bitmap)
+      }
       response = {
         id: request.id,
         type: "result",

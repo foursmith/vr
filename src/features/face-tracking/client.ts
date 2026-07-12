@@ -1,5 +1,6 @@
 import type { FaceDetector, FaceLandmarker, NormalizedLandmark } from "@mediapipe/tasks-vision"
 import type {
+  FaceDetectionRange,
   FaceInferenceMode,
   FaceInferenceResult,
   FaceWorkerResponse,
@@ -7,7 +8,12 @@ import type {
 } from "./protocol"
 
 const WASM_URL = "/mediapipe/tasks-vision/wasm"
-const FACE_MODEL_URL = "/models/face_detector/blaze_face_full_range.tflite"
+const VISION_WASM_FILESET = {
+  wasmLoaderPath: `${WASM_URL}/vision_wasm_internal.js`,
+  wasmBinaryPath: `${WASM_URL}/vision_wasm_internal.wasm`,
+}
+const FULL_RANGE_FACE_MODEL_URL = "/models/face_detector/blaze_face_full_range.tflite"
+const SHORT_RANGE_FACE_MODEL_URL = "/models/face_detector/blaze_face_short_range.tflite"
 const FACE_LANDMARKER_MODEL_URL = "/models/face_landmarker/face_landmarker.task"
 const MIN_FACE_SCORE = 0.5
 
@@ -72,7 +78,8 @@ const readLandmarkCenter = (landmarks: NormalizedLandmark[], fallback: Normalize
 }
 
 class MainThreadFaceBackend {
-  private detector?: FaceDetector
+  private fullRangeDetector?: FaceDetector
+  private shortRangeDetector?: FaceDetector
   private landmarker?: FaceLandmarker
   private destroyed = false
 
@@ -81,19 +88,19 @@ class MainThreadFaceBackend {
   }
 
   async initialize(onProgress: (progress: ResourceLoadProgress) => void) {
-    const total = 3
+    const total = 4
     onProgress({ loaded: 0, total, label: "Loading vision runtime" })
-    const { FaceDetector, FaceLandmarker, FilesetResolver } = await import("@mediapipe/tasks-vision")
+    const { FaceDetector, FaceLandmarker } = await import("@mediapipe/tasks-vision")
     this.assertActive()
-    const vision = await FilesetResolver.forVisionTasks(WASM_URL)
+    const vision = VISION_WASM_FILESET
     this.assertActive()
     const createCanvas = () => typeof OffscreenCanvas === "undefined" ? document.createElement("canvas") : new OffscreenCanvas(1, 1)
 
-    onProgress({ loaded: 1, total, label: "Loading fallback face detector" })
-    const detector = await createWithGpuFallback((delegate) => {
+    onProgress({ loaded: 1, total, label: "Loading full-range face detector" })
+    const fullRangeDetector = await createWithGpuFallback((delegate) => {
       this.assertActive()
       return FaceDetector.createFromOptions(vision, {
-        baseOptions: { modelAssetPath: FACE_MODEL_URL, delegate },
+        baseOptions: { modelAssetPath: FULL_RANGE_FACE_MODEL_URL, delegate },
         canvas: createCanvas(),
         runningMode: "IMAGE",
         minDetectionConfidence: MIN_FACE_SCORE,
@@ -101,13 +108,31 @@ class MainThreadFaceBackend {
       })
     })
     if (this.destroyed) {
-      detector.close()
+      fullRangeDetector.close()
       this.assertActive()
     }
-    this.detector = detector
+    this.fullRangeDetector = fullRangeDetector
     this.assertActive()
 
-    onProgress({ loaded: 2, total, label: "Loading fallback face landmarks" })
+    onProgress({ loaded: 2, total, label: "Loading short-range face detector" })
+    const shortRangeDetector = await createWithGpuFallback((delegate) => {
+      this.assertActive()
+      return FaceDetector.createFromOptions(vision, {
+        baseOptions: { modelAssetPath: SHORT_RANGE_FACE_MODEL_URL, delegate },
+        canvas: createCanvas(),
+        runningMode: "IMAGE",
+        minDetectionConfidence: MIN_FACE_SCORE,
+        minSuppressionThreshold: 0.45,
+      })
+    })
+    if (this.destroyed) {
+      shortRangeDetector.close()
+      this.assertActive()
+    }
+    this.shortRangeDetector = shortRangeDetector
+    this.assertActive()
+
+    onProgress({ loaded: 3, total, label: "Loading fallback face landmarks" })
     this.assertActive()
     const landmarker = await createWithGpuFallback((delegate) => {
       this.assertActive()
@@ -132,7 +157,7 @@ class MainThreadFaceBackend {
     onProgress({ loaded: total, total, label: "Fallback face tracker ready" })
   }
 
-  async infer(id: number, mode: FaceInferenceMode, bitmap: ImageBitmap, timestamp: number): Promise<FaceInferenceResult> {
+  async infer(id: number, mode: FaceInferenceMode, bitmap: ImageBitmap, timestamp: number, detectionRange: FaceDetectionRange): Promise<FaceInferenceResult> {
     const startedAt = performance.now()
     try {
       this.assertActive()
@@ -150,7 +175,7 @@ class MainThreadFaceBackend {
         }
       }
 
-      const faces = this.detector!.detect(bitmap).detections.filter(item => item.boundingBox).map((item) => {
+      const readFaces = (detector: FaceDetector) => detector.detect(bitmap).detections.filter(item => item.boundingBox).map((item) => {
         const box = item.boundingBox!
         return {
           x: box.originX / bitmap.width,
@@ -160,6 +185,8 @@ class MainThreadFaceBackend {
           score: item.categories[0]?.score ?? 0,
         }
       }).sort((a, b) => b.width * b.height - a.width * a.height).slice(0, 8)
+      let faces = readFaces(detectionRange === "short" ? this.shortRangeDetector! : this.fullRangeDetector!)
+      if (detectionRange === "short" && !faces.length) faces = readFaces(this.fullRangeDetector!)
       return { id, type: "result", mode, timestamp, faces, inferenceMs: performance.now() - startedAt }
     } finally {
       bitmap.close()
@@ -168,9 +195,11 @@ class MainThreadFaceBackend {
 
   destroy() {
     this.destroyed = true
-    this.detector?.close()
+    this.fullRangeDetector?.close()
+    this.shortRangeDetector?.close()
     this.landmarker?.close()
-    this.detector = undefined
+    this.fullRangeDetector = undefined
+    this.shortRangeDetector = undefined
     this.landmarker = undefined
   }
 }
@@ -312,7 +341,7 @@ export class FaceTrackerClient {
     })
   }
 
-  async infer(mode: FaceInferenceMode, bitmap: ImageBitmap, timestamp: number) {
+  async infer(mode: FaceInferenceMode, bitmap: ImageBitmap, timestamp: number, detectionRange: FaceDetectionRange = "full") {
     try {
       await (this.initializationPromise ?? this.initialize(() => {}))
     } catch (error) {
@@ -330,7 +359,7 @@ export class FaceTrackerClient {
       return new Promise<FaceInferenceResult>((resolve, reject) => {
         this.pending.set(id, { resolve, reject })
         try {
-          this.worker!.postMessage({ id, type: "infer", mode, timestamp: inferenceTimestamp, bitmap }, [bitmap])
+          this.worker!.postMessage({ id, type: "infer", mode, detectionRange, timestamp: inferenceTimestamp, bitmap }, [bitmap])
         } catch (error) {
           this.pending.delete(id)
           this.workerFailed = true
@@ -359,7 +388,7 @@ export class FaceTrackerClient {
         throw new Error("Face tracker was destroyed")
       }
     }
-    return this.fallback.infer(id, mode, bitmap, inferenceTimestamp)
+    return this.fallback.infer(id, mode, bitmap, inferenceTimestamp, detectionRange)
   }
 
   private disposeWorker() {
