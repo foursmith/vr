@@ -8,10 +8,9 @@ ___Watch VR like TikTok LIVE___
 ## Usage
 
 > [!Important]
-> Not support Safari and any iOS browsers。
+> Most 8K VR videos may not play properly or smoothly in Safari or Firefox. All browsers on iOS are Safari under the hood.
 
-Open [Foursmith VR](https://vr.foursmith.com/) in Chrome, Edge, or another Chromium-based desktop browser, then choose or drop a video file or folder.
-
+Open [Foursmith VR](https://vr.foursmith.com/) in Chrome, Edge, or another Chromium-based desktop browser.
 
 ## Features
 

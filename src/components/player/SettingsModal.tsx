@@ -73,7 +73,7 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
           onCheckedChange={setSplitScreen}
         />
         <SettingToggle
-          title="Follow faces"
+          title="Follow face"
           description="Move the view automatically to keep a detected face centered."
           icon="scan-face"
           pressed={state.faceAutoCenter}
