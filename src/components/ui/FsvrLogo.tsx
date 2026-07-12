@@ -1,0 +1,32 @@
+export function FsvrLogo(props: { class?: string, title?: string }) {
+  return (
+    <svg
+      viewBox="0 0 320 320"
+      role={props.title ? "img" : undefined}
+      aria-label={props.title}
+      aria-hidden={props.title ? undefined : "true"}
+      class={props.class}
+    >
+      <defs>
+        <linearGradient id="fsvr-logo-lens" x1="70" y1="54" x2="250" y2="270" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#f5fffc" />
+          <stop offset=".42" stop-color="#b8f3ec" />
+          <stop offset="1" stop-color="#62cfd8" />
+        </linearGradient>
+        <filter id="fsvr-logo-shadow" x="-14%" y="-12%" width="128%" height="136%">
+          <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#03131f" flood-opacity=".28" />
+        </filter>
+        <clipPath id="fsvr-logo-boundary">
+          <circle cx="160" cy="160" r="112" />
+        </clipPath>
+      </defs>
+      <g filter="url(#fsvr-logo-shadow)" clip-path="url(#fsvr-logo-boundary)">
+        <path
+          fill="url(#fsvr-logo-lens)"
+          fill-rule="evenodd"
+          d="M160 48a112 112 0 1 1 0 224 112 112 0 1 1 0-224Z M60 160Q136 60 235 92Q205 160 235 228Q136 260 60 160Z M160 118a42 42 0 1 1 0 84 42 42 0 1 1 0-84Z M160 143a17 17 0 1 1 0 34 17 17 0 1 1 0-34Z"
+        />
+      </g>
+    </svg>
+  )
+}
