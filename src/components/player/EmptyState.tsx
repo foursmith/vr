@@ -63,14 +63,14 @@ export function EmptyState(props: { onChooseFiles: () => void, onChooseFolder: (
 
         <div class="relative z-10 mt-3 flex flex-col items-center sm:mt-4">
           <h1 class="flex items-center gap-2.5 text-[10px] font-medium tracking-[0.18em] sm:text-[11px] sm:tracking-[0.21em]">
-            <span class="text-[#d9fffc]/72">Foursmith VR</span>
+            <span class="text-[#b9fffb]/72">Foursmith VR</span>
             <span aria-hidden="true" class="h-0.5 w-0.5 rounded-full bg-accent/38"></span>
-            <span class="italic text-[#b9fffb]/42">Watch VR like TikTok LIVE</span>
+            <span class="italic text-[#d9fffc]/42">Watch VR like TikTok LIVE</span>
           </h1>
           <div class="mt-5 sm:mt-6">
             <MediaPickerButtons onChooseFiles={props.onChooseFiles} onChooseFolder={props.onChooseFolder} />
           </div>
-          <p class="mt-1.5 text-[10px] font-medium text-white/26 sm:text-[11px]">Drop video files or folders here</p>
+          <p class="mt-1.5 text-[10px] font-medium text-white/26 sm:text-[11px]">Drop videos here</p>
           {!isChromiumBrowser() ? <BrowserCompatibilityNotice /> : null}
         </div>
       </div>
