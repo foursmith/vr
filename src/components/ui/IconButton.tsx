@@ -4,7 +4,7 @@ import { Icon } from "./Icon"
 import { LiquidGlass } from "./LiquidGlass"
 
 const iconButtonClass
-  = "h-9 w-9 shrink-0 rounded-full text-white/92 transition hover:text-white active:scale-95"
+  = "h-9 w-9 shrink-0 rounded-full text-white/92 transition hover:text-white active:scale-95 max-sm:h-11 max-sm:w-11"
 const activeButtonClass = "text-white bg-white/10"
 
 export function IconButton(props: {

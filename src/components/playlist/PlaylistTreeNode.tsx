@@ -41,7 +41,7 @@ export function PlaylistTreeNode(props: {
     >
       <button
         type="button"
-        class={`playlist-tree-row group relative flex h-8 w-full min-w-0 items-center gap-1.5 rounded-md border-0 pr-2 text-left text-xs ${
+        class={`playlist-tree-row group relative flex h-8 w-full min-w-0 items-center gap-1.5 rounded-md border-0 pr-2 text-left text-xs max-sm:h-11 ${
           props.node.id === props.selectedId
             ? "bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
             : "bg-transparent text-white/68 hover:bg-white/8 hover:text-white/92"

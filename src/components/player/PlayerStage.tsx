@@ -3,13 +3,16 @@ import { Show, untrack } from "solid-js"
 
 export function PlayerStage(props: { controller: PlayerController }) {
   const { debug, frame, playback, subtitles } = untrack(() => props.controller)
-  const { setVideo, setVrMount, setVrRoot } = frame
+  const { handlePlayerPointerDown, handlePlayerPointerUp, setVideo, setVrMount, setVrRoot } = frame
   return (
     <>
       <section
         ref={setVrRoot}
         id="vr-scene"
         class="absolute inset-0 h-dvh w-full opacity-100"
+        onPointerDown={handlePlayerPointerDown}
+        onPointerUp={handlePlayerPointerUp}
+        onPointerCancel={handlePlayerPointerUp}
       >
         <div ref={setVrMount} id="vr-mount" class="h-full w-full"></div>
         <div class="pointer-events-none absolute inset-0 z-10">

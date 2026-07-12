@@ -41,12 +41,12 @@ export function PlaybackTimeline(props: { controller: PlayerController["playback
 
   return (
     <div
-      class="grid grid-rows-[1.35rem_1rem] gap-1"
+      class="grid grid-rows-[1.35rem_1rem] gap-1 max-sm:grid-rows-[2.75rem_1rem]"
       role={loadingState.resourcesReady ? undefined : "status"}
       aria-live={loadingState.resourcesReady ? undefined : "polite"}
     >
       <div
-        class="relative h-[1.35rem] w-full [--fill:rgba(255,255,255,0.82)] [--track:rgba(255,255,255,0.18)]"
+        class="relative h-[1.35rem] w-full touch-none [--fill:rgba(255,255,255,0.82)] [--track:rgba(255,255,255,0.18)] max-sm:h-11"
         style={`--progress:${loadingState.resourcesReady ? timelineProgress() : loadingPercent()}%`}
         onPointerMove={updateHoverPreview}
         onPointerLeave={() => setHoverPreview()}
@@ -77,7 +77,7 @@ export function PlaybackTimeline(props: { controller: PlayerController["playback
           value={loadingState.resourcesReady ? pendingTime() ?? currentTime() : loadingPercent()}
           aria-label={loadingState.resourcesReady ? "Playback position" : "Loading progress"}
           disabled={!loadingState.resourcesReady}
-          class="media-range absolute inset-0 z-10 h-[1.35rem] w-full cursor-default appearance-none bg-transparent"
+          class="media-range absolute inset-0 z-10 h-[1.35rem] w-full cursor-default appearance-none bg-transparent max-sm:h-11"
           onInput={(event) => {
             if (!loadingState.resourcesReady) return
             if (!duration()) return
