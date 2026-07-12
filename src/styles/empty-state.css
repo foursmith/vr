@@ -1,0 +1,131 @@
+.empty-state-bg {
+  background: linear-gradient(180deg, #0c343b 0%, #04171d 48%, #02090c 100%);
+}
+
+.empty-state-content {
+  animation: empty-content-flow 36s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes empty-content-flow {
+  0% { transform: translate3d(16px, -6px, 0); }
+  28% { transform: translate3d(-18px, 1px, 0); }
+  55% { transform: translate3d(0, 8px, 0); }
+  78% { transform: translate3d(18px, 2px, 0); }
+  100% { transform: translate3d(-6px, -8px, 0); }
+}
+
+.empty-depth-rings {
+  filter: drop-shadow(0 0 14px rgba(98, 207, 216, 0.06));
+  transform: translate(-50%, -50%) rotate(-16deg);
+}
+
+@keyframes empty-badge-swim-1 {
+  0%, 100% { transform: translate3d(-5px, 1px, 0) rotate(-0.4deg); }
+  34% { transform: translate3d(12px, -3px, 0) rotate(0.8deg); }
+  68% { transform: translate3d(4px, 2px, 0) rotate(-0.2deg); }
+}
+
+@keyframes empty-badge-swim-2 {
+  0%, 100% { transform: translate3d(8px, -2px, 0) rotate(0.5deg); }
+  42% { transform: translate3d(-11px, 3px, 0) rotate(-0.8deg); }
+  76% { transform: translate3d(-2px, -1px, 0) rotate(0.2deg); }
+}
+
+@keyframes empty-badge-swim-3 {
+  0%, 100% { transform: translate3d(-7px, 2px, 0) rotate(-0.5deg); }
+  29% { transform: translate3d(5px, -2px, 0) rotate(0.3deg); }
+  63% { transform: translate3d(14px, 1px, 0) rotate(0.8deg); }
+}
+
+@keyframes empty-badge-swim-4 {
+  0%, 100% { transform: translate3d(10px, 1px, 0) rotate(0.6deg); }
+  37% { transform: translate3d(-6px, -3px, 0) rotate(-0.4deg); }
+  72% { transform: translate3d(-13px, 2px, 0) rotate(-0.9deg); }
+}
+
+@keyframes empty-badge-swim-5 {
+  0%, 100% { transform: translate3d(-8px, 1px, 0) rotate(-0.4deg); }
+  33% { transform: translate3d(7px, -2px, 0) rotate(0.4deg); }
+  69% { transform: translate3d(13px, 2px, 0) rotate(0.7deg); }
+}
+
+@keyframes empty-badge-swim-6 {
+  0%, 100% { transform: translate3d(5px, -1px, 0) rotate(0.3deg); }
+  38% { transform: translate3d(-9px, 2px, 0) rotate(-0.6deg); }
+  73% { transform: translate3d(-2px, -3px, 0) rotate(0.2deg); }
+}
+
+.empty-orbit-badge {
+  align-items: center;
+  background: linear-gradient(105deg, rgba(12, 55, 61, 0.76), rgba(3, 16, 19, 0.68));
+  border: 1px solid rgba(164, 241, 237, 0.14);
+  border-radius: 60% 48% 48% 60% / 58% 48% 48% 58%;
+  box-shadow:
+    inset 0 1px 0 rgba(210, 255, 252, 0.07),
+    0 8px 26px rgba(0, 0, 0, 0.2);
+  color: rgba(232, 255, 253, 0.68);
+  display: flex;
+  font-size: 10px;
+  font-weight: 500;
+  gap: 0.52rem;
+  letter-spacing: 0.018em;
+  padding: 0.43rem 0.88rem 0.43rem 0.6rem;
+  text-shadow: 0 1px 8px rgba(98, 207, 216, 0.12);
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.empty-orbit-badge::after {
+  background: linear-gradient(135deg, rgba(45, 135, 141, 0.38), rgba(5, 25, 29, 0.42));
+  clip-path: polygon(0 50%, 100% 0, 100% 100%);
+  content: '';
+  height: 12px;
+  position: absolute;
+  right: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 9px;
+}
+
+.empty-orbit-badge i {
+  background: #b9fffb;
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 2px rgba(138, 231, 228, 0.08),
+    0 0 9px rgba(138, 231, 228, 0.72);
+  height: 4px;
+  opacity: 0.86;
+  width: 4px;
+}
+
+.empty-orbit-badge-1 { animation: empty-badge-swim-1 9.4s cubic-bezier(0.45, 0.05, 0.3, 1) infinite; left: 0; top: 1.5rem; }
+.empty-orbit-badge-2 { animation: empty-badge-swim-2 11.7s cubic-bezier(0.4, 0, 0.25, 1) -4.2s infinite; right: 0; top: 4.125rem; }
+.empty-orbit-badge-3 { animation: empty-badge-swim-3 13.1s cubic-bezier(0.5, 0.02, 0.28, 1) -7.6s infinite; bottom: 0; left: 1.75rem; }
+.empty-orbit-badge-4 { animation: empty-badge-swim-4 10.6s cubic-bezier(0.42, 0, 0.3, 1) -2.8s infinite; bottom: 2.375rem; right: 0; }
+.empty-orbit-badge-5 { animation: empty-badge-swim-5 12.4s cubic-bezier(0.46, 0.03, 0.28, 1) -5.1s infinite; left: calc(50% - 4.5rem); top: -0.5rem; }
+.empty-orbit-badge-6 { animation: empty-badge-swim-6 11.2s cubic-bezier(0.44, 0.02, 0.29, 1) -6.4s infinite; left: -0.125rem; top: 7rem; }
+
+@media (min-width: 640px) {
+  .empty-orbit-badge-1 { left: 0.375rem; }
+  .empty-orbit-badge-2 { right: -0.25rem; top: 4.75rem; }
+  .empty-orbit-badge-3 { left: 2.5rem; }
+  .empty-orbit-badge-4 { right: 0.25rem; }
+  .empty-orbit-badge-6 { left: -0.375rem; top: 8.125rem; }
+}
+
+.empty-github-badge {
+  padding: 0.23rem 0.45rem 0.23rem 0.28rem;
+  text-decoration: none;
+}
+
+.empty-github-badge img {
+  height: 16px;
+  opacity: 0.82;
+  width: auto;
+}
+
+.empty-github-badge:focus-visible {
+  outline: 2px solid rgba(185, 255, 251, 0.6);
+  outline-offset: 3px;
+}

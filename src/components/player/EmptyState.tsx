@@ -9,7 +9,7 @@ export function EmptyState(props: { onChooseFiles: () => void, onChooseFolder: (
     <section class="empty-state-bg absolute inset-0 z-10 box-border flex h-full w-full items-center justify-center overflow-hidden px-5 pb-34 pt-8 text-center text-white sm:px-10 sm:pb-40 sm:pt-12">
       <OceanBackground />
       <div class="empty-state-content relative flex w-full max-w-3xl flex-col items-center">
-        <div class="relative h-58 w-80 sm:h-66 sm:w-92">
+        <div class="relative h-60 w-88 sm:h-68 sm:w-100">
           <svg aria-hidden="true" viewBox="0 0 240 240" class="empty-depth-rings absolute left-1/2 top-1/2 h-58 w-58 overflow-visible sm:h-68 sm:w-68">
             <defs>
               <linearGradient id="depth-ring-inner" x1="52" y1="42" x2="186" y2="194" gradientUnits="userSpaceOnUse">
@@ -39,28 +39,32 @@ export function EmptyState(props: { onChooseFiles: () => void, onChooseFolder: (
               target="_blank"
               rel="noreferrer"
               aria-label="View foursmith/vr on GitHub"
-              class="empty-orbit-badge empty-github-badge empty-orbit-badge-5 absolute -top-2 left-30 sm:-top-3 sm:left-36"
+              class="empty-orbit-badge empty-github-badge empty-orbit-badge-5 absolute"
             >
               <img
                 src="https://img.shields.io/github/stars/foursmith/vr?style=flat-square&logo=github&logoColor=b9fffb&label=Open%20Source&color=176d73&labelColor=0c373d"
                 alt="GitHub stars"
               />
             </a>
-            <span class="empty-orbit-badge empty-orbit-badge-1 absolute left-5 top-3 sm:left-8 sm:top-2">
+            <span class="empty-orbit-badge empty-orbit-badge-1 absolute">
               <i aria-hidden="true"></i>
-              Elegant
+              Elegant & Powserful
             </span>
-            <span class="empty-orbit-badge empty-orbit-badge-2 absolute right-0 top-16 sm:-right-1 sm:top-19">
+            <span class="empty-orbit-badge empty-orbit-badge-2 absolute">
               <i aria-hidden="true"></i>
               No headset needed
             </span>
-            <span class="empty-orbit-badge empty-orbit-badge-3 absolute bottom-1 right-8 sm:bottom-0 sm:right-11">
+            <span class="empty-orbit-badge empty-orbit-badge-3 absolute">
               <i aria-hidden="true"></i>
               2D VR player
             </span>
-            <span class="empty-orbit-badge empty-orbit-badge-4 absolute bottom-12 left-0 sm:bottom-14 sm:-left-1">
+            <span class="empty-orbit-badge empty-orbit-badge-4 absolute">
               <i aria-hidden="true"></i>
-              Face follow
+              Follow face
+            </span>
+            <span class="empty-orbit-badge empty-orbit-badge-6 absolute">
+              <i aria-hidden="true"></i>
+              Subtitles
             </span>
           </div>
         </div>
