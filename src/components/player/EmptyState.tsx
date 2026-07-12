@@ -1,3 +1,5 @@
+import { isChromiumBrowser } from "../../lib/browser"
+import { BrowserCompatibilityNotice } from "../BrowserCompatibilityNotice"
 import { MediaPickerButtons } from "../ui/MediaPickerButtons"
 import { OceanBackground } from "./OceanBackground"
 
@@ -69,6 +71,7 @@ export function EmptyState(props: { onChooseFiles: () => void, onChooseFolder: (
             <MediaPickerButtons onChooseFiles={props.onChooseFiles} onChooseFolder={props.onChooseFolder} />
           </div>
           <p class="mt-1.5 text-[10px] font-medium text-white/26 sm:text-[11px]">Drop video files or folders here</p>
+          {!isChromiumBrowser() ? <BrowserCompatibilityNotice /> : null}
         </div>
       </div>
     </section>
