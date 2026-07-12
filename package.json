@@ -3,6 +3,9 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "cli"
+  ],
   "scripts": {
     "dev": "bunx --bun vite",
     "build": "bunx --bun vite build",
@@ -15,9 +18,10 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:all": "bun run typecheck && bun run test && bun run test:e2e",
-    "cli:dev": "bun run --cwd cli dev",
-    "cli:build": "bun run --cwd cli build",
-    "cli:test": "bun run --cwd cli test",
+    "cli:dev": "bun run --filter fsvr dev",
+    "cli:build": "bun run --filter fsvr build",
+    "cli:typecheck": "bun run --filter fsvr typecheck",
+    "cli:test": "bun run --filter fsvr test",
     "deploy": "bun run build && wrangler deploy"
   },
   "dependencies": {
