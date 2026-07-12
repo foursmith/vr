@@ -1,4 +1,5 @@
 import type { PlaylistNode, PlaylistStateNode } from "../playlist/model"
+import type { DlnaDevice } from "../sources/fsvr-client"
 import type { SubtitleCue } from "../subtitles/parser"
 import type { CameraView, VrSceneController } from "../vr/scene"
 import { createEffect, createMemo, createSignal, createStore, onSettled } from "solid-js"
@@ -11,6 +12,7 @@ import {
   playlistNodesFromTransfer,
 
 } from "../playlist/model"
+import { authenticateFsvr, detectFsvr, discoverFsvrDlna, hasFsvrAuth, loadFsvrDlnaDevices, loadFsvrEntries, loadFsvrPlaylist } from "../sources/fsvr-client"
 import { activeSubtitleText, parseSubtitle } from "../subtitles/parser"
 import {
   createVrScene,
@@ -24,7 +26,10 @@ import { createControls } from "./controls"
 import { createDisplay } from "./display"
 
 type ValueUpdate<T> = T | ((current: T) => T)
+const LOCAL_PLAYLIST_REFRESH_INTERVAL_MS = 10_000
 type PlaylistImportPlayback = "always" | "when-empty" | "never"
+interface VideoResource { name: string, file?: File, url?: string }
+interface SubtitleResource { name: string, file?: File, url?: string }
 
 const resolveUpdate = <T>(current: T, update: ValueUpdate<T>) =>
   typeof update === "function" ? (update as (current: T) => T)(current) : update
@@ -51,14 +56,25 @@ export function createPlayerController() {
   let videoLoadGeneration = 0
   let videoSwitchTimer: number | undefined
   let videoSwitchInProgress = false
-  let pendingVideoSwitch: { file: File, playlistId?: string } | undefined
+  let pendingVideoSwitch: { resource: VideoResource, playlistId?: string } | undefined
   let autoplayPending = false
   let playlistImportGeneration = 0
   let resourcesInitialized = false
   const playlistFiles = new Map<string, File>()
+  const playlistUrls = new Map<string, string>()
+  const playlistRemoteFolders = new Map<string, { path: string, sourceId: string }>()
   const playlistSubtitles = new Map<string, File>()
+  const playlistSubtitleUrls = new Map<string, { name: string, url: string }>()
 
   const [fileName, setFileName] = createSignal<string>()
+  const [serverState, setServerState] = createStore({
+    endpoint: "",
+    token: "",
+    status: "disconnected" as "disconnected" | "connecting" | "authentication-required" | "connected" | "error",
+    error: undefined as string | undefined,
+    dlnaDevices: [] as DlnaDevice[],
+    scanningDlna: false,
+  })
   const [frameDragActive, setFrameDragActive] = createSignal(false)
   const [playlistState, setPlaylistState] = createStore({
     nodes: [] as PlaylistStateNode[],
@@ -72,12 +88,17 @@ export function createPlayerController() {
   const playlistOpen = () => playlistState.open
   const serializePlaylistNodes = (nodes: PlaylistNode[]): PlaylistStateNode[] => nodes.map((node) => {
     if (node.file) playlistFiles.set(node.id, node.file)
+    if (node.mediaUrl) playlistUrls.set(node.id, node.mediaUrl)
+    if (node.remoteSourceId !== undefined && node.remotePath !== undefined) {
+      playlistRemoteFolders.set(node.id, { path: node.remotePath, sourceId: node.remoteSourceId })
+    }
     if (node.subtitleFile) playlistSubtitles.set(node.id, node.subtitleFile)
+    if (node.subtitleUrl) playlistSubtitleUrls.set(node.id, { name: node.subtitleName ?? "subtitle.srt", url: node.subtitleUrl })
     return {
       id: node.id,
       name: node.name,
       kind: node.kind === "folder" ? "folder" : "video",
-      hasSubtitle: Boolean(node.subtitleFile),
+      hasSubtitle: Boolean(node.subtitleFile || node.subtitleUrl),
       children: node.children ? serializePlaylistNodes(node.children) : undefined,
     }
   })
@@ -204,17 +225,23 @@ export function createPlayerController() {
     ? activeSubtitleText(subtitleCues(), currentTime())
     : "")
 
-  const loadSubtitle = async (file: File | undefined, generation: number) => {
-    if (!file) {
+  const loadSubtitle = async (resource: SubtitleResource | undefined, generation: number) => {
+    if (!resource) {
       setSubtitleCues([])
       setSubtitleFileName(undefined)
       return
     }
     try {
-      const cues = parseSubtitle(await file.text(), file.name)
+      const text = resource.file
+        ? await resource.file.text()
+        : await fetch(resource.url!).then((response) => {
+            if (!response.ok) throw new Error(`subtitle request failed (${response.status})`)
+            return response.text()
+          })
+      const cues = parseSubtitle(text, resource.name)
       if (generation !== videoLoadGeneration || appDisposed) return
       setSubtitleCues(cues)
-      setSubtitleFileName(file.name)
+      setSubtitleFileName(resource.name)
     } catch (error) {
       if (generation !== videoLoadGeneration || appDisposed) return
       setSubtitleCues([])
@@ -307,20 +334,27 @@ export function createPlayerController() {
     }
   }
 
-  const commitVideoFile = async (file: File, playlistId?: string) => {
+  const commitVideoResource = async (resource: VideoResource, playlistId?: string) => {
     const generation = ++videoLoadGeneration
     scene?.resetMedia()
     await detachCurrentVideoSource()
     if (appDisposed || generation !== videoLoadGeneration || pendingVideoSwitch) return
-    fileUrl = URL.createObjectURL(file)
+    fileUrl = resource.file ? URL.createObjectURL(resource.file) : undefined
     setHasVideo(true)
     setPlaying(false)
     setCurrentTime(0)
     setDuration(0)
-    setFileName(file.name)
-    setSelectedPlaylistId(playlistId && playlistFiles.has(playlistId) ? playlistId : undefined)
-    void loadSubtitle(playlistId ? playlistSubtitles.get(playlistId) : undefined, generation)
-    video.src = fileUrl
+    setFileName(resource.name)
+    setSelectedPlaylistId(playlistId && (playlistFiles.has(playlistId) || playlistUrls.has(playlistId)) ? playlistId : undefined)
+    const subtitleFile = playlistId ? playlistSubtitles.get(playlistId) : undefined
+    const remoteSubtitle = playlistId ? playlistSubtitleUrls.get(playlistId) : undefined
+    void loadSubtitle(
+      subtitleFile
+        ? { name: subtitleFile.name, file: subtitleFile }
+        : remoteSubtitle,
+      generation,
+    )
+    video.src = fileUrl ?? resource.url ?? ""
     video.load()
     if (resourcesInitialized && resourcesReady()) {
       requestVideoPlayback(generation)
@@ -336,16 +370,14 @@ export function createPlayerController() {
         if (appDisposed) break
         const pending = pendingVideoSwitch
         pendingVideoSwitch = undefined
-        await commitVideoFile(pending.file, pending.playlistId)
+        await commitVideoResource(pending.resource, pending.playlistId)
       }
     } finally {
       videoSwitchInProgress = false
     }
   }
 
-  const loadVideoFile = (file: File, playlistId?: string) => {
-    if (!isVideoFile(file)) return
-    pendingVideoSwitch = { file, playlistId }
+  const scheduleVideoSwitch = (playlistId?: string) => {
     autoplayPending = true
     setSelectedPlaylistId(playlistId)
 
@@ -354,6 +386,17 @@ export function createPlayerController() {
       videoSwitchTimer = undefined
       void processPendingVideoSwitch()
     }, fileUrl || videoSwitchInProgress ? VIDEO_SWITCH_DEBOUNCE_MS : 0)
+  }
+
+  const loadVideoFile = (file: File, playlistId?: string) => {
+    if (!isVideoFile(file)) return
+    pendingVideoSwitch = { resource: { name: file.name, file }, playlistId }
+    scheduleVideoSwitch(playlistId)
+  }
+
+  const loadVideoUrl = (url: string, name: string, playlistId?: string) => {
+    pendingVideoSwitch = { resource: { name, url }, playlistId }
+    scheduleVideoSwitch(playlistId)
   }
 
   const clearPlaylist = () => {
@@ -366,7 +409,10 @@ export function createPlayerController() {
     if (!switchInProgress) autoplayPending = false
     playlistImportGeneration += 1
     playlistFiles.clear()
+    playlistUrls.clear()
+    playlistRemoteFolders.clear()
     playlistSubtitles.clear()
+    playlistSubtitleUrls.clear()
     setPlaylistState((draft) => {
       draft.nodes = []
       draft.expandedFolderIds = []
@@ -376,7 +422,13 @@ export function createPlayerController() {
 
   const playPlaylistNode = (id: string) => {
     const file = playlistFiles.get(id)
-    if (file) loadVideoFile(file, id)
+    if (file) {
+      loadVideoFile(file, id)
+    } else {
+      const url = playlistUrls.get(id)
+      const node = playlistVideos().find(candidate => candidate.id === id)
+      if (url && node) loadVideoUrl(url, node.name, id)
+    }
   }
 
   const countPlaylistVideos = (nodes: PlaylistNode[]): number => nodes.reduce(
@@ -387,12 +439,12 @@ export function createPlayerController() {
   const importPlaylistNodes = (nodes: PlaylistNode[], playback: PlaylistImportPlayback) => {
     if (!nodes.length) return
     const firstVideo = firstVideoNode(nodes)
-    if (playback === "always" && !firstVideo?.file) return
+    if (playback === "always" && !firstVideo?.file && !firstVideo?.mediaUrl) return
 
     appendPlaylist(nodes)
     setExpandedFolders((current) => {
       const next = new Set(current)
-      nodes.forEach(node => node.kind === "folder" && next.add(node.id))
+      nodes.forEach(node => node.kind === "folder" && node.remoteSourceId === undefined && next.add(node.id))
       return next
     })
 
@@ -401,10 +453,11 @@ export function createPlayerController() {
       showControls()
     }
 
-    const shouldLoadImportedVideo = !playing() && firstVideo?.file
+    const shouldLoadImportedVideo = !playing() && (firstVideo?.file || firstVideo?.mediaUrl)
       && (playback === "always" || (playback === "when-empty" && !hasVideo()))
-    if (shouldLoadImportedVideo && firstVideo?.file) {
-      loadVideoFile(firstVideo.file, firstVideo.id)
+    if (shouldLoadImportedVideo && firstVideo) {
+      if (firstVideo.file) loadVideoFile(firstVideo.file, firstVideo.id)
+      else if (firstVideo.mediaUrl) loadVideoUrl(firstVideo.mediaUrl, firstVideo.name, firstVideo.id)
     }
   }
 
@@ -431,13 +484,62 @@ export function createPlayerController() {
     importPlaylistNodes(buildPlaylistTree(files), "when-empty")
   }
 
+  const findPlaylistStateNode = (nodes: PlaylistStateNode[], id: string): PlaylistStateNode | undefined => {
+    for (const node of nodes) {
+      if (node.id === id) return node
+      const nested = findPlaylistStateNode(node.children ?? [], id)
+      if (nested) return nested
+    }
+  }
+
+  const loadRemoteFolder = async (id: string) => {
+    const remoteFolder = playlistRemoteFolders.get(id)
+    if (!remoteFolder || serverState.status !== "connected") return
+    const nodes = await loadFsvrEntries(serverState.endpoint, serverState.token, remoteFolder.sourceId, remoteFolder.path)
+    setPlaylistState((draft) => {
+      const visit = (items: PlaylistStateNode[]): boolean => {
+        for (const item of items) {
+          if (item.id === id) {
+            const previousChildren = item.children ?? []
+            item.children = serializePlaylistNodes(nodes).map((child) => {
+              if (child.kind !== "folder") return child
+              const previous = previousChildren.find(candidate => candidate.id === child.id)
+              if (previous?.children) child.children = previous.children
+              return child
+            })
+            return true
+          }
+          if (item.children && visit(item.children)) return true
+        }
+        return false
+      }
+      visit(draft.nodes)
+    })
+  }
+
   const togglePlaylistFolder = (id: string) => {
+    const shouldLoad = playlistRemoteFolders.has(id) && !findPlaylistStateNode(playlist(), id)?.children
     setExpandedFolders((current) => {
       const next = new Set(current)
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
     })
+    if (shouldLoad) void loadRemoteFolder(id).catch(error => console.warn("remote folder loading failed", error))
+  }
+
+  const refreshLoadedLocalFolders = async () => {
+    if (serverState.status !== "connected") return
+    const loadedFolderIds: string[] = []
+    const visit = (nodes: PlaylistStateNode[]) => {
+      for (const node of nodes) {
+        const remoteFolder = playlistRemoteFolders.get(node.id)
+        if (node.kind === "folder" && node.children && remoteFolder?.sourceId === "local") loadedFolderIds.push(node.id)
+        if (node.children) visit(node.children)
+      }
+    }
+    visit(playlist())
+    await Promise.all(loadedFolderIds.map(id => loadRemoteFolder(id)))
   }
 
   const playNextPlaylistVideo = () => {
@@ -454,6 +556,117 @@ export function createPlayerController() {
     const dataTransfer = event.dataTransfer
     if (!dataTransfer) return
     await importPlaylistTransfer(dataTransfer, "always")
+  }
+
+  const loadServerPlaylist = async () => {
+    const [nodes, dlnaDevices] = await Promise.all([
+      loadFsvrPlaylist(serverState.endpoint, ""),
+      loadFsvrDlnaDevices(serverState.endpoint, ""),
+    ])
+    if (appDisposed) return
+    clearPlaylist()
+    importPlaylistNodes(nodes, "when-empty")
+    setPlaylistOpen(true)
+    setServerState((draft) => {
+      draft.status = "connected"
+      draft.error = undefined
+      draft.token = ""
+      draft.dlnaDevices = dlnaDevices
+    })
+  }
+
+  const authenticateServer = async (token: string) => {
+    if (!token.trim()) throw new Error("Enter an access token")
+    setServerState((draft) => {
+      draft.status = "connecting"
+      draft.error = undefined
+    })
+    try {
+      await authenticateFsvr(serverState.endpoint || window.location.origin, token)
+      await loadServerPlaylist()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Invalid access token"
+      clearPlaylist()
+      setServerState((draft) => {
+        draft.status = "authentication-required"
+        draft.error = message
+      })
+      throw error
+    }
+  }
+
+  const connectServer = async () => {
+    const endpoint = window.location.origin
+    const pageUrl = new URL(window.location.href)
+    const urlToken = pageUrl.searchParams.get("token")
+    if (urlToken !== null) {
+      pageUrl.searchParams.delete("token")
+      window.history.replaceState(window.history.state, "", `${pageUrl.pathname}${pageUrl.search}${pageUrl.hash}`)
+    }
+    setServerState((draft) => {
+      draft.endpoint = endpoint
+      draft.token = ""
+      draft.status = "connecting"
+      draft.error = undefined
+    })
+    try {
+      if (!(await detectFsvr(endpoint))) {
+        setServerState((draft) => {
+          draft.status = "disconnected"
+        })
+        return
+      }
+      if (urlToken) {
+        await authenticateServer(urlToken)
+        return
+      }
+      if (!(await hasFsvrAuth(endpoint))) {
+        setServerState((draft) => {
+          draft.status = "authentication-required"
+        })
+        return
+      }
+      await loadServerPlaylist()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to connect to fsvr"
+      setServerState((draft) => {
+        draft.status = "error"
+        draft.error = message
+      })
+      throw error
+    }
+  }
+
+  const scanDlna = async () => {
+    if (serverState.status !== "connected") throw new Error("Connect to fsvr before scanning DLNA")
+    setServerState((draft) => {
+      draft.scanningDlna = true
+      draft.error = undefined
+    })
+    try {
+      await discoverFsvrDlna(serverState.endpoint, serverState.token)
+      const [nodes, devices] = await Promise.all([
+        loadFsvrPlaylist(serverState.endpoint, serverState.token),
+        loadFsvrDlnaDevices(serverState.endpoint, serverState.token),
+      ])
+      if (appDisposed) return
+      clearPlaylist()
+      importPlaylistNodes(nodes, "when-empty")
+      setPlaylistOpen(true)
+      setServerState((draft) => {
+        draft.dlnaDevices = devices
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "DLNA scan failed"
+      setServerState((draft) => {
+        draft.error = message
+      })
+      throw error
+    } finally {
+      setServerState((draft) => {
+        draft.scanningDlna = false
+      })
+    }
   }
 
   const handleKeydown = (event: KeyboardEvent) => {
@@ -588,10 +801,16 @@ export function createPlayerController() {
     window.addEventListener("keydown", handleKeydown)
     document.addEventListener("fullscreenchange", syncFullscreen)
 
+    void connectServer().catch(error => console.warn("fsvr connection failed", error))
+    const localPlaylistRefreshTimer = window.setInterval(() => {
+      void refreshLoadedLocalFolders().catch(error => console.warn("local playlist refresh failed", error))
+    }, LOCAL_PLAYLIST_REFRESH_INTERVAL_MS)
+
     return () => {
       appDisposed = true
       window.removeEventListener("keydown", handleKeydown)
       document.removeEventListener("fullscreenchange", syncFullscreen)
+      window.clearInterval(localPlaylistRefreshTimer)
       if (videoSwitchTimer !== undefined) window.clearTimeout(videoSwitchTimer)
       pendingVideoSwitch = undefined
       autoplayPending = false
@@ -716,6 +935,11 @@ export function createPlayerController() {
       setFpsMeter: (element: HTMLDivElement) => (fpsMeter = element),
       setPanelOpen: setDebugPanelOpen,
       setSampleCanvas: (element: HTMLCanvasElement) => (sampleCanvas = element),
+    },
+    server: {
+      authenticate: authenticateServer,
+      scanDlna,
+      state: serverState,
     },
   }
 }

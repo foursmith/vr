@@ -11,6 +11,7 @@ export default antfu(
     },
     ignores: [
       "public/**",
+      "cli/src/web-assets.generated.ts",
     ],
     rules: {
       "node/prefer-global/process": "off",

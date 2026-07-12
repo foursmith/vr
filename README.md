@@ -51,3 +51,28 @@ bun run dev
 bun run typecheck
 bun run build
 ```
+
+## Local media server
+
+The Web app remains available as a standalone static deployment for browser-selected files. The optional `fsvr` executable embeds the same Web UI and adds local media directories plus DLNA discovery.
+
+```sh
+cd cli
+bun install
+bun run dev -- serve --root ~/Movies
+```
+
+Pass `--token <token>` to keep a stable access token across restarts. Otherwise, `fsvr` generates and prints a new token. A link may include `?token=<token>` for sign-in; after validation, the Web UI removes it from the address bar and stores it in an HttpOnly authentication cookie.
+
+`fsvr` opens its integrated Web UI at `http://127.0.0.1:4190`. To make the complete Web UI and API available to other devices on the LAN, pass `--host 0.0.0.0`; the CLI will print the available LAN addresses.
+
+DLNA media servers are not scanned during startup by default. Pass `--dlna-scan` to discover them before opening the Web UI; manual scanning remains available in the Web UI.
+
+Build the standalone executable, including Web assets, WASM, and face-tracking models:
+
+```sh
+bun run cli:build
+./cli/dist/fsvr serve --root ~/Movies
+```
+
+The Web UI embedded in `fsvr` is built without the PWA manifest or service worker. The standalone official Web build keeps PWA support.

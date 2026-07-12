@@ -11,7 +11,12 @@ export interface PlaylistNode {
   name: string
   kind: "folder" | "video" | "subtitle"
   file?: File
+  mediaUrl?: string
+  remotePath?: string
+  remoteSourceId?: string
   subtitleFile?: File
+  subtitleName?: string
+  subtitleUrl?: string
   children?: PlaylistNode[]
 }
 
