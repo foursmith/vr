@@ -1,6 +1,6 @@
 export function BrowserCompatibilityNotice() {
   return (
-    <aside class="flex max-w-lg flex-col items-center gap-3">
+    <aside class="flex max-w-lg flex-col items-center gap-4">
       <div aria-hidden="true" class="h-px w-12 bg-gradient-to-r from-transparent via-accent/38 to-transparent" />
       <div class="flex flex-col items-center gap-0.5">
         <p class="text-sm font-normal tracking-[-0.01em] text-[#e8fffd]/88 sm:text-base">

@@ -28,33 +28,35 @@ export function EmptyState(props: { onChooseFiles: () => void, onChooseFolder: (
             <circle cx="120" cy="120" r="100" fill="none" stroke="url(#depth-ring-outer)" stroke-width="0.72" stroke-linecap="round" stroke-dasharray="2 11" opacity="0.56" transform="rotate(32 120 120)" />
             <circle cx="120" cy="120" r="114" fill="none" stroke="url(#depth-ring-outer)" stroke-width="0.48" stroke-linecap="round" stroke-dasharray="1.5 14" opacity="0.36" transform="rotate(48 120 120)" />
           </svg>
-          <FsvrLogo
-            title="Foursmith VR"
-            class="absolute left-1/2 top-1/2 z-10 h-40 w-40 -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_16px_40px_rgba(70,205,205,.2)] sm:h-48 sm:w-48"
-          />
+          <div class="empty-logo-fish absolute left-1/2 top-1/2 z-20 h-40 w-40 sm:h-48 sm:w-48">
+            <FsvrLogo
+              title="Foursmith VR"
+              class="h-full w-full"
+            />
+          </div>
 
-          <div class="absolute inset-0 z-20">
+          <div class="absolute inset-0 z-10">
+            <span class="empty-orbit-badge empty-orbit-badge-1">
+              <i aria-hidden="true"></i>
+              Tiktok
+            </span>
             <a
               href="https://github.com/foursmith/vr"
               target="_blank"
               rel="noreferrer"
               aria-label="View foursmith/vr on GitHub"
-              class="empty-orbit-badge empty-github-badge empty-orbit-badge-5"
+              class="empty-orbit-badge empty-github-badge empty-orbit-badge-2"
             >
               <img
                 src="https://img.shields.io/github/stars/foursmith/vr?style=flat-square&logo=github&logoColor=b9fffb&label=Open%20Source&color=176d73&labelColor=0c373d"
                 alt="GitHub stars"
               />
             </a>
-            <span class="empty-orbit-badge empty-orbit-badge-1">
+            <span class="empty-orbit-badge empty-orbit-badge-6">
               <i aria-hidden="true"></i>
-              Elegant & Powserful
+              Foursmith VR
             </span>
-            <span class="empty-orbit-badge empty-orbit-badge-2">
-              <i aria-hidden="true"></i>
-              No headset needed
-            </span>
-            <span class="empty-orbit-badge empty-orbit-badge-3">
+            <span class="empty-orbit-badge empty-orbit-badge-5">
               <i aria-hidden="true"></i>
               2D VR player
             </span>
@@ -62,7 +64,7 @@ export function EmptyState(props: { onChooseFiles: () => void, onChooseFolder: (
               <i aria-hidden="true"></i>
               Follow face
             </span>
-            <span class="empty-orbit-badge empty-orbit-badge-6">
+            <span class="empty-orbit-badge empty-orbit-badge-3">
               <i aria-hidden="true"></i>
               Subtitles
             </span>
@@ -72,16 +74,14 @@ export function EmptyState(props: { onChooseFiles: () => void, onChooseFolder: (
         <div class="flex flex-col items-center gap-8">
           <div class="flex flex-col items-center gap-5 sm:gap-6">
             <h1 class="flex items-center gap-2.5 text-[10px] font-medium tracking-[0.18em] sm:text-[11px] sm:tracking-[0.21em]">
-              <span class="text-[#b9fffb]/72">Foursmith VR</span>
-              <span aria-hidden="true" class="h-0.5 w-0.5 rounded-full bg-accent/38"></span>
-              <span class="italic text-[#d9fffc]/42">Watch VR like TikTok LIVE</span>
+              <span class="italic text-[#d9fffc]/42">Watch VR like TikTok</span>
             </h1>
-            <div class="flex flex-col items-center gap-1.5">
+            <div class="flex flex-col items-center">
               <MediaPickerButtons onChooseFiles={props.onChooseFiles} onChooseFolder={props.onChooseFolder} />
               <span class="text-[10px] font-medium leading-2 tracking-[0.018em] text-white/38 sm:text-[11px]">Drop videos here</span>
             </div>
           </div>
-          {isChromiumBrowser() ? <BrowserCompatibilityNotice /> : null}
+          {!isChromiumBrowser() ? <BrowserCompatibilityNotice /> : null}
         </div>
       </div>
     </section>
