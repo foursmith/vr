@@ -63,7 +63,7 @@ The Web app remains available as a standalone static deployment for browser-sele
 
 ```sh
 bun install
-bun run cli:dev -- serve --root ~/Movies
+bun run cli:dev -- ~/Movies
 ```
 
 Pass `--password <password>` to keep a stable password across restarts. Otherwise, `fsvr` generates and prints a random password. A link may include `?password=<password>` for sign-in; after validation, the Web UI removes it from the address bar and stores it in an HttpOnly authentication cookie.
@@ -76,7 +76,7 @@ Build the standalone executable, including Web assets, WASM, and face-tracking m
 
 ```sh
 bun run cli:build
-./cli/dist/fsvr serve --root ~/Movies
+./cli/dist/fsvr ~/Movies
 ```
 
 The Web UI embedded in `fsvr` is built without the PWA manifest or service worker. The standalone official Web build keeps PWA support.

@@ -1,12 +1,12 @@
-import type { MediaSource } from "../source"
+import type { MediaSource } from "./source"
 import { randomBytes } from "node:crypto"
 import { networkInterfaces } from "node:os"
 import { resolve } from "node:path"
 import { defineCommand } from "citty"
-import { discoverDlnaSources } from "../dlna"
-import { createLocalSource } from "../local-source"
-import { createMediaServer } from "../server"
-import { webAssets } from "../web-assets.generated"
+import { discoverDlnaSources } from "./dlna"
+import { createLocalSource } from "./local-source"
+import { createMediaServer } from "./server"
+import { webAssets } from "./web-assets.generated"
 
 const DEFAULT_ORIGINS = ["https://vr.foursmith.com", "http://localhost:5173"]
 
@@ -20,13 +20,14 @@ const readRepeatedOption = (rawArgs: string[], name: string) => {
   return values
 }
 
-export const serveCommand = defineCommand({
+export const mainCommand = defineCommand({
   meta: {
-    name: "serve",
-    description: "Serve a local media directory",
+    name: "fsvr",
+    version: "0.1.0",
+    description: "Serve local VR media with the Foursmith VR Web UI",
   },
   args: {
-    "root": { type: "string", description: "Media directory", valueHint: "directory", default: process.cwd() },
+    "directory": { type: "positional", description: "Media directory", required: false, default: process.cwd() },
     "host": { type: "string", description: "Address to listen on", valueHint: "address", default: "127.0.0.1" },
     "port": { type: "string", description: "Port to listen on", valueHint: "port", default: "4190" },
     "password": { type: "string", description: "Stable access password", valueHint: "password" },
@@ -41,7 +42,7 @@ export const serveCommand = defineCommand({
     const password = args.password ?? randomBytes(24).toString("base64url")
     if (!password.trim()) throw new Error("password must not be empty")
 
-    const source = await createLocalSource(resolve(args.root))
+    const source = await createLocalSource(resolve(args.directory))
     const sources = new Map<string, MediaSource>([[source.id, source]])
     if (args["dlna-scan"]) {
       console.log("Scanning DLNA media servers…")
