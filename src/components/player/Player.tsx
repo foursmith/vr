@@ -1,7 +1,6 @@
 import type { PlayerController } from "../../features/player/controller"
 import { Show, untrack } from "solid-js"
 import { PlaylistPanel } from "../playlist/PlaylistPanel"
-import { createMediaDropTip, MediaDropTip } from "../ui/MediaDropTip"
 import { EmptyState } from "./EmptyState"
 import { PlayerControls } from "./PlayerControls"
 import { PlayerStage } from "./PlayerStage"
@@ -12,7 +11,6 @@ export function Player(props: { controller: PlayerController }) {
   const {
     chooseFolder,
     cursorVisible,
-    frameDragActive,
     handleFile,
     handleFolder,
     handlePlayerMouseMove,
@@ -21,10 +19,8 @@ export function Player(props: { controller: PlayerController }) {
     openVideoFile,
     setFileInput,
     setFolderInput,
-    setFrameDragActive,
     setPlayer,
   } = frame
-  const dropTip = createMediaDropTip()
   return (
     <main
       ref={setPlayer}
@@ -32,19 +28,11 @@ export function Player(props: { controller: PlayerController }) {
       class={`relative h-dvh overflow-hidden bg-black text-white ${cursorVisible() ? "" : "cursor-none"}`}
       onMouseMove={handlePlayerMouseMove}
       onDragEnter={(event) => {
-        event.preventDefault()
-        if (Array.from(event.dataTransfer?.types ?? []).includes("Files")) {
-          dropTip.updatePosition(event)
-          setFrameDragActive(true)
-        }
+        if (Array.from(event.dataTransfer?.types ?? []).includes("Files")) event.preventDefault()
       }}
       onDragOver={(event) => {
         event.preventDefault()
-        dropTip.updatePosition(event)
         if (event.dataTransfer) event.dataTransfer.dropEffect = "copy"
-      }}
-      onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFrameDragActive(false)
       }}
       onDrop={event => void handleVideoDrop(event)}
     >
@@ -62,10 +50,6 @@ export function Player(props: { controller: PlayerController }) {
 
       <Show when={!hasVideo()}>
         <EmptyState onChooseFiles={openVideoFile} onChooseFolder={() => chooseFolder()} />
-      </Show>
-
-      <Show when={frameDragActive()}>
-        <MediaDropTip controller={dropTip} />
       </Show>
 
       <PlaylistPanel controller={playlist} />
