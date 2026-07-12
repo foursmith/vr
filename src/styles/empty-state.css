@@ -16,8 +16,15 @@
 }
 
 .empty-depth-rings {
+  animation: empty-depth-rings-spin 28s linear infinite;
   filter: drop-shadow(0 0 14px rgba(98, 207, 216, 0.06));
   transform: translate(-50%, -50%) rotate(-16deg);
+  will-change: transform;
+}
+
+@keyframes empty-depth-rings-spin {
+  from { transform: translate(-50%, -50%) rotate(-16deg); }
+  to { transform: translate(-50%, -50%) rotate(344deg); }
 }
 
 @keyframes empty-badge-swim-1 {
@@ -71,6 +78,7 @@
   gap: 0.52rem;
   letter-spacing: 0.018em;
   padding: 0.43rem 0.88rem 0.43rem 0.6rem;
+  position: absolute;
   text-shadow: 0 1px 8px rgba(98, 207, 216, 0.12);
   white-space: nowrap;
   will-change: transform;
