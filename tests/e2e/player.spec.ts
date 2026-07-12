@@ -6,13 +6,12 @@ const blockModels = async (page: import("@playwright/test").Page) => {
   await page.route("**/models/**", route => route.abort())
 }
 
-test("shows the empty player and exposes its primary controls", async ({ page }) => {
+test("shows the empty player without playback controls", async ({ page }) => {
   await blockModels(page)
   await page.goto("/")
   await expect(page.getByText("Drop video files or folders here").first()).toBeVisible()
   await expect(page.getByRole("button", { name: "Choose files" }).first()).toBeVisible()
-  await expect(page.getByRole("button", { name: "Playlist" })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Play", exact: true })).toBeVisible()
+  await expect(page.locator(".player-controls")).toHaveCount(0)
   await expect(page.locator("#video")).toHaveAttribute("playsinline", "")
 })
 
@@ -24,6 +23,8 @@ test("imports multiple videos, opens the playlist, selects and clears it", async
     { name: "clip2.webm", mimeType: "video/webm", buffer: Buffer.from("second") },
     { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("ignored") },
   ])
+
+  await expect(page.locator(".player-controls")).toBeVisible()
 
   const playlist = page.getByRole("complementary", { name: "Playlist" })
   await expect(playlist).toBeVisible()

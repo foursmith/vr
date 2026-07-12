@@ -53,7 +53,9 @@ export function Player(props: { controller: PlayerController }) {
       </Show>
 
       <PlaylistPanel controller={playlist} />
-      <PlayerControls controller={controller} />
+      <Show when={hasVideo()}>
+        <PlayerControls controller={controller} />
+      </Show>
     </main>
   )
 }
