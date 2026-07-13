@@ -1,13 +1,24 @@
 import type { FaceAutoCenterState } from "../../src/features/vr/face-auto-center"
 import { PerspectiveCamera } from "three"
 import { describe, expect, it, vi } from "vitest"
-import { drawPanoramaInferenceSample, drawSampleBoxes, getViewportInferenceSampleSize } from "../../src/features/vr/face-sampling"
+import { drawPanoramaInferenceSample, drawSampleBoxes, drawViewportInferenceSample, getViewportInferenceSampleSize } from "../../src/features/vr/face-sampling"
 
 describe("face sampling", () => {
   it("preserves aspect ratio and enforces minimum dimensions", () => {
     expect(getViewportInferenceSampleSize(1920, 1080, 320)).toEqual({ width: 320, height: 180 })
     expect(getViewportInferenceSampleSize(4000, 500, 100)).toEqual({ width: 160, height: 120 })
     expect(getViewportInferenceSampleSize(0, 1080, 320)).toBeUndefined()
+  })
+
+  it("downscales a viewport into the reusable inference canvas", () => {
+    const context = { drawImage: vi.fn() } as unknown as CanvasRenderingContext2D
+    const canvas = { width: 1, height: 1 } as HTMLCanvasElement
+    const source = {} as HTMLCanvasElement
+    const size = drawViewportInferenceSample(canvas, context, source, 100, 50, 1920, 1080, 320)
+
+    expect(size).toEqual({ width: 320, height: 180 })
+    expect(canvas).toMatchObject({ width: 320, height: 180 })
+    expect(context.drawImage).toHaveBeenCalledWith(source, 100, 50, 1920, 1080, 0, 0, 320, 180)
   })
 
   it("refuses to sample videos without a current frame", () => {

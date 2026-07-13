@@ -18,7 +18,7 @@ import {
   setPanoramaTarget,
   setViewportTarget,
 } from "./face-auto-center"
-import { drawPanoramaInferenceSample, drawSampleBoxes, getViewportInferenceSampleSize } from "./face-sampling"
+import { drawPanoramaInferenceSample, drawSampleBoxes, drawViewportInferenceSample } from "./face-sampling"
 import { createProjectionGroup, disposeObject } from "./projection"
 
 export { preloadFaceAutoCenterResources } from "../face-tracking/client"
@@ -64,11 +64,6 @@ const getViewportYawOffset = (camera: PerspectiveCamera, x: number) =>
   MathUtils.radToDeg(Math.atan((1 - x * 2) * getViewportTanHalfVertical(camera) * camera.aspect))
 const getViewportPitchOffset = (camera: PerspectiveCamera, y: number) =>
   MathUtils.radToDeg(Math.atan((1 - y * 2) * getViewportTanHalfVertical(camera)))
-
-const resizeCanvas = (canvas: HTMLCanvasElement, width: number, height: number) => {
-  if (canvas.width !== width) canvas.width = width
-  if (canvas.height !== height) canvas.height = height
-}
 
 const getRenderViewports = (width: number, height: number, splitScreen: boolean): RenderViewport[] => {
   if (!splitScreen || width <= height) return [{ x: 0, y: 0, width, height }]
@@ -444,7 +439,9 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     lastInferenceMs = result.inferenceMs
     recentInferenceTimes.push(result.inferenceMs)
     if (recentInferenceTimes.length > 20) recentInferenceTimes.shift()
-    recentInferenceCompletions.push(completedAt)
+    // These timestamps only feed the debug meter. Keeping them while the meter
+    // is closed would make the array grow for the entire playback session.
+    if (options.debugPanelOpen) recentInferenceCompletions.push(completedAt)
     let foundFace = false
 
     if (result.mode === "landmarks") {
@@ -486,7 +483,6 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     let mode: FaceInferenceMode = "landmarks"
     let detectionMode: DetectionMode = "viewport"
     let panoramaSample: PanoramaSample | undefined
-    let bitmapPromise: Promise<ImageBitmap> | undefined
     let inputWidth = 0
     let inputHeight = 0
     let completedInferenceMs = 0
@@ -512,22 +508,22 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         mode = faceState.recoveryMode === "viewport" ? "detection" : "landmarks"
         const renderViewports = getRenderViewports(renderer.domElement.width, renderer.domElement.height, options.splitScreen)
         const sourceRect = renderViewports[Math.floor(renderViewports.length / 2)]
-        const size = getViewportInferenceSampleSize(sourceRect.width, sourceRect.height, VIEWPORT_SAMPLE_WIDTH)
-        if (!size) return
-        inputWidth = size.width
-        inputHeight = size.height
-        bitmapPromise = createImageBitmap(
+        // Copy synchronously into the small reusable canvas. Creating an
+        // ImageBitmap directly from the WebGL canvas can retain its full-size
+        // backing buffer until the asynchronous capture has completed.
+        const size = drawViewportInferenceSample(
+          sampleCanvas,
+          sampleContext,
           renderer.domElement,
           sourceRect.x,
           sourceRect.y,
           sourceRect.width,
           sourceRect.height,
-          {
-            resizeWidth: inputWidth,
-            resizeHeight: inputHeight,
-            resizeQuality: "low",
-          },
+          VIEWPORT_SAMPLE_WIDTH,
         )
+        if (!size) return
+        inputWidth = size.width
+        inputHeight = size.height
       }
     } catch (error) {
       if (now - faceState.lastErrorAt > 3000) {
@@ -542,18 +538,9 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     lastInputSize = `${inputWidth}×${inputHeight}`
     inferenceInFlight = true
     updateInferenceSchedule(now)
-    void (bitmapPromise ?? createImageBitmap(sampleCanvas))
+    void createImageBitmap(sampleCanvas)
       .then((bitmap) => {
         lastCaptureMs = performance.now() - captureStartedAt
-        try {
-          if (options.debugPanelOpen && detectionMode === "viewport") {
-            resizeCanvas(sampleCanvas, inputWidth, inputHeight)
-            sampleContext.drawImage(bitmap, 0, 0, inputWidth, inputHeight)
-          }
-        } catch (error) {
-          bitmap.close()
-          throw error
-        }
         return faceTracker.infer(mode, bitmap, now, detectionMode === "viewport" ? "short" : "full")
       })
       .then((result) => {
