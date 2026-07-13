@@ -11,20 +11,24 @@ const webAssets = process.env.FSVR_WEB_URL
   ? undefined
   : (await import("./web-assets.generated")).webAssets
 
+export const mainArgs = {
+  "directory": { type: "positional", description: "Media directory", required: false, default: process.cwd() },
+  "host": { type: "boolean", description: "Listen on all network interfaces", default: false },
+  "port": { type: "string", description: "Port to listen on", valueHint: "port", default: "4090" },
+  "password": { type: "string", description: "Stable access password", valueHint: "password" },
+  "dlna-scan": { type: "boolean", description: "Scan for DLNA servers before startup", default: false },
+  "open": { type: "boolean", description: "Open the Web UI", default: false },
+} as const
+
+export const hostnameForHostFlag = (host: boolean) => host ? "0.0.0.0" : "127.0.0.1"
+
 export const mainCommand = defineCommand({
   meta: {
     name: "fsvr",
     version: "0.1.0",
     description: "Serve local VR media with the Foursmith VR Web UI",
   },
-  args: {
-    "directory": { type: "positional", description: "Media directory", required: false, default: process.cwd() },
-    "host": { type: "string", description: "Address to listen on", valueHint: "address", default: "0.0.0.0" },
-    "port": { type: "string", description: "Port to listen on", valueHint: "port", default: "4090" },
-    "password": { type: "string", description: "Stable access password", valueHint: "password" },
-    "dlna-scan": { type: "boolean", description: "Scan for DLNA servers before startup", default: false },
-    "open": { type: "boolean", description: "Open the Web UI", default: false },
-  },
+  args: mainArgs,
   async run({ args }) {
     const port = Number(args.port)
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("port must be between 1 and 65535")
@@ -47,7 +51,7 @@ export const mainCommand = defineCommand({
     }
 
     const server = createMediaServer({
-      hostname: args.host,
+      hostname: hostnameForHostFlag(args.host),
       port,
       password,
       sources,
@@ -64,7 +68,7 @@ export const mainCommand = defineCommand({
     console.log(`Password:     ${password}`)
     console.log(`Web UI:       ${webUrl}`)
 
-    if (args.host === "0.0.0.0") {
+    if (args.host) {
       const lanAddresses = Object.values(networkInterfaces())
         .flat()
         .filter(address => address?.family === "IPv4" && !address.internal)

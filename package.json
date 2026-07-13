@@ -13,7 +13,7 @@
     }
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "vite build",
     "lint": "eslint .",
     "prepare": "simple-git-hooks",
