@@ -89,6 +89,33 @@ export const getViewportInferenceSampleSize = (sourceWidth: number, sourceHeight
   return { width, height: Math.max(120, Math.round(width / (sourceWidth / sourceHeight))) }
 }
 
+export const drawViewportInferenceSample = (
+  canvas: HTMLCanvasElement,
+  context: CanvasRenderingContext2D,
+  source: CanvasImageSource,
+  sourceX: number,
+  sourceY: number,
+  sourceWidth: number,
+  sourceHeight: number,
+  sampleWidth: number,
+) => {
+  const size = getViewportInferenceSampleSize(sourceWidth, sourceHeight, sampleWidth)
+  if (!size) return undefined
+  resizeCanvas(canvas, size.width, size.height)
+  context.drawImage(
+    source,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+    size.width,
+    size.height,
+  )
+  return size
+}
+
 export const drawPanoramaInferenceSample = (
   canvas: HTMLCanvasElement,
   context: CanvasRenderingContext2D,
