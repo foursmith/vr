@@ -1,10 +1,37 @@
+import { createSignal, Show } from "solid-js"
 import { isChromiumBrowser } from "../../lib/browser"
 import { BrowserCompatibilityNotice } from "../BrowserCompatibilityNotice"
 import { FsvrLogo } from "../ui/FsvrLogo"
+import { Icon } from "../ui/Icon"
+import { LiquidGlass } from "../ui/LiquidGlass"
 import { MediaPickerButtons } from "../ui/MediaPickerButtons"
 import { OceanBackground } from "./OceanBackground"
 
-export function EmptyState(props: { onChooseFiles: () => void, onChooseFolder: () => void }) {
+type ServerStatus = "disconnected" | "connecting" | "authentication-required" | "connected" | "error"
+
+export function EmptyState(props: {
+  serverStatus: ServerStatus
+  serverError?: string
+  onAuthenticate: (password: string) => Promise<void>
+  onChooseFiles: () => void
+  onChooseFolder: () => void
+}) {
+  const [password, setPassword] = createSignal("")
+  let passwordInput: HTMLInputElement | undefined
+
+  const submitPassword = async (event: SubmitEvent) => {
+    event.preventDefault()
+    const value = password()
+    if (!value.trim() || props.serverStatus === "connecting") return
+    try {
+      await props.onAuthenticate(value)
+      setPassword("")
+    } catch {
+      // The controller exposes the authentication error in the empty state.
+      queueMicrotask(() => passwordInput?.focus())
+    }
+  }
+
   return (
     <section class="empty-state-bg absolute inset-0 z-10 flex items-center justify-center overflow-hidden px-5 py-8 text-center text-white sm:px-10 sm:py-12">
       <OceanBackground />
@@ -77,10 +104,56 @@ export function EmptyState(props: { onChooseFiles: () => void, onChooseFolder: (
             <h1 class="flex items-center gap-2.5 text-[10px] font-medium tracking-[0.18em] sm:text-[11px] sm:tracking-[0.21em]">
               <span class="italic text-[#f5fffc]/42">Watch VR like TikTok</span>
             </h1>
-            <div class="flex flex-col items-center">
-              <MediaPickerButtons onChooseFiles={props.onChooseFiles} onChooseFolder={props.onChooseFolder} />
-              <span class="text-[10px] font-medium leading-2 tracking-[0.018em] text-white/38 sm:text-[11px]">Drop videos here</span>
-            </div>
+            <Show
+              when={props.serverStatus === "authentication-required" || props.serverStatus === "connecting"}
+              fallback={(
+                <div class="flex flex-col items-center">
+                  <MediaPickerButtons onChooseFiles={props.onChooseFiles} onChooseFolder={props.onChooseFolder} />
+                  <span class="text-[10px] font-medium leading-2 tracking-[0.018em] text-white/38 sm:text-[11px]">Drop videos here</span>
+                </div>
+              )}
+            >
+              <div class="flex w-72 max-w-full flex-col items-center gap-2.5">
+                <form
+                  class="empty-auth-form w-full"
+                  data-invalid={props.serverError ? "true" : "false"}
+                  aria-label="Unlock media server"
+                  onSubmit={submitPassword}
+                >
+                  <LiquidGlass
+                    class="h-11 w-full rounded-full text-white"
+                    cornerRadius={999}
+                    elasticity={0.08}
+                    castShadow={false}
+                  >
+                    <div class="flex h-full w-full items-center pl-1.5 pr-24">
+                      <input
+                        ref={passwordInput}
+                        type="password"
+                        autocomplete="current-password"
+                        aria-label="Password"
+                        aria-invalid={props.serverError ? "true" : "false"}
+                        value={password()}
+                        disabled={props.serverStatus === "connecting"}
+                        onInput={event => setPassword(event.currentTarget.value)}
+                        placeholder="Password"
+                        class="h-full min-w-0 flex-1 border-0 bg-transparent px-2.5 text-xs text-white outline-none placeholder:text-white/28 disabled:cursor-wait"
+                      />
+                    </div>
+                  </LiquidGlass>
+                  <button
+                    type="submit"
+                    disabled={props.serverStatus === "connecting" || !password().trim()}
+                    class="absolute inset-y-0 right-1.5 z-10 flex items-center gap-1.5 rounded-r-full border-0 bg-transparent pl-4 pr-3 text-[10px] font-semibold text-white/72 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-accent/60 active:text-accent disabled:cursor-wait disabled:opacity-35"
+                  >
+                    <span aria-hidden="true" class="absolute left-0 h-4 w-px bg-white/12"></span>
+                    {props.serverStatus === "connecting" ? "Checking…" : "Unlock"}
+                    <Icon name="unlock" class="h-3 w-3 text-accent/78" />
+                  </button>
+                </form>
+                <p class="text-[10px] leading-0 font-medium tracking-[0.04em] text-white/52 sm:text-[11px]">Enter your media server password</p>
+              </div>
+            </Show>
           </div>
           {!isChromiumBrowser() ? <BrowserCompatibilityNotice /> : null}
         </div>
