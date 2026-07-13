@@ -11,6 +11,7 @@ import {
   isVideoFile,
 
   playlistNodesFromTransfer,
+  videosInPlaybackFolder,
 
 } from "../playlist/model"
 import { authenticateFsvr, detectFsvr, discoverFsvrDlna, hasFsvrAuth, loadFsvrDlnaDevices, loadFsvrEntries, loadFsvrPlaylist } from "../sources/fsvr-client"
@@ -31,6 +32,7 @@ const LOCAL_PLAYLIST_REFRESH_INTERVAL_MS = 10_000
 type PlaylistImportPlayback = "always" | "when-empty" | "never"
 interface VideoResource { name: string, file?: File, url?: string }
 interface SubtitleResource { name: string, file?: File, url?: string }
+export type RepeatMode = "off" | "playlist" | "folder" | "file"
 
 const resolveUpdate = <T>(current: T, update: ValueUpdate<T>) =>
   typeof update === "function" ? (update as (current: T) => T)(current) : update
@@ -121,6 +123,7 @@ export function createPlayerController() {
   const [duration, setDuration] = createSignal(0)
   const [volume, setVolume] = createSignal(1)
   const [playbackRate, setPlaybackRate] = createSignal(1)
+  const [repeatMode, setRepeatMode] = createSignal<RepeatMode>("off")
   const [abLoop, setAbLoop] = createStore({ a: undefined as number | undefined, b: undefined as number | undefined })
   const [subtitleCues, setSubtitleCues] = createSignal<SubtitleCue[]>([])
   const [subtitlesEnabled, setSubtitlesEnabled] = createSignal(true)
@@ -586,15 +589,18 @@ export function createPlayerController() {
     void video.play()
   }
 
-  const playNextPlaylistVideo = () => {
-    if (abLoop.a !== undefined && abLoop.b !== undefined) {
+  const handlePlaybackEnded = () => {
+    if (repeatMode() === "file" || (abLoop.a !== undefined && abLoop.b !== undefined)) {
       replayCurrentVideo()
       return
     }
-    const videos = playlistVideos()
+    if (repeatMode() === "off") return
+    const videos = repeatMode() === "folder"
+      ? videosInPlaybackFolder(playlist(), selectedPlaylistId())
+      : playlistVideos()
     const currentIndex = videos.findIndex(node => node.id === selectedPlaylistId())
     if (currentIndex < 0) return
-    const next = videos[currentIndex + 1]
+    const next = videos[currentIndex + 1] ?? (repeatMode() === "playlist" || repeatMode() === "folder" ? videos[0] : undefined)
     if (next) playPlaylistNode(next.id)
   }
 
@@ -995,21 +1001,23 @@ export function createPlayerController() {
       currentTime,
       duration,
       fileName,
-      abLoop,
-      clearAbLoop,
       handleVolumeChange,
       handlePlaybackRateChange,
       loadingPercent,
       loadingState,
       openVideoFile,
-      playNextPlaylistVideo,
+      abLoop,
+      clearAbLoop,
+      handlePlaybackEnded,
       playing,
       playbackRate,
+      repeatMode,
       progress,
       seekBy,
       seekTo,
       setPlaying,
       setPlaybackRateLevel,
+      setRepeatMode,
       setAbEnd,
       setAbStart,
       setVolumeLevel,

@@ -1,4 +1,5 @@
 import type { PlayerController } from "../../features/player/controller"
+import { Portal } from "@solidjs/web"
 import { createSignal, For, Show, untrack } from "solid-js"
 import { QUALITY_OPTIONS } from "../../features/vr/scene"
 import { Icon } from "../ui/Icon"
@@ -11,9 +12,18 @@ import { SettingsModal } from "./SettingsModal"
 
 const glassPillClass = "text-white transition hover:text-white focus-within:text-white"
 const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2] as const
+const REPEAT_MODES = [
+  { value: "off", label: "一次", icon: "play-once" },
+  { value: "playlist", label: "列表", icon: "playlist-repeat" },
+  { value: "folder", label: "文件夹", icon: "folder-repeat" },
+  { value: "file", label: "单文件", icon: "repeat-once" },
+] as const
 export function PlayerControls(props: { controller: PlayerController }) {
   const controller = untrack(() => props.controller)
   const [settingsOpen, setSettingsOpen] = createSignal(false)
+  const [repeatOpen, setRepeatOpen] = createSignal(false)
+  const [repeatAnchor, setRepeatAnchor] = createSignal({ x: 0, bottom: 0 })
+  let repeatButton!: HTMLDivElement
   const { controls, display, playback, playlist, subtitles } = controller
   const {
     activeSlider,
@@ -29,9 +39,11 @@ export function PlayerControls(props: { controller: PlayerController }) {
   const {
     loadingState,
     playbackRate,
+    repeatMode,
     playing,
     seekBy,
     setPlaybackRateLevel,
+    setRepeatMode,
     startInitialLoad,
     togglePlay,
     volume,
@@ -103,6 +115,62 @@ export function PlayerControls(props: { controller: PlayerController }) {
           </div>
 
           <div class="flex min-w-0 items-center justify-end gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] max-sm:col-start-2 max-sm:row-start-1 max-sm:w-full max-sm:[&::-webkit-scrollbar]:hidden sm:flex-nowrap lg:justify-end">
+            <div ref={repeatButton} class="relative shrink-0">
+              <IconButton
+                label={`播放模式：${REPEAT_MODES.find(mode => mode.value === repeatMode())?.label}`}
+                icon={REPEAT_MODES.find(mode => mode.value === repeatMode())?.icon ?? "play-once"}
+                pressed={repeatOpen() || repeatMode() !== "off"}
+                onClick={() => {
+                  const next = !repeatOpen()
+                  if (next) {
+                    const bounds = repeatButton.getBoundingClientRect()
+                    setRepeatAnchor({
+                      x: bounds.left + bounds.width / 2,
+                      bottom: window.innerHeight - bounds.top + 10,
+                    })
+                  }
+                  setRepeatOpen(next)
+                  setControlsHold("popover", next)
+                }}
+              />
+              <Show when={repeatOpen()}>
+                <Portal>
+                  <LiquidGlass
+                    class="!fixed z-50 w-52 rounded-2xl"
+                    style={{
+                      left: `clamp(0.75rem, calc(${repeatAnchor().x}px - 6.5rem), calc(100vw - 13.75rem))`,
+                      bottom: `${repeatAnchor().bottom}px`,
+                    }}
+                    cornerRadius={16}
+                    elasticity={0.08}
+                    castShadow
+                  >
+                    <div class="grid w-full grid-cols-4 gap-1 p-1.5 text-white" role="radiogroup" aria-label="播放模式">
+                      <For each={REPEAT_MODES}>
+                        {mode => (
+                          <button
+                            type="button"
+                            role="radio"
+                            aria-label={mode.label}
+                            aria-checked={repeatMode() === mode.value ? "true" : "false"}
+                            title={mode.label}
+                            class={`grid h-12 place-items-center content-center gap-1 rounded-xl border-0 p-0 ${repeatMode() === mode.value ? "bg-white/13 text-white" : "bg-transparent text-white/48 hover:bg-white/7 hover:text-white/82"}`}
+                            onClick={() => {
+                              setRepeatMode(mode.value)
+                              setRepeatOpen(false)
+                              setControlsHold("popover", false)
+                            }}
+                          >
+                            <Icon name={mode.icon} class="h-4.5 w-4.5" />
+                            <span class="text-[8px] font-semibold leading-none">{mode.label}</span>
+                          </button>
+                        )}
+                      </For>
+                    </div>
+                  </LiquidGlass>
+                </Portal>
+              </Show>
+            </div>
             <Show when={subtitles.hasSubtitle()}>
               <IconButton
                 label={subtitles.enabled() ? "Hide subtitles" : "Show subtitles"}

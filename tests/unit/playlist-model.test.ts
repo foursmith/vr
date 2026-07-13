@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { buildPlaylistTree, firstVideoNode, isSubtitleFile, isVideoFile, playlistNodesFromTransfer, subtitleMatchScore } from "../../src/features/playlist/model"
+import { buildPlaylistTree, firstVideoNode, isSubtitleFile, isVideoFile, playlistNodesFromTransfer, subtitleMatchScore, videosInPlaybackFolder } from "../../src/features/playlist/model"
 
 const file = (name: string, type = "", relativePath?: string) => {
   const value = new File(["media"], name, { type })
@@ -89,5 +89,32 @@ describe("playlist model", () => {
     const transfer = { items: [{ webkitGetAsEntry: () => metadataEntry }], files: [metadata] } as unknown as DataTransfer
 
     expect(await playlistNodesFromTransfer(transfer)).toEqual([])
+  })
+
+  it("limits folder playback to the selected video's nearest parent folder", () => {
+    const nodes = [
+      {
+        id: "series",
+        name: "Series",
+        kind: "folder" as const,
+        children: [
+          { id: "episode-1", name: "Episode 1", kind: "video" as const },
+          {
+            id: "specials",
+            name: "Specials",
+            kind: "folder" as const,
+            children: [
+              { id: "special-1", name: "Special 1", kind: "video" as const },
+              { id: "special-2", name: "Special 2", kind: "video" as const },
+            ],
+          },
+        ],
+      },
+      { id: "root-video", name: "Root video", kind: "video" as const },
+    ]
+
+    expect(videosInPlaybackFolder(nodes, "special-1").map(node => node.id)).toEqual(["special-1", "special-2"])
+    expect(videosInPlaybackFolder(nodes, "episode-1").map(node => node.id)).toEqual(["episode-1", "special-1", "special-2"])
+    expect(videosInPlaybackFolder(nodes, "root-video").map(node => node.id)).toEqual(["episode-1", "special-1", "special-2", "root-video"])
   })
 })
