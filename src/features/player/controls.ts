@@ -1,6 +1,6 @@
 import { createMemo, createSignal } from "solid-js"
 
-export type SliderControl = "quality" | "volume" | "scale"
+export type SliderControl = "volume" | "scale"
 export type ControlsHoldReason = "paused" | "focus" | "pointer" | "scrubbing" | "popover" | "settings" | "loading"
 interface SliderAnchor { x: number, bottom: number }
 
