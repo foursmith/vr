@@ -34,12 +34,12 @@ const settle = async () => {
   flush()
 }
 
-const setupController = () => {
+const setupController = (options: { connectFsvr?: boolean } = {}) => {
   const host = document.createElement("div")
   document.body.append(host)
   let controller!: ReturnType<typeof createPlayerController>
   const Harness = () => {
-    controller = createPlayerController()
+    controller = createPlayerController(options)
     return <Player controller={controller} />
   }
   const disposeRender = render(() => <Harness />, host)
@@ -102,6 +102,15 @@ afterEach(() => {
 })
 
 describe("player controller", () => {
+  it("does not probe the fsvr status endpoint in pure web mode", async () => {
+    const fetch = vi.fn()
+    vi.stubGlobal("fetch", fetch)
+    const { dispose } = setupController()
+    await settle()
+    expect(fetch).not.toHaveBeenCalled()
+    dispose()
+  })
+
   it("initializes resources and creates a ready scene", async () => {
     const { controller, dispose, video } = setupController()
     await controller.playback.startInitialLoad()
@@ -227,7 +236,7 @@ describe("player controller", () => {
       return Response.json({ error: "not found" }, { status: 404 })
     }))
 
-    const { controller, dispose, video } = setupController()
+    const { controller, dispose, video } = setupController({ connectFsvr: true })
     await settle()
     await vi.advanceTimersByTimeAsync(200)
     await settle()
@@ -261,7 +270,7 @@ describe("player controller", () => {
       return Response.json({ error: "not found" }, { status: 404 })
     }))
 
-    const { controller, dispose, video } = setupController()
+    const { controller, dispose, video } = setupController({ connectFsvr: true })
     for (let index = 0; index < 4; index += 1) await settle()
     await vi.advanceTimersByTimeAsync(0)
     await settle()
