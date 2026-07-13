@@ -53,7 +53,12 @@ describe("fsvr media server", () => {
       body: JSON.stringify({ password: "secret" }),
     })
     expect(authResponse.status).toBe(200)
-    const authCookie = authResponse.headers.get("set-cookie")!.split(";", 1)[0]
+    const authCookieHeader = authResponse.headers.get("set-cookie")!
+    expect(authCookieHeader).toContain("HttpOnly")
+    expect(authCookieHeader).toContain("Secure")
+    expect(authCookieHeader).toContain("SameSite=Strict")
+    expect(authCookieHeader).toContain("Path=/")
+    const authCookie = authCookieHeader.split(";", 1)[0]
     expect(authCookie).toBe("fsvr_password=secret")
     expect(await fetch(`${base}/api/v1/auth`, { headers: { cookie: authCookie } }).then(response => response.json()))
       .toEqual({ authenticated: true })
@@ -64,7 +69,7 @@ describe("fsvr media server", () => {
       body: JSON.stringify({ password: "wrong" }),
     })
     expect(rejectedReplacement.status).toBe(401)
-    expect(rejectedReplacement.headers.get("set-cookie")).toContain("Max-Age=0")
+    expect(rejectedReplacement.headers.get("set-cookie")).toBe("fsvr_password=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0")
     const replacementAuth = await fetch(`${base}/api/v1/auth`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -110,6 +115,6 @@ describe("fsvr media server", () => {
 
     const logoutResponse = await fetch(`${base}/api/v1/auth`, { method: "DELETE", headers: { cookie: replacementCookie } })
     expect(logoutResponse.status).toBe(200)
-    expect(logoutResponse.headers.get("set-cookie")).toContain("Max-Age=0")
+    expect(logoutResponse.headers.get("set-cookie")).toBe("fsvr_password=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0")
   })
 })
