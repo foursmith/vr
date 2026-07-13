@@ -60,8 +60,8 @@ export function PlayerStage(props: { controller: PlayerController }) {
         class="native-video absolute inset-0 hidden h-full w-full bg-black object-contain"
         onTimeUpdate={playback.syncTime}
         onLoadedMetadata={playback.syncTime}
-        onPlaying={() => playback.setPlaying(true)}
-        onPause={() => playback.setPlaying(false)}
+        onPlaying={() => playback.handlePlayingChange(true)}
+        onPause={() => playback.handlePlayingChange(false)}
         onEnded={playback.handlePlaybackEnded}
         onVolumeChange={playback.handleVolumeChange}
         onRateChange={playback.handlePlaybackRateChange}
