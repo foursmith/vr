@@ -4,6 +4,7 @@ import { timingSafeEqual } from "node:crypto"
 
 const json = (value: unknown, init?: ResponseInit) => Response.json(value, init)
 const AUTH_COOKIE_MAX_AGE = 365 * 24 * 60 * 60
+const AUTH_COOKIE_ATTRIBUTES = "HttpOnly; Secure; SameSite=Strict; Path=/"
 
 const passwordMatches = (supplied: string | undefined, expected: string) => {
   if (supplied === undefined) return false
@@ -60,19 +61,19 @@ export function createMediaServer(options: {
         if (typeof body.password !== "string" || !passwordMatches(body.password, options.password)) {
           return json({ error: "unauthorized" }, {
             status: 401,
-            headers: { "set-cookie": "fsvr_password=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0" },
+            headers: { "set-cookie": `fsvr_password=; ${AUTH_COOKIE_ATTRIBUTES}; Max-Age=0` },
           })
         }
         return json({ authenticated: true }, {
           headers: {
-            "set-cookie": `fsvr_password=${encodeURIComponent(body.password)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${AUTH_COOKIE_MAX_AGE}`,
+            "set-cookie": `fsvr_password=${encodeURIComponent(body.password)}; ${AUTH_COOKIE_ATTRIBUTES}; Max-Age=${AUTH_COOKIE_MAX_AGE}`,
           },
         })
       }
 
       if (url.pathname === "/api/v1/auth" && request.method === "DELETE") {
         return json({ authenticated: false }, {
-          headers: { "set-cookie": "fsvr_password=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0" },
+          headers: { "set-cookie": `fsvr_password=; ${AUTH_COOKIE_ATTRIBUTES}; Max-Age=0` },
         })
       }
 
