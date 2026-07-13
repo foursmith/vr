@@ -29,11 +29,11 @@ export const mainCommand = defineCommand({
   args: {
     "directory": { type: "positional", description: "Media directory", required: false, default: process.cwd() },
     "host": { type: "string", description: "Address to listen on", valueHint: "address", default: "0.0.0.0" },
-    "port": { type: "string", description: "Port to listen on", valueHint: "port", default: "4190" },
+    "port": { type: "string", description: "Port to listen on", valueHint: "port", default: "4090" },
     "password": { type: "string", description: "Stable access password", valueHint: "password" },
     "origin": { type: "string", description: "Allowed browser origin (repeatable)", valueHint: "origin" },
     "dlna-scan": { type: "boolean", description: "Scan for DLNA servers before startup", default: false },
-    "no-open": { type: "boolean", description: "Do not open the Web UI", default: false },
+    "open": { type: "boolean", description: "Open the Web UI", default: false },
   },
   async run({ args, rawArgs }) {
     const port = Number(args.port)
@@ -68,12 +68,13 @@ export const mainCommand = defineCommand({
     })
 
     const localUrl = `http://127.0.0.1:${server.port}`
-    const authenticatedLocalUrl = new URL(localUrl)
+    const webUrl = process.env.FSVR_WEB_URL ?? localUrl
+    const authenticatedLocalUrl = new URL(webUrl)
     authenticatedLocalUrl.searchParams.set("password", password)
     console.log(`Local server: ${localUrl}`)
     console.log(`Media root:   ${source.name}`)
     console.log(`Password:     ${password}`)
-    console.log(`Web UI:       ${localUrl}`)
+    console.log(`Web UI:       ${webUrl}`)
 
     if (args.host === "0.0.0.0") {
       const lanAddresses = Object.values(networkInterfaces())
@@ -90,7 +91,7 @@ export const mainCommand = defineCommand({
     process.once("SIGINT", shutdown)
     process.once("SIGTERM", shutdown)
 
-    if (!args["no-open"]) {
+    if (args.open) {
       const command = process.platform === "darwin"
         ? ["open", authenticatedLocalUrl.href]
         : process.platform === "win32"

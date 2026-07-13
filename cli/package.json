@@ -9,7 +9,7 @@
   },
   "scripts": {
     "prepare:web": "bun run scripts/prepare-web.ts",
-    "dev": "bun run prepare:web && bun run src/cli.ts",
+    "dev": "bun run scripts/dev.ts",
     "build": "bun run scripts/build.ts",
     "typecheck": "bun run prepare:web && tsgo --noEmit",
     "test": "bun test"
