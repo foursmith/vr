@@ -26,6 +26,7 @@ import {
 
 import { createControls } from "./controls"
 import { createDisplay } from "./display"
+import { loadCachedPlaybackPosition, loadCachedWaveform, saveCachedPlaybackPosition, saveCachedWaveform, waveformCacheKey } from "./waveform-cache"
 
 type ValueUpdate<T> = T | ((current: T) => T)
 const LOCAL_PLAYLIST_REFRESH_INTERVAL_MS = 10_000
@@ -61,6 +62,15 @@ export function createPlayerController() {
   let videoSwitchInProgress = false
   let pendingVideoSwitch: { resource: VideoResource, playlistId?: string } | undefined
   let autoplayPending = false
+  let audioContext: AudioContext | undefined
+  let waveformAnalyser: AnalyserNode | undefined
+  let waveformAnimationFrame: number | undefined
+  let waveformSamples: number[] = []
+  let waveformLastPublishedAt = 0
+  let activeWaveformCacheKey: string | undefined
+  let waveformSaveTimer: number | undefined
+  let playbackPositionSaveTimer: number | undefined
+  let pendingResumeTime: number | undefined
   let playlistImportGeneration = 0
   let resourcesInitialized = false
   const playlistFiles = new Map<string, File>()
@@ -70,6 +80,8 @@ export function createPlayerController() {
   const playlistSubtitleUrls = new Map<string, { name: string, url: string }>()
 
   const [fileName, setFileName] = createSignal<string>()
+  const [volumeWaveform, setVolumeWaveform] = createSignal<number[]>([])
+  const [waveformState, setWaveformState] = createSignal<"idle" | "waiting" | "recording" | "unavailable">("idle")
   const [serverState, setServerState] = createStore({
     endpoint: "",
     status: "disconnected" as "disconnected" | "connecting" | "authentication-required" | "connected" | "error",
@@ -240,6 +252,11 @@ export function createPlayerController() {
   }
 
   const syncTime = () => {
+    if (pendingResumeTime !== undefined && Number.isFinite(video.duration)) {
+      const resumeTime = pendingResumeTime >= video.duration - 5 ? 0 : Math.min(pendingResumeTime, video.duration)
+      pendingResumeTime = undefined
+      video.currentTime = resumeTime
+    }
     const time = video.currentTime || 0
     if (abLoop.a !== undefined && abLoop.b !== undefined && time >= abLoop.b) {
       video.currentTime = abLoop.a
@@ -249,6 +266,12 @@ export function createPlayerController() {
     }
     setCurrentTime(time)
     setDuration(video.duration || 0)
+    if (activeWaveformCacheKey && playbackPositionSaveTimer === undefined) {
+      playbackPositionSaveTimer = window.setTimeout(() => {
+        playbackPositionSaveTimer = undefined
+        if (activeWaveformCacheKey) void saveCachedPlaybackPosition(activeWaveformCacheKey, video.currentTime || 0)
+      }, 2_000)
+    }
   }
 
   const subtitleText = createMemo(() => subtitlesEnabled()
@@ -372,6 +395,15 @@ export function createPlayerController() {
 
   const commitVideoResource = async (resource: VideoResource, playlistId?: string) => {
     const generation = ++videoLoadGeneration
+    if (activeWaveformCacheKey) void saveCachedPlaybackPosition(activeWaveformCacheKey, video.currentTime || 0)
+    if (activeWaveformCacheKey && waveformSamples.some(amplitude => amplitude >= 0)) {
+      void saveCachedWaveform(activeWaveformCacheKey, [...waveformSamples])
+    }
+    if (waveformSaveTimer !== undefined) window.clearTimeout(waveformSaveTimer)
+    waveformSaveTimer = undefined
+    if (playbackPositionSaveTimer !== undefined) window.clearTimeout(playbackPositionSaveTimer)
+    playbackPositionSaveTimer = undefined
+    pendingResumeTime = undefined
     scene?.resetMedia()
     await detachCurrentVideoSource()
     if (appDisposed || generation !== videoLoadGeneration || pendingVideoSwitch) return
@@ -380,6 +412,10 @@ export function createPlayerController() {
     setPlaying(false)
     setCurrentTime(0)
     setDuration(0)
+    waveformSamples = []
+    activeWaveformCacheKey = waveformCacheKey(resource)
+    setVolumeWaveform([])
+    setWaveformState("waiting")
     setAbLoop((draft) => {
       draft.a = undefined
       draft.b = undefined
@@ -396,6 +432,17 @@ export function createPlayerController() {
     )
     video.src = fileUrl ?? resource.url ?? ""
     video.load()
+    void loadCachedWaveform(activeWaveformCacheKey).then((cached) => {
+      if (!cached || generation !== videoLoadGeneration || appDisposed) return
+      const length = Math.max(cached.length, waveformSamples.length)
+      waveformSamples = Array.from({ length }, (_, index) => waveformSamples[index] >= 0 ? waveformSamples[index] : cached[index] ?? -1)
+      setVolumeWaveform([...waveformSamples])
+    }).catch(error => console.warn("cached waveform could not be loaded", error))
+    void loadCachedPlaybackPosition(activeWaveformCacheKey).then((position) => {
+      if (position === undefined || generation !== videoLoadGeneration || appDisposed) return
+      pendingResumeTime = position
+      if (Number.isFinite(video.duration)) syncTime()
+    }).catch(error => console.warn("cached playback position could not be loaded", error))
     if (resourcesInitialized && resourcesReady()) {
       requestVideoPlayback(generation)
       startInitialIdleCountdown()
@@ -919,6 +966,14 @@ export function createPlayerController() {
       disposeControls()
       scene?.destroy()
       releaseFaceAutoCenterResources()
+      if (waveformAnimationFrame !== undefined) window.cancelAnimationFrame(waveformAnimationFrame)
+      if (waveformSaveTimer !== undefined) window.clearTimeout(waveformSaveTimer)
+      if (playbackPositionSaveTimer !== undefined) window.clearTimeout(playbackPositionSaveTimer)
+      if (activeWaveformCacheKey) void saveCachedPlaybackPosition(activeWaveformCacheKey, video.currentTime || 0)
+      if (activeWaveformCacheKey && waveformSamples.some(amplitude => amplitude >= 0)) {
+        void saveCachedWaveform(activeWaveformCacheKey, [...waveformSamples])
+      }
+      void audioContext?.close()
       videoLoadGeneration += 1
       video.pause()
       video.removeAttribute("src")
@@ -958,6 +1013,65 @@ export function createPlayerController() {
   }
 
   const handlePlaybackRateChange = () => setPlaybackRate(video.playbackRate)
+
+  const samplePlayingVolume = () => {
+    if (!waveformAnalyser || video.paused || appDisposed) {
+      waveformAnimationFrame = undefined
+      return
+    }
+    const samples = new Float32Array(waveformAnalyser.fftSize)
+    waveformAnalyser.getFloatTimeDomainData(samples)
+    let sumSquares = 0
+    for (const sample of samples) sumSquares += sample * sample
+    const rms = Math.sqrt(sumSquares / samples.length)
+    const second = Math.max(0, Math.floor(video.currentTime))
+    const seconds = Math.max(second + 1, Math.ceil(video.duration || 0))
+    if (waveformSamples.length < seconds) waveformSamples.push(...Array.from<number>({ length: seconds - waveformSamples.length }).fill(-1))
+    if (waveformSamples.length > seconds) waveformSamples.length = seconds
+    const amplitude = Math.min(1, Math.sqrt(rms * 4))
+    waveformSamples[second] = Math.max(waveformSamples[second] ?? -1, amplitude)
+    const now = performance.now()
+    if (now - waveformLastPublishedAt >= 100) {
+      waveformLastPublishedAt = now
+      setVolumeWaveform([...waveformSamples])
+      if (waveformSaveTimer === undefined && activeWaveformCacheKey) {
+        waveformSaveTimer = window.setTimeout(() => {
+          waveformSaveTimer = undefined
+          if (activeWaveformCacheKey) void saveCachedWaveform(activeWaveformCacheKey, [...waveformSamples])
+        }, 2_000)
+      }
+    }
+    waveformAnimationFrame = window.requestAnimationFrame(samplePlayingVolume)
+  }
+
+  const startWaveformSampling = async () => {
+    try {
+      if (!audioContext) {
+        audioContext = new AudioContext()
+        const source = audioContext.createMediaElementSource(video)
+        waveformAnalyser = audioContext.createAnalyser()
+        waveformAnalyser.fftSize = 2048
+        source.connect(waveformAnalyser)
+        waveformAnalyser.connect(audioContext.destination)
+      }
+      await audioContext.resume()
+      setWaveformState("recording")
+      if (waveformAnimationFrame === undefined) samplePlayingVolume()
+    } catch (error) {
+      setWaveformState("unavailable")
+      console.warn("live audio waveform unavailable", error)
+    }
+  }
+
+  const handlePlayingChange = (isPlaying: boolean) => {
+    setPlaying(isPlaying)
+    if (isPlaying) {
+      void startWaveformSampling()
+    } else if (activeWaveformCacheKey && waveformSamples.some(amplitude => amplitude >= 0)) {
+      void saveCachedWaveform(activeWaveformCacheKey, [...waveformSamples])
+    }
+    if (!isPlaying && activeWaveformCacheKey) void saveCachedPlaybackPosition(activeWaveformCacheKey, video.currentTime || 0)
+  }
 
   const seekTo = (time: number) => {
     const total = duration()
@@ -1015,7 +1129,7 @@ export function createPlayerController() {
       progress,
       seekBy,
       seekTo,
-      setPlaying,
+      handlePlayingChange,
       setPlaybackRateLevel,
       setRepeatMode,
       setAbEnd,
@@ -1025,6 +1139,8 @@ export function createPlayerController() {
       syncTime,
       togglePlay,
       volume,
+      volumeWaveform,
+      waveformState,
     },
     subtitles: {
       enabled: subtitlesEnabled,
