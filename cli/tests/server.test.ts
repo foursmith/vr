@@ -98,6 +98,18 @@ describe("fsvr media server", () => {
     expect(response.headers.get("access-control-allow-origin")).toBeNull()
     expect(await response.text()).toBe("2345")
 
+    const suffixResponse = await fetch(`${base}/api/v1/media/local/${children[0].id}`, {
+      headers: { range: "bytes=-3", cookie: replacementCookie },
+    })
+    expect(suffixResponse.status).toBe(206)
+    expect(suffixResponse.headers.get("content-range")).toBe("bytes 7-9/10")
+    expect(await suffixResponse.text()).toBe("789")
+
+    const malformedRange = await fetch(`${base}/api/v1/media/local/${children[0].id}`, {
+      headers: { range: "bytes=-", cookie: replacementCookie },
+    })
+    expect(malformedRange.status).toBe(416)
+
     const crossOriginResponse = await fetch(`${base}/api/v1/status`, {
       headers: { cookie: replacementCookie, origin: "http://localhost:2333" },
     })
