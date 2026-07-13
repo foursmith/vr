@@ -1,18 +1,81 @@
 import type { PlayerController } from "../../features/player/controller"
-import { Show, untrack } from "solid-js"
+import { onSettled, Show, untrack } from "solid-js"
+
+const SINGLE_CLICK_DELAY_MS = 250
+const CLICK_MOVE_THRESHOLD_PX = 8
 
 export function PlayerStage(props: { controller: PlayerController }) {
-  const { debug, frame, playback, subtitles } = untrack(() => props.controller)
+  const { debug, display, frame, playback, subtitles } = untrack(() => props.controller)
   const { handlePlayerPointerDown, handlePlayerPointerUp, setVideo, setVrMount, setVrRoot } = frame
+  let singleClickTimer: number | undefined
+  let pointerStart: { id: number, x: number, y: number } | undefined
+  let lastPointerType = ""
+  let suppressClick = false
+
+  const cancelSingleClick = () => {
+    if (singleClickTimer === undefined) return
+    window.clearTimeout(singleClickTimer)
+    singleClickTimer = undefined
+  }
+
+  const handleStagePointerDown = (event: PointerEvent) => {
+    handlePlayerPointerDown(event)
+    lastPointerType = event.pointerType
+    if (event.pointerType !== "mouse" || event.button !== 0) return
+    pointerStart = { id: event.pointerId, x: event.clientX, y: event.clientY }
+    suppressClick = false
+  }
+
+  const handleStagePointerUp = (event: PointerEvent) => {
+    handlePlayerPointerUp(event)
+    if (event.pointerType !== "mouse" || pointerStart?.id !== event.pointerId) return
+    suppressClick = Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y) > CLICK_MOVE_THRESHOLD_PX
+    pointerStart = undefined
+  }
+
+  const handleStagePointerCancel = (event: PointerEvent) => {
+    handlePlayerPointerUp(event)
+    if (pointerStart?.id !== event.pointerId) return
+    pointerStart = undefined
+    suppressClick = true
+  }
+
+  const handleStageClick = (event: MouseEvent) => {
+    if (lastPointerType !== "mouse") return
+    if (event.detail > 1) {
+      cancelSingleClick()
+      return
+    }
+    if (suppressClick) {
+      suppressClick = false
+      return
+    }
+    cancelSingleClick()
+    singleClickTimer = window.setTimeout(() => {
+      singleClickTimer = undefined
+      playback.togglePlay()
+    }, SINGLE_CLICK_DELAY_MS)
+  }
+
+  const handleStageDoubleClick = () => {
+    if (lastPointerType !== "mouse") return
+    cancelSingleClick()
+    void display.toggleFullscreen()
+  }
+
+  onSettled(() => cancelSingleClick)
+
   return (
     <>
       <section
         ref={setVrRoot}
         id="vr-scene"
         class="absolute inset-0 h-dvh w-full opacity-100"
-        onPointerDown={handlePlayerPointerDown}
-        onPointerUp={handlePlayerPointerUp}
-        onPointerCancel={handlePlayerPointerUp}
+        onPointerDown={handleStagePointerDown}
+        onPointerUp={handleStagePointerUp}
+        onPointerCancel={handleStagePointerCancel}
+        onClick={handleStageClick}
+        onDblClick={handleStageDoubleClick}
       >
         <div ref={setVrMount} id="vr-mount" class="h-full w-full"></div>
         <div class="pointer-events-none absolute inset-0 z-10">
