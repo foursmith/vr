@@ -2,7 +2,7 @@ import type { PlayerController } from "../../features/player/controller"
 import { createSignal, Show, untrack } from "solid-js"
 import { formatTime } from "../../lib/format-time"
 import { LiquidGlass } from "../ui/LiquidGlass"
-import { VolumeWaveform } from "./VolumeWaveform"
+import { SeekLandingHeatmap } from "./SeekLandingHeatmap"
 
 export function PlaybackTimeline(props: { controller: PlayerController }) {
   const controller = untrack(() => props.controller)
@@ -18,8 +18,7 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
     seekTo,
     setAbEnd,
     setAbStart,
-    volumeWaveform,
-    waveformState,
+    seekLandingHeatmap,
   } = controller.playback
   const { registerActivity, setControlsHold } = controller.controls
   const [hoverPreview, setHoverPreview] = createSignal<{ left: number, time: number }>()
@@ -62,14 +61,14 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
       >
         <div class="pointer-events-none absolute inset-x-0 bottom-[0.45rem] h-12 overflow-hidden max-sm:bottom-[0.92rem] max-sm:h-14">
           <Show
-            when={loadingState.resourcesReady && volumeWaveform().some(amplitude => amplitude >= 0)}
+            when={loadingState.resourcesReady && seekLandingHeatmap().some(count => count > 0)}
             fallback={(
               <div class="grid h-full place-items-center font-mono text-[10px] tracking-[0.12em] text-white/55">
-                {waveformState() === "recording" ? "正在记录音量…" : waveformState() === "unavailable" ? "实时音量分析不可用" : "播放后生成音量波形"}
+                Seek to build landing heatmap
               </div>
             )}
           >
-            <VolumeWaveform amplitudes={volumeWaveform()} progress={timelineProgress()} />
+            <SeekLandingHeatmap counts={seekLandingHeatmap()} progress={timelineProgress()} />
           </Show>
         </div>
         <Show when={hoverPreview()}>
@@ -149,7 +148,7 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
             <span class="col-start-2 flex min-w-0 items-center justify-center gap-1.5 px-3 text-center font-sans font-medium text-white/70">
               <button
                 type="button"
-                aria-label="将当前位置设为 A 点"
+                aria-label="Set the current position as point A"
                 class={`flex h-5 shrink-0 items-center gap-1 rounded-md px-1.5 font-mono text-[9px] ${abLoop.a === undefined ? "bg-white/6 text-white/45" : "bg-amber-300/14 text-amber-200"}`}
                 onClick={setAbStart}
               >
@@ -160,11 +159,11 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
                 when={abLoop.a !== undefined}
                 fallback={<span class="h-px w-2 shrink-0 bg-white/15"></span>}
               >
-                <button type="button" aria-label="清除 AB 循环" title="清除 AB 循环" class="grid h-5 w-5 shrink-0 place-items-center rounded-full border-0 bg-transparent p-0 text-white/38 hover:bg-white/8 hover:text-white" onClick={clearAbLoop}>×</button>
+                <button type="button" aria-label="Clear AB loop" title="Clear AB loop" class="grid h-5 w-5 shrink-0 place-items-center rounded-full border-0 bg-transparent p-0 text-white/38 hover:bg-white/8 hover:text-white" onClick={clearAbLoop}>×</button>
               </Show>
               <button
                 type="button"
-                aria-label="将当前位置设为 B 点"
+                aria-label="Set the current position as point B"
                 disabled={abLoop.a === undefined}
                 class={`flex h-5 shrink-0 items-center gap-1 rounded-md px-1.5 font-mono text-[9px] disabled:cursor-not-allowed disabled:opacity-30 ${abLoop.b === undefined ? "bg-white/6 text-white/45" : "bg-sky-300/14 text-sky-200"}`}
                 onClick={setAbEnd}
