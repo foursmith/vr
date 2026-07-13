@@ -62,7 +62,7 @@ export function PlayerStage(props: { controller: PlayerController }) {
         onLoadedMetadata={playback.syncTime}
         onPlaying={() => playback.setPlaying(true)}
         onPause={() => playback.setPlaying(false)}
-        onEnded={playback.playNextPlaylistVideo}
+        onEnded={playback.handlePlaybackEnded}
         onVolumeChange={playback.handleVolumeChange}
         onRateChange={playback.handlePlaybackRateChange}
       >

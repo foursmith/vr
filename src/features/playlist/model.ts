@@ -7,6 +7,32 @@ export interface PlaylistStateNode {
   children?: PlaylistStateNode[]
 }
 
+export const videosInPlaybackFolder = (nodes: PlaylistStateNode[], selectedId: string | undefined) => {
+  if (!selectedId) return []
+  let result: PlaylistStateNode[] = []
+  const collectVideos = (items: PlaylistStateNode[]) => {
+    const videos: PlaylistStateNode[] = []
+    const visit = (children: PlaylistStateNode[]) => children.forEach((node) => {
+      if (node.kind === "video") videos.push(node)
+      else visit(node.children ?? [])
+    })
+    visit(items)
+    return videos
+  }
+  const visit = (items: PlaylistStateNode[], folderChildren?: PlaylistStateNode[]): boolean => {
+    for (const node of items) {
+      if (node.id === selectedId && node.kind === "video") {
+        result = collectVideos(folderChildren ?? items)
+        return true
+      }
+      if (node.kind === "folder" && visit(node.children ?? [], node.children ?? [])) return true
+    }
+    return false
+  }
+  visit(nodes)
+  return result
+}
+
 export type PlaylistSourceKind = "browser" | "local" | "dlna"
 
 export const applyPlaylistSource = (nodes: PlaylistNode[], sourceKind: PlaylistSourceKind) => {
