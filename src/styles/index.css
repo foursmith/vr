@@ -109,6 +109,25 @@ button {
   transform: translate3d(0, 0, 0) scale(1);
 }
 
+.settings-collapsible {
+  interpolate-size: allow-keywords;
+}
+
+.settings-collapsible::details-content {
+  block-size: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition:
+    block-size 280ms cubic-bezier(0.22, 0.8, 0.24, 1),
+    opacity 180ms ease,
+    content-visibility 280ms allow-discrete;
+}
+
+.settings-collapsible[open]::details-content {
+  block-size: auto;
+  opacity: 1;
+}
+
 @media (hover: none) and (pointer: coarse) {
   button:active {
     filter: brightness(1.18);
