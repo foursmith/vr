@@ -7,12 +7,16 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
   const controller = untrack(() => props.controller)
   const {
     currentTime,
+    abLoop,
+    clearAbLoop,
     duration,
     fileName,
     loadingPercent,
     loadingState,
     progress,
     seekTo,
+    setAbEnd,
+    setAbStart,
   } = controller.playback
   const { registerActivity, setControlsHold } = controller.controls
   const [hoverPreview, setHoverPreview] = createSignal<{ left: number, time: number }>()
@@ -71,6 +75,12 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
         >
           <span class="block h-full rounded-full" style={{ width: "var(--progress)", background: "var(--fill)" }}></span>
         </span>
+        <Show when={loadingState.resourcesReady && duration() && abLoop.a !== undefined}>
+          <span class="pointer-events-none absolute top-0 z-20 h-full w-0.5 bg-amber-300/90" style={{ left: `${(abLoop.a! / duration()) * 100}%` }} aria-hidden="true"></span>
+        </Show>
+        <Show when={loadingState.resourcesReady && duration() && abLoop.b !== undefined}>
+          <span class="pointer-events-none absolute top-0 z-20 h-full w-0.5 bg-sky-300/90" style={{ left: `${(abLoop.b! / duration()) * 100}%` }} aria-hidden="true"></span>
+        </Show>
         <input
           type="range"
           min="0"
@@ -121,7 +131,36 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
       <div class="grid h-4 min-w-0 grid-cols-[1fr_minmax(0,2fr)_1fr] items-center font-mono text-[11px] leading-4 text-white/48">
         <span class="col-start-1 min-w-0 truncate">{loadingState.resourcesReady ? formatTime(currentTime()) : loadingState.error ?? loadingState.label}</span>
         <Show when={fileName()}>
-          {name => <span class="col-start-2 min-w-0 truncate px-3 text-center font-sans font-medium text-white/70">{name()}</span>}
+          {name => (
+            <span class="col-start-2 flex min-w-0 items-center justify-center gap-1.5 px-3 text-center font-sans font-medium text-white/70">
+              <button
+                type="button"
+                aria-label="将当前位置设为 A 点"
+                class={`flex h-5 shrink-0 items-center gap-1 rounded-md px-1.5 font-mono text-[9px] ${abLoop.a === undefined ? "bg-white/6 text-white/45" : "bg-amber-300/14 text-amber-200"}`}
+                onClick={setAbStart}
+              >
+                <span class="font-bold">A</span>
+                <Show when={abLoop.a !== undefined}>{formatTime(abLoop.a!)}</Show>
+              </button>
+              <Show
+                when={abLoop.a !== undefined}
+                fallback={<span class="h-px w-2 shrink-0 bg-white/15"></span>}
+              >
+                <button type="button" aria-label="清除 AB 循环" title="清除 AB 循环" class="grid h-5 w-5 shrink-0 place-items-center rounded-full border-0 bg-transparent p-0 text-white/38 hover:bg-white/8 hover:text-white" onClick={clearAbLoop}>×</button>
+              </Show>
+              <button
+                type="button"
+                aria-label="将当前位置设为 B 点"
+                disabled={abLoop.a === undefined}
+                class={`flex h-5 shrink-0 items-center gap-1 rounded-md px-1.5 font-mono text-[9px] disabled:cursor-not-allowed disabled:opacity-30 ${abLoop.b === undefined ? "bg-white/6 text-white/45" : "bg-sky-300/14 text-sky-200"}`}
+                onClick={setAbEnd}
+              >
+                <span class="font-bold">B</span>
+                <Show when={abLoop.b !== undefined}>{formatTime(abLoop.b!)}</Show>
+              </button>
+              <span class="min-w-0 truncate">{name()}</span>
+            </span>
+          )}
         </Show>
         <span class="col-start-3 min-w-0 truncate text-right">{loadingState.resourcesReady ? formatTime(duration()) : `${loadingPercent()}%`}</span>
       </div>

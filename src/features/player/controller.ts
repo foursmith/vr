@@ -121,6 +121,7 @@ export function createPlayerController() {
   const [duration, setDuration] = createSignal(0)
   const [volume, setVolume] = createSignal(1)
   const [playbackRate, setPlaybackRate] = createSignal(1)
+  const [abLoop, setAbLoop] = createStore({ a: undefined as number | undefined, b: undefined as number | undefined })
   const [subtitleCues, setSubtitleCues] = createSignal<SubtitleCue[]>([])
   const [subtitlesEnabled, setSubtitlesEnabled] = createSignal(true)
   const [subtitleFileName, setSubtitleFileName] = createSignal<string>()
@@ -236,7 +237,14 @@ export function createPlayerController() {
   }
 
   const syncTime = () => {
-    setCurrentTime(video.currentTime || 0)
+    const time = video.currentTime || 0
+    if (abLoop.a !== undefined && abLoop.b !== undefined && time >= abLoop.b) {
+      video.currentTime = abLoop.a
+      setCurrentTime(abLoop.a)
+      if (video.paused) void video.play()
+      return
+    }
+    setCurrentTime(time)
     setDuration(video.duration || 0)
   }
 
@@ -369,6 +377,10 @@ export function createPlayerController() {
     setPlaying(false)
     setCurrentTime(0)
     setDuration(0)
+    setAbLoop((draft) => {
+      draft.a = undefined
+      draft.b = undefined
+    })
     setFileName(resource.name)
     setSelectedPlaylistId(playlistId && (playlistFiles.has(playlistId) || playlistUrls.has(playlistId)) ? playlistId : undefined)
     const subtitleFile = playlistId ? playlistSubtitles.get(playlistId) : undefined
@@ -568,13 +580,45 @@ export function createPlayerController() {
     await Promise.all(loadedFolderIds.map(id => loadRemoteFolder(id)))
   }
 
+  const replayCurrentVideo = () => {
+    video.currentTime = abLoop.a ?? 0
+    setCurrentTime(video.currentTime)
+    void video.play()
+  }
+
   const playNextPlaylistVideo = () => {
+    if (abLoop.a !== undefined && abLoop.b !== undefined) {
+      replayCurrentVideo()
+      return
+    }
     const videos = playlistVideos()
     const currentIndex = videos.findIndex(node => node.id === selectedPlaylistId())
     if (currentIndex < 0) return
     const next = videos[currentIndex + 1]
     if (next) playPlaylistNode(next.id)
   }
+
+  const setAbStart = () => {
+    if (!hasVideo() || !Number.isFinite(video.currentTime)) return
+    const time = Math.min(duration() || video.currentTime, Math.max(0, video.currentTime))
+    setAbLoop((draft) => {
+      draft.a = time
+      draft.b = undefined
+    })
+  }
+
+  const setAbEnd = () => {
+    if (!hasVideo() || abLoop.a === undefined || !Number.isFinite(video.currentTime)) return
+    const time = Math.min(duration() || video.currentTime, Math.max(0, video.currentTime))
+    setAbLoop((draft) => {
+      if (draft.a !== undefined && time > draft.a) draft.b = time
+    })
+  }
+
+  const clearAbLoop = () => setAbLoop((draft) => {
+    draft.a = undefined
+    draft.b = undefined
+  })
 
   const handleVideoDrop = async (event: DragEvent) => {
     event.preventDefault()
@@ -951,6 +995,8 @@ export function createPlayerController() {
       currentTime,
       duration,
       fileName,
+      abLoop,
+      clearAbLoop,
       handleVolumeChange,
       handlePlaybackRateChange,
       loadingPercent,
@@ -964,6 +1010,8 @@ export function createPlayerController() {
       seekTo,
       setPlaying,
       setPlaybackRateLevel,
+      setAbEnd,
+      setAbStart,
       setVolumeLevel,
       startInitialLoad,
       syncTime,
