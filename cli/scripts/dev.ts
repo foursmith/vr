@@ -14,9 +14,22 @@ const web = Bun.spawn(["bun", "run", "vite", "--host", "--mode", "fsvr-dev"], {
     FSVR_API_ORIGIN: `http://127.0.0.1:${apiPort}`,
   },
   stdin: "inherit",
-  stdout: "inherit",
+  stdout: "pipe",
   stderr: "inherit",
 })
+
+const webReady = Promise.withResolvers<void>()
+void web.stdout.pipeTo(new WritableStream({
+  write(chunk) {
+    process.stdout.write(chunk)
+    webReady.resolve()
+  },
+}))
+
+await Promise.race([
+  webReady.promise,
+  web.exited.then(code => process.exit(code)),
+])
 
 const cli = Bun.spawn([
   "bun",
