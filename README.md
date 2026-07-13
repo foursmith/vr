@@ -69,7 +69,7 @@ In this development mode, the Web UI runs on Vite at `http://127.0.0.1:4090` wit
 
 Pass `--password <password>` to keep a stable password across restarts. Otherwise, `fsvr` generates and prints a random password. A link may include `?password=<password>` for sign-in; after validation, the Web UI removes it from the address bar and stores it in an HttpOnly authentication cookie.
 
-`fsvr` serves its integrated Web UI at `http://127.0.0.1:4090` without opening a browser by default. Pass `--open` to open it after startup. To make the complete Web UI and API available to other devices on the LAN, pass `--host 0.0.0.0`; the CLI will print the available LAN addresses.
+`fsvr` serves its integrated Web UI at `http://127.0.0.1:4090` without opening a browser by default. Pass `--open` to open it after startup. To make the complete Web UI and API available to other devices on the LAN, pass `--host`; the CLI will then listen on `0.0.0.0` and print the available LAN addresses.
 
 DLNA media servers are not scanned during startup by default. Pass `--dlna-scan` to discover them before opening the Web UI; manual scanning remains available in the Web UI.
 

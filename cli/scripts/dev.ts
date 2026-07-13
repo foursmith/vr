@@ -7,7 +7,7 @@ const portIndex = args.indexOf("--port")
 const apiPort = args.find(argument => argument.startsWith("--port="))?.slice("--port=".length)
   ?? (portIndex >= 0 ? args[portIndex + 1] : undefined)
 
-const web = Bun.spawn(["bun", "run", "vite", "--mode", "fsvr-dev"], {
+const web = Bun.spawn(["bun", "run", "vite", "--host", "--mode", "fsvr-dev"], {
   cwd: root,
   env: {
     ...process.env,
