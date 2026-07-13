@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { parseArgs } from "citty"
-import { hostnameForHostFlag, mainArgs } from "../src/command"
+import { claimWebUiOpen, hostnameForHostFlag, mainArgs } from "../src/command"
 
 describe("fsvr command", () => {
   test("listens locally unless --host is specified", () => {
@@ -9,5 +9,12 @@ describe("fsvr command", () => {
 
     expect(hostnameForHostFlag(localArgs.host)).toBe("127.0.0.1")
     expect(hostnameForHostFlag(exposedArgs.host)).toBe("0.0.0.0")
+  })
+
+  test("opens the Web UI only once across hot reloads", () => {
+    const hotReloadState = {}
+
+    expect(claimWebUiOpen(hotReloadState)).toBe(true)
+    expect(claimWebUiOpen(hotReloadState)).toBe(false)
   })
 })

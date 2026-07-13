@@ -22,6 +22,15 @@ export const mainArgs = {
 
 export const hostnameForHostFlag = (host: boolean) => host ? "0.0.0.0" : "127.0.0.1"
 
+const WEB_UI_OPENED = Symbol.for("fsvr.web-ui-opened")
+
+export const claimWebUiOpen = (state: object = globalThis) => {
+  const hotReloadState = state as Record<PropertyKey, unknown>
+  if (hotReloadState[WEB_UI_OPENED]) return false
+  hotReloadState[WEB_UI_OPENED] = true
+  return true
+}
+
 export const mainCommand = defineCommand({
   meta: {
     name: "fsvr",
@@ -83,7 +92,7 @@ export const mainCommand = defineCommand({
     process.once("SIGINT", shutdown)
     process.once("SIGTERM", shutdown)
 
-    if (args.open) {
+    if (args.open && claimWebUiOpen()) {
       const command = process.platform === "darwin"
         ? ["open", authenticatedLocalUrl.href]
         : process.platform === "win32"
