@@ -5,7 +5,7 @@ import { resolve } from "node:path"
 import { defineCommand } from "citty"
 import { discoverDlnaSources } from "./dlna"
 import { createLocalSource } from "./local-source"
-import { createMediaServer } from "./server"
+import { AUTH_COOKIE_NAME, createMediaServer } from "./server"
 
 const webAssets = process.env.FSVR_WEB_URL
   ? undefined
@@ -73,8 +73,8 @@ export const mainCommand = defineCommand({
 
     const localUrl = `http://127.0.0.1:${server.port}`
     const webUrl = process.env.FSVR_WEB_URL ?? localUrl
-    const authenticatedLocalUrl = new URL(webUrl)
-    if (password !== undefined) authenticatedLocalUrl.searchParams.set("password", password)
+    const authenticatedLocalUrl = new URL(password === undefined ? webUrl : "/api/v1/auth", webUrl)
+    if (password !== undefined) authenticatedLocalUrl.searchParams.set(AUTH_COOKIE_NAME, password)
     console.log(`Local server: ${localUrl}`)
     console.log(`Media root:   ${source.name}`)
     console.log(`Password:     ${password ?? "disabled"}`)

@@ -843,12 +843,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
 
   const connectServer = async () => {
     const endpoint = window.location.origin
-    const pageUrl = new URL(window.location.href)
-    const urlPassword = pageUrl.searchParams.get("password")
-    if (urlPassword !== null) {
-      pageUrl.searchParams.delete("password")
-      window.history.replaceState(window.history.state, "", `${pageUrl.pathname}${pageUrl.search}${pageUrl.hash}`)
-    }
     setServerState((draft) => {
       draft.endpoint = endpoint
       draft.status = "connecting"
@@ -859,10 +853,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
         setServerState((draft) => {
           draft.status = "disconnected"
         })
-        return
-      }
-      if (urlPassword) {
-        await authenticateServer(urlPassword)
         return
       }
       if (!(await hasFsvrAuth(endpoint))) {
