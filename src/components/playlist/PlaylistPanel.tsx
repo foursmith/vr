@@ -9,13 +9,13 @@ import { MediaPickerButtons } from "../ui/MediaPickerButtons"
 export function PlaylistPanel(props: { controller: PlayerController }) {
   const controller = untrack(() => props.controller)
   const { registerUiSurface, setControlsHold } = controller.controls
+  const { scanDlna, state: serverState } = controller.server
   const {
     chooseFiles,
     chooseFolder,
     clearPlaylist,
     expandedFolders,
     playPlaylistNode,
-    playlistVideos,
     setPlaylistOpen,
     state,
     togglePlaylistFolder,
@@ -51,14 +51,17 @@ export function PlaylistPanel(props: { controller: PlayerController }) {
             <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/8 text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
               <Icon name="playlist" class="h-4.5 w-4.5" />
             </span>
-            <div class="min-w-0 flex-1">
-              <h2 class="text-sm font-semibold tracking-tight text-white/94">Playlist</h2>
-              <p class="mt-0.5 text-[10px] text-white/42">
-                {playlistVideos().length}
-                {" "}
-                {playlistVideos().length === 1 ? "video" : "videos"}
-              </p>
-            </div>
+            <h2 class="min-w-0 flex-1 text-sm font-semibold tracking-tight text-white/94">Playlist</h2>
+            <Show when={serverState.status === "connected"}>
+              <IconButton
+                label={serverState.scanningDlna ? "Scanning for DLNA devices" : "Scan for DLNA devices"}
+                icon="dlna-scan"
+                iconClass={`h-4 w-4 ${serverState.scanningDlna ? "animate-pulse" : ""}`}
+                class="!h-8 !w-8"
+                disabled={serverState.scanningDlna}
+                onClick={() => void scanDlna().catch(() => {})}
+              />
+            </Show>
             <IconButton
               label="Clear playlist"
               icon="trash"
@@ -68,6 +71,10 @@ export function PlaylistPanel(props: { controller: PlayerController }) {
             />
             <IconButton label="Close playlist" icon="x" iconClass="h-3.5 w-3.5" class="!h-8 !w-8" onClick={() => setPlaylistOpen(false)} />
           </header>
+
+          <Show when={serverState.error}>
+            {message => <p role="alert" class="shrink-0 border-y border-white/7 px-4 py-2 text-[10px] text-red-300/85">{message()}</p>}
+          </Show>
 
           <div class="playlist-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2">
             <ul role="tree" aria-label="Video folders" class="m-0 list-none p-0">

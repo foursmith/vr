@@ -111,6 +111,43 @@ describe("player controller", () => {
     dispose()
   })
 
+  it("requires unlocking before enabling local file imports in fsvr mode", async () => {
+    const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      if (url.pathname === "/api/v1/status") return Response.json({ name: "fsvr" })
+      if (url.pathname === "/api/v1/auth" && init?.method === "POST") return Response.json({ authenticated: true })
+      if (url.pathname === "/api/v1/auth") return Response.json({ authenticated: false })
+      if (url.pathname === "/api/v1/sources") return Response.json([])
+      return Response.json({ error: "not found" }, { status: 404 })
+    })
+    vi.stubGlobal("fetch", fetch)
+
+    const { controller, dispose, host } = setupController({ connectFsvr: true })
+    for (let index = 0; index < 6; index += 1) await settle()
+
+    expect(controller.server.state.status).toBe("authentication-required")
+    expect(host.querySelector("form[aria-label='Unlock media server']")).not.toBeNull()
+    expect(host.textContent).not.toContain("Choose files")
+    expect(host.textContent).not.toContain("Drop videos here")
+    expect([...host.querySelectorAll<HTMLInputElement>("input[type='file']")].every(input => input.disabled)).toBe(true)
+
+    const passwordInput = host.querySelector<HTMLInputElement>("input[aria-label='Password']")!
+    passwordInput.value = "secret"
+    passwordInput.dispatchEvent(new Event("input", { bubbles: true }))
+    await settle()
+    host.querySelector<HTMLButtonElement>("button[type='submit']")!.click()
+    for (let index = 0; index < 10; index += 1) await settle()
+
+    expect(fetch).toHaveBeenCalledWith(expect.objectContaining({ pathname: "/api/v1/auth" }), expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ password: "secret" }),
+    }))
+    expect(controller.server.state.status).toBe("connected")
+    expect(host.textContent).toContain("Choose files")
+    expect([...host.querySelectorAll<HTMLInputElement>("input[type='file']")].every(input => !input.disabled)).toBe(true)
+    dispose()
+  })
+
   it("initializes resources and creates a ready scene", async () => {
     const { controller, dispose, video } = setupController()
     await controller.playback.startInitialLoad()

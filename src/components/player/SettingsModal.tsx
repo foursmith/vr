@@ -38,7 +38,6 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
   const controller = untrack(() => props.controller)
   const { debug, display, server } = controller
   const { setFaceAutoCenter, setSplitScreen, state } = display
-  const [password, setPassword] = createSignal("")
   const [narrowScreen, setNarrowScreen] = createSignal(window.matchMedia("(max-width: 639.9px)").matches)
 
   onSettled(() => {
@@ -104,61 +103,24 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
               </span>
             </div>
 
-            <form
-              class="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3 border-t border-white/7 px-3 py-2.5"
-              onSubmit={(event) => {
-                event.preventDefault()
-                const nextPassword = password()
-                setPassword("")
-                void server.authenticate(nextPassword).catch(() => {})
-              }}
-            >
-              <div class="col-start-2 flex items-center gap-2">
-                <label for="fsvr-password" class="w-18 shrink-0 text-[10px] font-semibold text-white/56">Password</label>
-                <div class="flex h-8 min-w-0 flex-1 overflow-hidden rounded-lg border border-white/10 bg-black/16 focus-within:border-white/24">
-                  <input
-                    id="fsvr-password"
-                    type="password"
-                    autocomplete="current-password"
-                    value={password()}
-                    onInput={event => setPassword(event.currentTarget.value)}
-                    placeholder="Enter a new password"
-                    class="h-full min-w-0 flex-1 border-0 bg-transparent px-2.5 text-[10px] text-white outline-none placeholder:text-white/24"
-                  />
-                  <button
-                    type="submit"
-                    disabled={server.state.status === "connecting" || !password()}
-                    class="m-0.5 rounded-md border-0 bg-white/9 px-2.5 text-[9px] font-semibold text-white/68 transition hover:!bg-white/14 hover:text-white disabled:cursor-wait disabled:opacity-35"
-                  >
-                    {server.state.status === "connecting" ? "Checking…" : "Update"}
-                  </button>
+            <Show when={server.state.error}>
+              {message => (
+                <div class="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3 border-t border-white/7 px-3 py-2.5">
+                  <p class="col-start-2 text-[10px] text-red-300/85">{message()}</p>
                 </div>
-              </div>
-              <Show when={server.state.error}>
-                {message => <p class="col-start-2 mt-2 text-[10px] text-red-300/85">{message()}</p>}
-              </Show>
-            </form>
+              )}
+            </Show>
 
             <Show when={server.state.status === "connected"}>
               <div class="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3 border-t border-white/7 px-3 py-2.5">
-                <div class="col-start-2 flex items-center justify-between gap-3">
-                  <div>
-                    <div class="flex items-center gap-2">
-                      <h4 class="text-[10px] font-semibold text-white/56">DLNA devices</h4>
-                      <Show when={server.state.dlnaDevices.length}>
-                        <span class="font-mono text-[9px] text-accent/70">{server.state.dlnaDevices.length}</span>
-                      </Show>
-                    </div>
-                    <p class="mt-0.5 text-[9px] text-white/32">Visible on the server network</p>
+                <div class="col-start-2">
+                  <div class="flex items-center gap-2">
+                    <h4 class="text-[10px] font-semibold text-white/56">DLNA devices</h4>
+                    <Show when={server.state.dlnaDevices.length}>
+                      <span class="font-mono text-[9px] text-accent/70">{server.state.dlnaDevices.length}</span>
+                    </Show>
                   </div>
-                  <button
-                    type="button"
-                    disabled={server.state.scanningDlna}
-                    class="h-7 rounded-lg border-0 bg-white/8 px-2.5 text-[9px] font-semibold text-white/62 transition hover:!bg-white/13 hover:text-white/86 disabled:cursor-wait disabled:opacity-40"
-                    onClick={() => void server.scanDlna().catch(() => {})}
-                  >
-                    {server.state.scanningDlna ? "Scanning…" : "Scan network"}
-                  </button>
+                  <p class="mt-0.5 text-[9px] text-white/32">Visible on the server network</p>
                 </div>
                 <Show
                   when={server.state.dlnaDevices.length}

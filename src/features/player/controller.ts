@@ -136,6 +136,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     open: false,
   })
   const playlist = () => playlistState.nodes
+  const canImportLocalMedia = () => !connectFsvr || serverState.status === "connected"
   const expandedFolders = createMemo(() => new Set(playlistState.expandedFolderIds))
   const selectedPlaylistId = () => playlistState.selectedId
   const playlistOpen = () => playlistState.open
@@ -441,6 +442,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   }
 
   function openVideoFile() {
+    if (!canImportLocalMedia()) return
     fileInput.click()
   }
   const requestVideoPlayback = (generation = videoLoadGeneration) => {
@@ -782,6 +784,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
 
   const handleVideoDrop = async (event: DragEvent) => {
     event.preventDefault()
+    if (!canImportLocalMedia()) return
     const dataTransfer = event.dataTransfer
     if (!dataTransfer) return
     await importPlaylistTransfer(dataTransfer, "always")
@@ -1164,7 +1167,10 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
 
   return {
     frame: {
-      chooseFolder: () => folderInput.click(),
+      canImportLocalMedia,
+      chooseFolder: () => {
+        if (canImportLocalMedia()) folderInput.click()
+      },
       handleFile,
       handleFolder,
       handlePlayerPointerMove,
@@ -1181,8 +1187,10 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       setVrRoot: (element: HTMLElement) => (vrRoot = element),
     },
     playlist: {
-      chooseFiles: () => fileInput.click(),
-      chooseFolder: () => folderInput.click(),
+      chooseFiles: openVideoFile,
+      chooseFolder: () => {
+        if (canImportLocalMedia()) folderInput.click()
+      },
       clearPlaylist,
       expandedFolders,
       playPlaylistNode,

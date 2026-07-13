@@ -12,12 +12,13 @@ export function IconButton(props: {
   icon: IconName
   iconClass?: string
   class?: string
+  disabled?: boolean
   pressed?: boolean
   onClick?: () => void
 }) {
   return (
     <LiquidGlass
-      class={[iconButtonClass, props.pressed && activeButtonClass, props.class]}
+      class={[iconButtonClass, props.pressed && activeButtonClass, props.disabled && "opacity-40", props.class]}
       cornerRadius={999}
       elasticity={0.18}
       active={props.pressed}
@@ -25,9 +26,10 @@ export function IconButton(props: {
     >
       <button
         type="button"
+        disabled={props.disabled}
         aria-label={props.label}
         aria-pressed={props.pressed === undefined ? undefined : props.pressed ? "true" : "false"}
-        class="relative grid h-full w-full place-items-center rounded-full border-0 bg-transparent p-0 text-inherit"
+        class="relative grid h-full w-full place-items-center rounded-full border-0 bg-transparent p-0 text-inherit disabled:cursor-wait"
         onClick={props.onClick}
       >
         <Icon name={props.icon} class={props.iconClass} />
