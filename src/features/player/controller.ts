@@ -16,6 +16,7 @@ import {
 
 } from "../playlist/model"
 import { authenticateFsvr, detectFsvr, discoverFsvrDlna, hasFsvrAuth, loadFsvrDlnaDevices, loadFsvrEntries, loadFsvrPlaylist } from "../sources/fsvr-client"
+import { isFsvrHostMode } from "../sources/fsvr-runtime"
 import { activeSubtitleText, parseSubtitle } from "../subtitles/parser"
 import {
   createVrScene,
@@ -85,7 +86,8 @@ const localFsvrVideoLocation = (entryId: string) => {
   }
 }
 
-export function createPlayerController() {
+export function createPlayerController(options: { connectFsvr?: boolean } = {}) {
+  const connectFsvr = options.connectFsvr ?? isFsvrHostMode
   const initialPreferences = loadGlobalPreferences()
   let player!: HTMLElement
   let fileInput!: HTMLInputElement
@@ -1042,7 +1044,7 @@ export function createPlayerController() {
     window.addEventListener("keydown", handleKeydown)
     document.addEventListener("fullscreenchange", handleFullscreenChange)
 
-    void connectServer().catch(error => console.warn("fsvr connection failed", error))
+    if (connectFsvr) void connectServer().catch(error => console.warn("fsvr connection failed", error))
     let localPlaylistRefreshTimer: number | undefined
     let localPlaylistRefreshInFlight = false
     const refreshLocalPlaylist = async () => {

@@ -1,11 +1,10 @@
 import type { PlayerController } from "../../features/player/controller"
 import { Show, untrack } from "solid-js"
+import { isFsvrHostMode } from "../../features/sources/fsvr-runtime"
 import { PlaylistPanel } from "../playlist/PlaylistPanel"
 import { EmptyState } from "./EmptyState"
 import { PlayerControls } from "./PlayerControls"
 import { PlayerStage } from "./PlayerStage"
-
-const isCliWeb = import.meta.env.MODE === "fsvr" || import.meta.env.MODE === "fsvr-dev"
 
 export function Player(props: { controller: PlayerController }) {
   const controller = untrack(() => props.controller)
@@ -53,7 +52,7 @@ export function Player(props: { controller: PlayerController }) {
       </Show>
 
       <PlaylistPanel controller={controller} />
-      <Show when={isCliWeb || hasVideo()}>
+      <Show when={isFsvrHostMode || hasVideo()}>
         <PlayerControls controller={controller} />
       </Show>
     </main>
