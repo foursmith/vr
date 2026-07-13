@@ -6,6 +6,7 @@ import { ProjectionIcon } from "../ui/ProjectionIcon"
 
 export function ProjectionSelect(props: {
   value: number
+  mount: HTMLElement
   onChange: (value: number) => void
 }) {
   const [open, setOpen] = createSignal(false)
@@ -81,7 +82,7 @@ export function ProjectionSelect(props: {
         <span aria-hidden="true" class={`i-ph-caret-down h-3.5 w-3.5 shrink-0 text-white/62 transition-transform ${open() ? "rotate-180" : ""}`}></span>
       </button>
 
-      <Portal>
+      <Portal mount={props.mount}>
         {open() && (
           <LiquidGlass
             class="!fixed z-50 h-72 w-52 rounded-2xl text-white"

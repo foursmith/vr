@@ -56,12 +56,12 @@ export function PlayerControls(props: { controller: PlayerController }) {
   } = display
   return (
     <aside
-      class="player-controls pointer-events-auto absolute inset-x-0 bottom-0 z-20 p-3 sm:p-6"
+      class="player-controls pointer-events-none absolute inset-x-0 bottom-0 z-20 p-3 sm:p-6"
     >
       <div
         ref={[setControlsPanel, registerUiSurface]}
-        class={`pointer-events-auto relative mx-auto grid max-w-6xl gap-3 overflow-visible rounded-[24px] bg-transparent p-2 text-white shadow-none transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:p-4 ${
-          controlsVisible() ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-4 opacity-0"
+        class={`relative mx-auto grid max-w-6xl gap-3 overflow-visible rounded-[24px] bg-transparent p-2 text-white shadow-none transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:p-4 ${
+          controlsVisible() ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none translate-y-4 opacity-0"
         }`}
         onFocusIn={(event) => {
           setControlsHold("focus", (event.target as HTMLElement).matches(":focus-visible"))
@@ -87,7 +87,7 @@ export function PlayerControls(props: { controller: PlayerController }) {
               castShadow={false}
             >
               <div class="box-border flex h-full w-full min-w-0 items-center rounded-full">
-                <ProjectionSelect value={displayState.presetId} onChange={setPresetId} />
+                <ProjectionSelect value={displayState.presetId} mount={controller.frame.getPlayer()} onChange={setPresetId} />
               </div>
             </LiquidGlass>
             <Show when={loadingState.error}>
@@ -132,8 +132,8 @@ export function PlayerControls(props: { controller: PlayerController }) {
                   setControlsHold("popover", next)
                 }}
               />
-              <Show when={repeatOpen()}>
-                <Portal>
+              <Show when={repeatOpen() && controlsVisible()}>
+                <Portal mount={controller.frame.getPlayer()}>
                   <LiquidGlass
                     class="!fixed z-50 w-52 rounded-2xl"
                     style={{

@@ -26,6 +26,7 @@ const createController = () => ({
     handleVolumeChange: vi.fn(),
     syncTime: vi.fn(),
     togglePlay: vi.fn(),
+    togglePlayAndHideControls: vi.fn(),
   },
   subtitles: {
     text: vi.fn(() => ""),
@@ -85,6 +86,28 @@ describe("player stage gestures", () => {
 
     expect(controller.playback.togglePlay).not.toHaveBeenCalled()
     expect(controller.display.toggleFullscreen).toHaveBeenCalledOnce()
+
+    dispose()
+  })
+
+  it("toggles playback and hides UI on right click", () => {
+    vi.useFakeTimers()
+    const controller = createController()
+    const host = document.createElement("div")
+    document.body.append(host)
+    const dispose = render(() => <PlayerStage controller={controller} />, host)
+    const stage = host.querySelector("#vr-scene")!
+
+    dispatchPointer(stage, "pointerdown", { button: 0, clientX: 10, clientY: 10, pointerId: 1, pointerType: "mouse" })
+    dispatchPointer(stage, "pointerup", { button: 0, clientX: 10, clientY: 10, pointerId: 1, pointerType: "mouse" })
+    stage.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }))
+    const contextMenu = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2 })
+    stage.dispatchEvent(contextMenu)
+    vi.advanceTimersByTime(250)
+
+    expect(contextMenu.defaultPrevented).toBe(true)
+    expect(controller.playback.togglePlay).not.toHaveBeenCalled()
+    expect(controller.playback.togglePlayAndHideControls).toHaveBeenCalledOnce()
 
     dispose()
   })
