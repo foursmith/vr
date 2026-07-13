@@ -25,6 +25,7 @@ vi.mock("../../src/features/vr/scene", async importOriginal => ({
   preloadFaceAutoCenterResources: mocks.preload,
 }))
 vi.mock("../../src/features/face-tracking/client", () => ({ releaseFaceAutoCenterResources: mocks.releaseResources }))
+vi.mock("../../src/components/player/OceanBackground", () => ({ OceanBackground: () => <canvas aria-hidden="true" /> }))
 
 const settle = async () => {
   await Promise.resolve()
@@ -63,6 +64,16 @@ const setupController = () => {
 
 beforeEach(() => {
   vi.useFakeTimers()
+  vi.stubGlobal("matchMedia", vi.fn((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(() => false),
+  })))
   vi.stubGlobal("ResizeObserver", class {
     observe() {}
     disconnect() {}
