@@ -11,7 +11,7 @@ export default defineConfig(({ command, mode }) => ({
     proxy: mode === "fsvr-dev"
       ? {
           "/api": {
-            target: process.env.FSVR_API_ORIGIN ?? "http://127.0.0.1:4191",
+            target: process.env.FSVR_API_ORIGIN,
             changeOrigin: true,
           },
         }
