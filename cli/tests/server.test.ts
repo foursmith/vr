@@ -32,7 +32,6 @@ describe("fsvr media server", () => {
       password: "secret",
       sources: new Map([[source.id, source]]),
       discoverDlna: async () => [dlnaSource],
-      allowedOrigins: ["https://vr.foursmith.com"],
       webAssets: { "/index.html": join(root, "index.html") },
     })
     servers.push(server)
@@ -91,13 +90,13 @@ describe("fsvr media server", () => {
     })
     expect(response.status).toBe(206)
     expect(response.headers.get("content-range")).toBe("bytes 2-5/10")
-    expect(response.headers.get("access-control-allow-origin")).toBe("https://vr.foursmith.com")
+    expect(response.headers.get("access-control-allow-origin")).toBeNull()
     expect(await response.text()).toBe("2345")
 
-    const localDevelopmentResponse = await fetch(`${base}/api/v1/status`, {
+    const crossOriginResponse = await fetch(`${base}/api/v1/status`, {
       headers: { cookie: replacementCookie, origin: "http://localhost:2333" },
     })
-    expect(localDevelopmentResponse.headers.get("access-control-allow-origin")).toBe("http://localhost:2333")
+    expect(crossOriginResponse.headers.get("access-control-allow-origin")).toBeNull()
 
     const discovered = await fetch(`${base}/api/v1/dlna/discover`, {
       method: "POST",

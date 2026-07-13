@@ -24,10 +24,10 @@
     "test:coverage": "bun run test --coverage",
     "test:e2e": "bun run --bun playwright test",
     "test:all": "bun run typecheck && bun run test && bun run test:e2e",
-    "cli:dev": "bun run --filter fsvr dev",
-    "cli:build": "bun run --filter fsvr build",
-    "cli:typecheck": "bun run --filter fsvr typecheck",
-    "cli:test": "bun run --filter fsvr test",
+    "dev:cli": "bun run --filter fsvr dev",
+    "build:cli": "bun run --filter fsvr build",
+    "typecheck:cli": "bun run --filter fsvr typecheck",
+    "test:cli": "bun run --filter fsvr test",
     "deploy": "bun run build && wrangler deploy"
   },
   "dependencies": {

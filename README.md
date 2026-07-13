@@ -62,7 +62,7 @@ The Web app remains available as a standalone static deployment for browser-sele
 
 ```sh
 bun install
-bun run cli:dev -- ~/Movies
+bun run dev:cli -- ~/Movies
 ```
 
 In this development mode, the Web UI runs on Vite at `http://127.0.0.1:4090` with hot module replacement, while CLI API and media requests are proxied to the local server on port `4191`. Changes to CLI server source files are applied with Bun's hot reloading without changing the session password. Pass `--open` to open the Web UI once after startup.
@@ -76,7 +76,7 @@ DLNA media servers are not scanned during startup by default. Pass `--dlna-scan`
 Build the standalone executable, including Web assets, WASM, and face-tracking models:
 
 ```sh
-bun run cli:build
+bun run build:cli
 ./cli/dist/fsvr ~/Movies
 ```
 
