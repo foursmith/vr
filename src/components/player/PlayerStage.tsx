@@ -63,6 +63,12 @@ export function PlayerStage(props: { controller: PlayerController }) {
     void display.toggleFullscreen()
   }
 
+  const handleStageContextMenu = (event: MouseEvent) => {
+    event.preventDefault()
+    cancelSingleClick()
+    playback.togglePlayAndHideControls()
+  }
+
   onSettled(() => cancelSingleClick)
 
   return (
@@ -76,6 +82,7 @@ export function PlayerStage(props: { controller: PlayerController }) {
         onPointerCancel={handleStagePointerCancel}
         onClick={handleStageClick}
         onDblClick={handleStageDoubleClick}
+        onContextMenu={handleStageContextMenu}
       >
         <div ref={setVrMount} id="vr-mount" class="h-full w-full"></div>
         <div class="pointer-events-none absolute inset-0 z-10">

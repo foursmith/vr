@@ -1,7 +1,7 @@
 import { createMemo, createSignal } from "solid-js"
 
 export type SliderControl = "volume" | "scale"
-export type ControlsHoldReason = "paused" | "focus" | "pointer" | "scrubbing" | "popover" | "settings" | "loading"
+export type ControlsHoldReason = "focus" | "pointer" | "scrubbing" | "popover" | "settings" | "loading"
 interface SliderAnchor { x: number, bottom: number }
 
 const CONTROL_IDLE_HIDE_DELAY = 2500
@@ -75,7 +75,7 @@ export function createControls(options: {
     armHideControls(delay)
   }
 
-  const registerActivity = (source: "mouse" | "touch" | "keyboard") => {
+  const registerActivity = (source: "mouse" | "touch" | "keyboard" | "playback") => {
     if (!options.resourcesReady()) return
     showControls()
     scheduleHideControls(source === "touch" ? TOUCH_IDLE_HIDE_DELAY : source === "keyboard" ? KEYBOARD_IDLE_HIDE_DELAY : CONTROL_IDLE_HIDE_DELAY)
@@ -83,6 +83,21 @@ export function createControls(options: {
 
   const registerUiSurface = (element: HTMLElement) => {
     uiSurfaces.add(element)
+  }
+
+  const cancelHideSlider = () => {
+    if (hideSliderTimer === undefined) return
+    window.clearTimeout(hideSliderTimer)
+    hideSliderTimer = undefined
+  }
+
+  const hideControls = () => {
+    cancelHideControls()
+    cancelHideSlider()
+    heldReasons = new Set()
+    setHoldReasons(heldReasons)
+    setActiveSliderState(undefined)
+    setTemporarilyVisible(false)
   }
 
   const resyncPointerHold = () => {
@@ -132,9 +147,7 @@ export function createControls(options: {
       showControls()
       return
     }
-    cancelHideControls()
-    setActiveSliderState(undefined)
-    if (controlsVisible() && heldReasons.size === 0) setTemporarilyVisible(false)
+    if (controlsVisible()) hideControls()
     else registerActivity("touch")
   }
 
@@ -142,12 +155,6 @@ export function createControls(options: {
     lastMousePosition = undefined
     showControls()
     scheduleHideControls(INITIAL_CONTROL_HIDE_DELAY)
-  }
-
-  const cancelHideSlider = () => {
-    if (hideSliderTimer === undefined) return
-    window.clearTimeout(hideSliderTimer)
-    hideSliderTimer = undefined
   }
 
   const closeSlider = () => {
@@ -190,6 +197,7 @@ export function createControls(options: {
     handlePlayerPointerMove,
     handlePlayerPointerDown,
     handlePlayerPointerUp,
+    hideControls,
     registerActivity,
     registerUiSurface,
     resyncPointerHold,

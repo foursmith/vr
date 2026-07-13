@@ -71,17 +71,60 @@ describe("player controls", () => {
       return createControls({ hasVideo: () => true, resourcesReady: () => true })
     })
 
-    controls.setControlsHold("paused", true)
+    controls.setControlsHold("focus", true)
     controls.scheduleHideControls(10)
     vi.advanceTimersByTime(10)
     flush()
     expect(controls.controlsVisible()).toBe(true)
 
-    controls.setControlsHold("paused", false)
+    controls.setControlsHold("focus", false)
     controls.scheduleHideControls(10)
     vi.advanceTimersByTime(10)
     flush()
     expect(controls.controlsVisible()).toBe(false)
+    controls.dispose()
+    dispose()
+  })
+
+  it("clears interaction holds when controls are explicitly hidden", () => {
+    let dispose!: () => void
+    const controls = createRoot((rootDispose) => {
+      dispose = rootDispose
+      return createControls({ hasVideo: () => true, resourcesReady: () => true })
+    })
+
+    controls.setControlsHold("focus", true)
+    controls.hideControls()
+    flush()
+    expect(controls.controlsVisible()).toBe(false)
+
+    controls.registerActivity("mouse")
+    flush()
+    expect(controls.controlsVisible()).toBe(true)
+
+    controls.dispose()
+    dispose()
+  })
+
+  it("toggles held controls from a touch tap on the player stage", () => {
+    let dispose!: () => void
+    const controls = createRoot((rootDispose) => {
+      dispose = rootDispose
+      return createControls({ hasVideo: () => true, resourcesReady: () => true })
+    })
+
+    controls.registerActivity("playback")
+    controls.setControlsHold("focus", true)
+    controls.handlePlayerPointerDown({ pointerType: "touch", pointerId: 1, clientX: 10, clientY: 10 } as PointerEvent)
+    controls.handlePlayerPointerUp({ pointerType: "touch", pointerId: 1, clientX: 10, clientY: 10 } as PointerEvent)
+    flush()
+    expect(controls.controlsVisible()).toBe(false)
+
+    controls.handlePlayerPointerDown({ pointerType: "touch", pointerId: 2, clientX: 10, clientY: 10 } as PointerEvent)
+    controls.handlePlayerPointerUp({ pointerType: "touch", pointerId: 2, clientX: 10, clientY: 10 } as PointerEvent)
+    flush()
+    expect(controls.controlsVisible()).toBe(true)
+
     controls.dispose()
     dispose()
   })

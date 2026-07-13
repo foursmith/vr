@@ -112,7 +112,6 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   const options = { ...initialOptions, video }
   let disposed = false
   let frameId = 0
-  let wakeTimer: number | undefined
   let videoFrameCallbackId = 0
   let lastFrameAt = performance.now()
   let fpsSampleStartedAt = lastFrameAt
@@ -178,15 +177,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     && video.videoHeight > 0
     && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
 
-  const clearWakeTimer = () => {
-    if (wakeTimer !== undefined) {
-      window.clearTimeout(wakeTimer)
-      wakeTimer = undefined
-    }
-  }
-
   const stopScheduledRender = () => {
-    clearWakeTimer()
     if (frameId) {
       window.cancelAnimationFrame(frameId)
       frameId = 0
@@ -195,16 +186,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
 
   function requestRender() {
     if (disposed || frameId || options.hidden || !hasCurrentVideoFrame()) return
-    clearWakeTimer()
     frameId = window.requestAnimationFrame(render)
-  }
-
-  const scheduleRenderAt = (time: number) => {
-    if (disposed || wakeTimer !== undefined || options.hidden || !hasCurrentVideoFrame()) return
-    wakeTimer = window.setTimeout(() => {
-      wakeTimer = undefined
-      requestRender()
-    }, Math.max(0, time - performance.now()))
   }
 
   const setOverlay = (overlay: OverlayState) => {
@@ -327,8 +309,19 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     faceState.nextDetectionAt = 0
     requestRender()
   }
+  const onVideoPause = () => {
+    inferenceGeneration += 1
+    faceState.faces = []
+    faceState.target = undefined
+    faceState.recoveryMode = undefined
+    faceState.yawVelocity = 0
+    faceState.pitchVelocity = 0
+    faceState.isMoving = false
+    setOverlay({})
+    requestRender()
+  }
   video.addEventListener("playing", onVideoActivity)
-  video.addEventListener("pause", onVideoActivity)
+  video.addEventListener("pause", onVideoPause)
   video.addEventListener("seeked", onVideoActivity)
   video.addEventListener("loadeddata", onVideoActivity)
 
@@ -630,7 +623,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       })
       .then((result) => {
         completedInferenceMs = result.inferenceMs
-        if (disposed || generation !== inferenceGeneration || !options.faceAutoCenter || options.hidden) return
+        if (disposed || generation !== inferenceGeneration || video.paused || !options.faceAutoCenter || options.hidden) return
         applyInferenceResult(result, detectionMode, panoramaSample, preset)
       })
       .catch((error) => {
@@ -651,6 +644,14 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
 
   const runFaceAutoCenter = (now: number, delta: number) => {
     if (!sampleContext) return
+
+    if (video.paused) {
+      faceState.yawVelocity = 0
+      faceState.pitchVelocity = 0
+      faceState.isMoving = false
+      setOverlay({})
+      return
+    }
 
     if (!options.faceAutoCenter || options.hidden) {
       faceState.faces = []
@@ -794,23 +795,12 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     // preserveDrawingBuffer allocation just for face tracking.
     runFaceAutoCenter(now, delta)
 
-    if (options.hidden || !hasCurrentVideoFrame()) return
+    if (options.hidden || video.paused || !hasCurrentVideoFrame()) return
     if (dragging.active || faceState.isMoving) {
       requestRender()
       return
     }
-    if (!video.paused) {
-      if (!("requestVideoFrameCallback" in video)) requestRender()
-      return
-    }
-    if (!options.faceAutoCenter || inferenceInFlight) return
-    if (now < options.viewRef.current.pausedUntil) {
-      scheduleRenderAt(options.viewRef.current.pausedUntil)
-      return
-    }
-    if (faceState.recoveryMode !== undefined || (!faceState.target && faceState.consecutiveMisses < 3)) {
-      scheduleRenderAt(Math.max(now + 16, faceState.nextDetectionAt))
-    }
+    if (!("requestVideoFrameCallback" in video)) requestRender()
   }
 
   updateVisibility()
@@ -884,7 +874,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       if (videoFrameCallbackId) video.cancelVideoFrameCallback(videoFrameCallbackId)
       video.removeEventListener("loadedmetadata", onMetadata)
       video.removeEventListener("playing", onVideoActivity)
-      video.removeEventListener("pause", onVideoActivity)
+      video.removeEventListener("pause", onVideoPause)
       video.removeEventListener("seeked", onVideoActivity)
       video.removeEventListener("loadeddata", onVideoActivity)
       resizeObserver.disconnect()

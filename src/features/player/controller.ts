@@ -113,6 +113,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   let lastPlayback = loadLastPlayback()
   let lastPlaybackSavedAt = 0
   let pendingResumeTime: number | undefined
+  let suppressNextPauseActivity = false
   let playlistImportGeneration = 0
   let resourcesInitialized = false
   const playlistFiles = new Map<string, File>()
@@ -235,6 +236,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     handlePlayerPointerMove,
     handlePlayerPointerDown,
     handlePlayerPointerUp,
+    hideControls,
     registerActivity,
     registerUiSurface,
     resyncPointerHold,
@@ -408,6 +410,13 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     } else {
       video.pause()
     }
+  }
+
+  const togglePlayAndHideControls = () => {
+    if (!resourcesReady()) return
+    suppressNextPauseActivity = Boolean(video.currentSrc && !video.paused)
+    togglePlay()
+    hideControls()
   }
 
   const seekBy = (amount: number) => {
@@ -1106,9 +1115,8 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   )
 
   createEffect(
-    () => ({ hasVideo: hasVideo(), playing: playing(), resourcesReady: resourcesReady() }),
+    () => ({ hasVideo: hasVideo(), resourcesReady: resourcesReady() }),
     (state) => {
-      setControlsHold("paused", state.hasVideo && !state.playing)
       setControlsHold("loading", state.hasVideo && !state.resourcesReady)
     },
   )
@@ -1145,7 +1153,12 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   const handlePlayingChange = (isPlaying: boolean) => {
     setPlaying(isPlaying)
     if (isPlaying) {
+      suppressNextPauseActivity = false
       syncTime()
+    } else if (suppressNextPauseActivity) {
+      suppressNextPauseActivity = false
+    } else {
+      registerActivity("playback")
     }
     if (!isPlaying) persistActiveVideoState()
   }
@@ -1171,6 +1184,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       chooseFolder: () => {
         if (canImportLocalMedia()) folderInput.click()
       },
+      getPlayer: () => player,
       handleFile,
       handleFolder,
       handlePlayerPointerMove,
@@ -1227,6 +1241,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       startInitialLoad,
       syncTime,
       togglePlay,
+      togglePlayAndHideControls,
       volume,
     },
     subtitles: {

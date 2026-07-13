@@ -39,7 +39,7 @@ function SettingToggle(props: {
 
 export function SettingsModal(props: { controller: PlayerController, open: boolean, onOpenChange: (open: boolean) => void }) {
   const controller = untrack(() => props.controller)
-  const { debug, display } = controller
+  const { debug, display, frame } = controller
   const { setFaceAutoCenter, setQualityId, setSplitScreen, state } = display
   const [narrowScreen, setNarrowScreen] = createSignal(window.matchMedia("(max-width: 639.9px)").matches)
   const qualityPosition = () => state.qualityId / (QUALITY_OPTIONS.length - 1)
@@ -226,6 +226,7 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
       fallback={(
         <Modal
           open={props.open}
+          mount={frame.getPlayer()}
           titleId="settings-title"
           descriptionId="settings-description"
           onOpenChange={props.onOpenChange}
@@ -236,6 +237,7 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
     >
       <Drawer
         open={props.open}
+        mount={frame.getPlayer()}
         titleId="settings-title"
         descriptionId="settings-description"
         onOpenChange={props.onOpenChange}

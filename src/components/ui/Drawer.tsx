@@ -7,6 +7,7 @@ const DISMISS_VELOCITY = 0.55
 
 export function Drawer(props: {
   open: boolean
+  mount?: HTMLElement
   titleId: string
   descriptionId?: string
   children: Element
@@ -125,7 +126,7 @@ export function Drawer(props: {
   })
 
   return (
-    <Portal>
+    <Portal mount={props.mount}>
       <div
         class={`drawer-root fixed inset-0 z-60 ${props.open ? "pointer-events-auto" : "pointer-events-none"}`}
         aria-hidden={props.open ? undefined : "true"}
