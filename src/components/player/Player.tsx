@@ -5,6 +5,8 @@ import { EmptyState } from "./EmptyState"
 import { PlayerControls } from "./PlayerControls"
 import { PlayerStage } from "./PlayerStage"
 
+const isCliWeb = import.meta.env.MODE === "fsvr" || import.meta.env.MODE === "fsvr-dev"
+
 export function Player(props: { controller: PlayerController }) {
   const controller = untrack(() => props.controller)
   const { controls, frame } = controller
@@ -51,7 +53,7 @@ export function Player(props: { controller: PlayerController }) {
       </Show>
 
       <PlaylistPanel controller={controller} />
-      <Show when={hasVideo()}>
+      <Show when={isCliWeb || hasVideo()}>
         <PlayerControls controller={controller} />
       </Show>
     </main>
