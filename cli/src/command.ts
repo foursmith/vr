@@ -6,19 +6,10 @@ import { defineCommand } from "citty"
 import { discoverDlnaSources } from "./dlna"
 import { createLocalSource } from "./local-source"
 import { createMediaServer } from "./server"
-import { webAssets } from "./web-assets.generated"
 
-const DEFAULT_ORIGINS = ["https://vr.foursmith.com", "http://localhost:5173"]
-
-const readRepeatedOption = (rawArgs: string[], name: string) => {
-  const values: string[] = []
-  for (let index = 0; index < rawArgs.length; index++) {
-    const argument = rawArgs[index]
-    if (argument === `--${name}` && rawArgs[index + 1]) values.push(rawArgs[++index])
-    else if (argument.startsWith(`--${name}=`)) values.push(argument.slice(name.length + 3))
-  }
-  return values
-}
+const webAssets = process.env.FSVR_WEB_URL
+  ? undefined
+  : (await import("./web-assets.generated")).webAssets
 
 export const mainCommand = defineCommand({
   meta: {
@@ -31,11 +22,10 @@ export const mainCommand = defineCommand({
     "host": { type: "string", description: "Address to listen on", valueHint: "address", default: "0.0.0.0" },
     "port": { type: "string", description: "Port to listen on", valueHint: "port", default: "4090" },
     "password": { type: "string", description: "Stable access password", valueHint: "password" },
-    "origin": { type: "string", description: "Allowed browser origin (repeatable)", valueHint: "origin" },
     "dlna-scan": { type: "boolean", description: "Scan for DLNA servers before startup", default: false },
     "open": { type: "boolean", description: "Open the Web UI", default: false },
   },
-  async run({ args, rawArgs }) {
+  async run({ args }) {
     const port = Number(args.port)
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("port must be between 1 and 65535")
 
@@ -56,14 +46,12 @@ export const mainCommand = defineCommand({
       }
     }
 
-    const origins = readRepeatedOption(rawArgs, "origin")
     const server = createMediaServer({
       hostname: args.host,
       port,
       password,
       sources,
       discoverDlna: discoverDlnaSources,
-      allowedOrigins: origins.length > 0 ? origins : DEFAULT_ORIGINS,
       webAssets,
     })
 

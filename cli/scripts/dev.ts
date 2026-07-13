@@ -14,12 +14,14 @@ const readOption = (name: string) => {
 
 const providedApiPort = readOption("port")
 const apiPort = providedApiPort ?? "4191"
-const apiHost = readOption("host") ?? "0.0.0.0"
+const providedApiHost = readOption("host")
+const apiHost = providedApiHost ?? "127.0.0.1"
 const providedPassword = readOption("password")
 const password = providedPassword ?? randomBytes(24).toString("base64url")
 const open = args.includes("--open")
 const cliArgs = [
   ...args.filter(argument => argument !== "--open"),
+  ...(providedApiHost === undefined ? ["--host", apiHost] : []),
   ...(providedApiPort === undefined ? ["--port", apiPort] : []),
   ...(providedPassword === undefined ? ["--password", password] : []),
 ]

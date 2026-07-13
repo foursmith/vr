@@ -8,6 +8,5 @@ const result = await Bun.build({
   entrypoints: [resolve(cliRoot, "src/cli.ts")],
   compile: { outfile: resolve(cliRoot, "dist/fsvr") },
   minify: true,
-  sourcemap: "linked",
 })
 if (!result.success) throw new AggregateError(result.logs, "fsvr build failed")
