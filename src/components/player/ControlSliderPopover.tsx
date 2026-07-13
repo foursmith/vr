@@ -1,6 +1,5 @@
 import type { PlayerController } from "../../features/player/controller"
 import { Show, untrack } from "solid-js"
-import { QUALITY_OPTIONS } from "../../features/vr/scene"
 import { Icon } from "../ui/Icon"
 import { LiquidGlass } from "../ui/LiquidGlass"
 import { VerticalGlassRange } from "../ui/VerticalGlassRange"
@@ -10,7 +9,7 @@ const glassPillClass = "text-white transition hover:text-white focus-within:text
 export function ControlSliderPopover(props: { controller: PlayerController }) {
   const { controls, display, playback } = untrack(() => props.controller)
   const { activeSlider, cancelHideSlider, scheduleHideSlider, sliderAnchor } = controls
-  const { resetView, setQualityId, setZoom, state: displayState, zoom } = display
+  const { resetView, setZoom, zoom } = display
   const { setVolumeLevel, volume } = playback
   return (
     <Show when={activeSlider()}>
@@ -33,18 +32,6 @@ export function ControlSliderPopover(props: { controller: PlayerController }) {
           }}
         >
           <div class="grid justify-items-center gap-2 px-2.5 py-3">
-            <Show when={control() === "quality"}>
-              <VerticalGlassRange
-                min={0}
-                max={QUALITY_OPTIONS.length - 1}
-                step={1}
-                value={displayState.qualityId}
-                progress={(displayState.qualityId / (QUALITY_OPTIONS.length - 1)) * 100}
-                label="Quality"
-                title={`Quality: ${QUALITY_OPTIONS[displayState.qualityId]?.label ?? "Quality"}`}
-                onInput={setQualityId}
-              />
-            </Show>
             <Show when={control() === "volume"}>
               <VerticalGlassRange
                 min={0}

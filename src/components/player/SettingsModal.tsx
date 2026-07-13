@@ -3,6 +3,7 @@ import type { IconName } from "../ui/Icon"
 import { createSignal, For, onSettled, Show, untrack } from "solid-js"
 import appPackage from "../../../package.json"
 import { SHORTCUT_DEFINITIONS } from "../../features/player/shortcuts"
+import { QUALITY_OPTIONS } from "../../features/vr/scene"
 import { Drawer } from "../ui/Drawer"
 import { FsvrLogo } from "../ui/FsvrLogo"
 import { Icon } from "../ui/Icon"
@@ -39,8 +40,9 @@ function SettingToggle(props: {
 export function SettingsModal(props: { controller: PlayerController, open: boolean, onOpenChange: (open: boolean) => void }) {
   const controller = untrack(() => props.controller)
   const { debug, display } = controller
-  const { setFaceAutoCenter, setSplitScreen, state } = display
+  const { setFaceAutoCenter, setQualityId, setSplitScreen, state } = display
   const [narrowScreen, setNarrowScreen] = createSignal(window.matchMedia("(max-width: 639.9px)").matches)
+  const qualityPosition = () => state.qualityId / (QUALITY_OPTIONS.length - 1)
 
   onSettled(() => {
     const media = window.matchMedia("(max-width: 639.9px)")
@@ -67,6 +69,68 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
       </div>
 
       <div class="grid gap-1.5 px-2.5 pb-2.5">
+        <section class="overflow-hidden rounded-2xl bg-white/4" aria-labelledby="quality-title">
+          <div class="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 px-3 pb-2 pt-2">
+            <span class="grid h-8 w-8 place-items-center rounded-xl bg-white/8 text-white/78">
+              <Icon name="gauge" class="h-4 w-4" />
+            </span>
+            <div class="min-w-0">
+              <h3 id="quality-title" class="text-xs font-semibold text-white/92">Quality</h3>
+              <p class="mt-0.5 text-[11px] leading-snug text-white/48">Balance image detail and rendering performance.</p>
+            </div>
+            <span class="rounded-full bg-white/8 px-2 py-1 text-[10px] font-semibold text-white/74">
+              {QUALITY_OPTIONS[state.qualityId]?.label}
+            </span>
+          </div>
+          <div
+            class="border-t border-white/7 px-4 pb-3 pt-2.5"
+            style={`--quality-progress:${qualityPosition() * 100}%;--quality-fill-offset:${(1 - qualityPosition()) * 1.25}rem`}
+          >
+            <div class="relative h-8">
+              <span aria-hidden="true" class="absolute inset-x-0 top-1/2 h-5 -translate-y-1/2 overflow-hidden rounded-full bg-white/7 shadow-[inset_0_1px_2px_rgba(0,0,0,.22)]">
+                <span class="quality-track-fill absolute inset-y-0 left-0 rounded-full"></span>
+              </span>
+              <span aria-hidden="true" class="absolute inset-x-2.5 top-1/2 -translate-y-1/2">
+                <For each={QUALITY_OPTIONS}>
+                  {(_, index) => (
+                    <span
+                      class="absolute top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/56"
+                      style={{ left: `${(index() / (QUALITY_OPTIONS.length - 1)) * 100}%` }}
+                    >
+                    </span>
+                  )}
+                </For>
+              </span>
+              <input
+                type="range"
+                min="0"
+                max={QUALITY_OPTIONS.length - 1}
+                step="1"
+                value={state.qualityId}
+                aria-labelledby="quality-title"
+                aria-valuetext={QUALITY_OPTIONS[state.qualityId]?.label}
+                class="quality-range absolute inset-0 z-10 h-8 w-full cursor-pointer appearance-none bg-transparent"
+                onInput={event => setQualityId(Number(event.currentTarget.value))}
+              />
+              <span aria-hidden="true" class="pointer-events-none absolute inset-x-2.5 top-1/2">
+                <span class="quality-range-thumb absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/46 bg-white shadow-[0_2px_9px_rgba(0,0,0,.4)]"></span>
+              </span>
+            </div>
+            <div class="relative mx-2.5 h-3 text-[9px] font-medium text-white/38">
+              <For each={QUALITY_OPTIONS}>
+                {(option, index) => (
+                  <span
+                    class={`absolute top-0 whitespace-nowrap ${index() === 0 ? "translate-x-0" : index() === QUALITY_OPTIONS.length - 1 ? "-translate-x-full" : "-translate-x-1/2"}`}
+                    style={{ left: `${(index() / (QUALITY_OPTIONS.length - 1)) * 100}%` }}
+                  >
+                    {option.label}
+                  </span>
+                )}
+              </For>
+            </div>
+          </div>
+        </section>
+
         <SettingToggle
           title="Fill wide screens"
           description="Repeat the view side by side when the screen is wide."
@@ -81,14 +145,6 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
           pressed={state.faceAutoCenter}
           onCheckedChange={setFaceAutoCenter}
         />
-        <SettingToggle
-          title="Show debug info"
-          description="Display frame rate and a preview of face tracking."
-          icon="bug"
-          pressed={debug.panelOpen()}
-          onCheckedChange={debug.setPanelOpen}
-        />
-
         <Show when={!narrowScreen()}>
           <details class="group overflow-hidden rounded-2xl bg-white/4">
             <summary class="grid min-h-13 cursor-pointer list-none grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-3 py-1 pl-3 pr-1 text-left transition-colors marker:hidden hover:bg-white/8">
@@ -142,10 +198,22 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
               <span aria-hidden="true" class="h-0.5 w-0.5 shrink-0 rounded-full bg-white/24"></span>
               <a class="whitespace-nowrap transition-colors hover:text-white/72 focus-visible:text-white/72 focus-visible:outline-none focus-visible:underline" href="https://github.com/foursmith/vr/blob/main/LICENSE" target="_blank" rel="noreferrer">{appPackage.license.replace("-", " ")}</a>
             </div>
-            <a class="ml-auto flex shrink-0 items-center gap-1.5 rounded-lg px-1.5 py-1 font-medium text-white/58 transition-colors hover:bg-white/7 hover:text-white focus-visible:bg-white/7 focus-visible:text-white focus-visible:outline-none" href="https://github.com/foursmith/vr" target="_blank" rel="noreferrer">
-              <Icon name="github" class="h-3.5 w-3.5" />
-              GitHub
-            </a>
+            <div class="ml-auto flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                aria-pressed={debug.panelOpen() ? "true" : "false"}
+                title={debug.panelOpen() ? "Hide debug info" : "Show debug info"}
+                class={`flex items-center gap-1.5 rounded-lg border-0 px-1.5 py-1 font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent/40 ${debug.panelOpen() ? "bg-accent/10 text-accent/78" : "bg-transparent text-white/42 hover:bg-white/7 hover:text-white/72"}`}
+                onClick={() => debug.setPanelOpen(!debug.panelOpen())}
+              >
+                <Icon name="bug" class="h-3.5 w-3.5" />
+                Debug
+              </button>
+              <a class="flex items-center gap-1.5 rounded-lg px-1.5 py-1 font-medium text-white/58 transition-colors hover:bg-white/7 hover:text-white focus-visible:bg-white/7 focus-visible:text-white focus-visible:outline-none" href="https://github.com/foursmith/vr" target="_blank" rel="noreferrer">
+                <Icon name="github" class="h-3.5 w-3.5" />
+                GitHub
+              </a>
+            </div>
           </div>
         </section>
       </div>

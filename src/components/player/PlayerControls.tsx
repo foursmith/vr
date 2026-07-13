@@ -1,7 +1,6 @@
 import type { PlayerController } from "../../features/player/controller"
 import { Portal } from "@solidjs/web"
 import { createSignal, For, Show, untrack } from "solid-js"
-import { QUALITY_OPTIONS } from "../../features/vr/scene"
 import { Icon } from "../ui/Icon"
 import { IconButton } from "../ui/IconButton"
 import { LiquidGlass } from "../ui/LiquidGlass"
@@ -212,18 +211,6 @@ export function PlayerControls(props: { controller: PlayerController }) {
               onMouseLeave={() => scheduleHideSlider()}
             >
               <div class="flex h-full items-center gap-1 px-1">
-                <button
-                  type="button"
-                  aria-label="Adjust quality"
-                  aria-pressed={activeSlider() === "quality" ? "true" : "false"}
-                  title={`Quality: ${QUALITY_OPTIONS[displayState.qualityId]?.label ?? "Quality"}`}
-                  class="grid h-7 w-7 place-items-center rounded-full border-0 bg-transparent p-0 text-white/92 max-sm:hidden"
-                  onMouseEnter={event => showSlider("quality", event.currentTarget)}
-                  onFocus={event => showSlider("quality", event.currentTarget)}
-                  onClick={event => showSlider("quality", event.currentTarget)}
-                >
-                  <Icon name="gauge" class="h-4 w-4" />
-                </button>
                 <button
                   type="button"
                   aria-label="Adjust volume"
