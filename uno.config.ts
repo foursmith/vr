@@ -16,7 +16,7 @@ export default defineConfig({
   ],
   theme: {
     colors: {
-      accent: "#8ae7e4",
+      accent: "#62cfd8",
     },
     fontFamily: {
       sans: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",

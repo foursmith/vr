@@ -1,5 +1,5 @@
 .empty-state-bg {
-  background: linear-gradient(180deg, #0c343b 0%, #04171d 48%, #02090c 100%);
+  background: linear-gradient(180deg, #17758c 0%, #07516c 48%, #031b2a 100%);
 }
 
 .empty-state-content {
@@ -29,34 +29,34 @@
 
 .empty-logo-fish {
   animation: empty-logo-fish-hunt 18s cubic-bezier(0.42, 0, 0.24, 1) infinite;
-  filter: drop-shadow(0 16px 40px rgba(70, 205, 205, 0.2));
+  filter: drop-shadow(0 16px 34px rgba(3, 19, 31, 0.38));
   transform-origin: 50% 52%;
   will-change: filter, transform;
 }
 
 @keyframes empty-logo-fish-hunt {
   0%, 24%, 100% {
-    filter: drop-shadow(3px 17px 38px rgba(70, 205, 205, 0.18));
+    filter: drop-shadow(3px 17px 34px rgba(3, 19, 31, 0.36));
     transform: translate(-50%, -50%) translate3d(1px, 1px, 0) rotate(-0.2deg) scale(0.998);
   }
   48% {
-    filter: drop-shadow(-2px 19px 43px rgba(70, 205, 205, 0.23));
+    filter: drop-shadow(-2px 19px 38px rgba(3, 19, 31, 0.42));
     transform: translate(-50%, -50%) translate3d(4px, -2px, 0) rotate(0.35deg) scale(1.004);
   }
   56% {
-    filter: drop-shadow(5px 15px 34px rgba(70, 205, 205, 0.17));
+    filter: drop-shadow(5px 15px 31px rgba(3, 19, 31, 0.34));
     transform: translate(-50%, -50%) translate3d(-3px, 0, 0) rotate(-0.55deg) scale(0.996);
   }
   63% {
-    filter: drop-shadow(9px 20px 46px rgba(70, 205, 205, 0.27));
+    filter: drop-shadow(9px 20px 40px rgba(3, 19, 31, 0.46));
     transform: translate(-50%, -50%) translate3d(-27px, 1px, 0) rotate(-1.15deg) scale(1.012);
   }
   70% {
-    filter: drop-shadow(2px 18px 40px rgba(70, 205, 205, 0.21));
+    filter: drop-shadow(2px 18px 36px rgba(3, 19, 31, 0.4));
     transform: translate(-50%, -50%) translate3d(-18px, 0, 0) rotate(-0.45deg) scale(1.004);
   }
   84% {
-    filter: drop-shadow(-2px 17px 39px rgba(70, 205, 205, 0.19));
+    filter: drop-shadow(-2px 17px 35px rgba(3, 19, 31, 0.37));
     transform: translate(-50%, -50%) translate3d(4px, -1px, 0) rotate(0.25deg) scale(1);
   }
 }
@@ -99,13 +99,13 @@
 
 .empty-orbit-badge {
   align-items: center;
-  background: linear-gradient(105deg, rgba(12, 55, 61, 0.76), rgba(3, 16, 19, 0.68));
-  border: 1px solid rgba(164, 241, 237, 0.14);
+  background: linear-gradient(105deg, rgba(7, 78, 101, 0.74), rgba(2, 30, 48, 0.72));
+  border: 1px solid rgba(184, 243, 236, 0.18);
   border-radius: 60% 48% 48% 60% / 58% 48% 48% 58%;
   box-shadow:
-    inset 0 1px 0 rgba(210, 255, 252, 0.07),
+    inset 0 1px 0 rgba(245, 255, 252, 0.09),
     0 8px 26px rgba(0, 0, 0, 0.2);
-  color: rgba(232, 255, 253, 0.68);
+  color: rgba(245, 255, 252, 0.72);
   display: flex;
   font-size: 10px;
   font-weight: 500;
@@ -119,7 +119,7 @@
 }
 
 .empty-orbit-badge::after {
-  background: linear-gradient(135deg, rgba(45, 135, 141, 0.38), rgba(5, 25, 29, 0.42));
+  background: linear-gradient(135deg, rgba(98, 207, 216, 0.42), rgba(3, 44, 68, 0.48));
   clip-path: polygon(0 50%, 100% 0, 100% 100%);
   content: '';
   height: 12px;
@@ -131,11 +131,11 @@
 }
 
 .empty-orbit-badge i {
-  background: #b9fffb;
+  background: #b8f3ec;
   border-radius: 999px;
   box-shadow:
-    0 0 0 2px rgba(138, 231, 228, 0.08),
-    0 0 9px rgba(138, 231, 228, 0.72);
+    0 0 0 2px rgba(98, 207, 216, 0.1),
+    0 0 9px rgba(98, 207, 216, 0.72);
   height: 4px;
   opacity: 0.86;
   width: 4px;
@@ -184,7 +184,7 @@
 }
 
 .empty-github-badge:focus-visible {
-  outline: 2px solid rgba(185, 255, 251, 0.6);
+  outline: 2px solid rgba(184, 243, 236, 0.72);
   outline-offset: 3px;
 }
 

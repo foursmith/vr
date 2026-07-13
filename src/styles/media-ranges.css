@@ -105,13 +105,13 @@ input[type='range']:focus {
 .volume-range:focus::-webkit-slider-thumb {
   box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.45),
-    0 0 0 3px rgba(10, 132, 255, 0.22);
+    0 0 0 3px rgba(98, 207, 216, 0.28);
 }
 
 .volume-range:focus::-moz-range-thumb {
   box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.45),
-    0 0 0 3px rgba(10, 132, 255, 0.22);
+    0 0 0 3px rgba(98, 207, 216, 0.28);
 }
 
 .vertical-range {
@@ -165,5 +165,5 @@ input[type='range']:focus {
 
 .media-range:focus-visible + .liquid-glass-range-thumb,
 .vertical-range:focus-visible + .liquid-glass-range-thumb {
-  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.22);
+  box-shadow: 0 0 0 3px rgba(98, 207, 216, 0.28);
 }
