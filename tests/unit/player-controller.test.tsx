@@ -1,10 +1,11 @@
 import { render } from "@solidjs/web"
+import { indexedDB } from "fake-indexeddb"
 import { flush } from "solid-js"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Player } from "../../src/components/player/Player"
 
 import { createPlayerController } from "../../src/features/player/controller"
-import { loadGlobalPreferences } from "../../src/features/player/playback-state"
+import { loadGlobalPreferences, loadVideoPlaybackState, videoStateKey } from "../../src/features/player/playback-state"
 
 const mocks = vi.hoisted(() => ({
   sceneController: {
@@ -65,6 +66,7 @@ const setupController = () => {
 
 beforeEach(() => {
   vi.useFakeTimers()
+  vi.stubGlobal("indexedDB", indexedDB)
   localStorage.clear()
   vi.stubGlobal("matchMedia", vi.fn((query: string) => ({
     matches: false,
@@ -82,10 +84,10 @@ beforeEach(() => {
   })
   vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1))
   vi.stubGlobal("cancelAnimationFrame", vi.fn())
-  vi.stubGlobal("URL", {
-    ...URL,
-    createObjectURL: vi.fn(() => "blob:test-video"),
-    revokeObjectURL: vi.fn(),
+  const BrowserURL = URL
+  vi.stubGlobal("URL", class extends BrowserURL {
+    static createObjectURL = vi.fn(() => "blob:test-video")
+    static revokeObjectURL = vi.fn()
   })
   mocks.preload.mockClear()
   mocks.releaseResources.mockClear()
@@ -166,6 +168,26 @@ describe("player controller", () => {
     dispose()
   })
 
+  it("expands browser-imported folders through the selected video", async () => {
+    const { controller, dispose, host } = setupController()
+    const file = new File(["video"], "movie.mp4", { type: "video/mp4" })
+    Object.defineProperty(file, "webkitRelativePath", { value: "Series/Season 1/movie.mp4" })
+    const folderInput = host.querySelector<HTMLInputElement>("input[webkitdirectory]")!
+    Object.defineProperty(folderInput, "files", { configurable: true, value: [file] })
+
+    controller.frame.handleFolder()
+    await settle()
+    await vi.advanceTimersByTimeAsync(200)
+    await settle()
+
+    const series = controller.playlist.state.nodes.find(node => node.name === "Series")!
+    const season = series.children!.find(node => node.name === "Season 1")!
+    const video = season.children!.find(node => node.name === "movie.mp4")!
+    expect(controller.playlist.state.expandedFolderIds).toEqual([series.id, season.id])
+    expect(controller.playlist.state.selectedId).toBe(video.id)
+    dispose()
+  })
+
   it("reports initialization failures and allows retry", async () => {
     const warning = vi.spyOn(console, "warn").mockImplementation(() => {})
     mocks.preload.mockRejectedValueOnce(new Error("model unavailable"))
@@ -180,5 +202,89 @@ describe("player controller", () => {
     expect(controller.playback.loadingState.resourcesReady).toBe(true)
     dispose()
     warning.mockRestore()
+  })
+
+  it("restores the last fsvr video from a legacy URL key", async () => {
+    const mediaPath = "/api/v1/media/local/Zm9sZGVyL21vdmllLm1wNA"
+    localStorage.setItem("foursmith-vr:last-playback", JSON.stringify({
+      key: `url:${window.location.origin}${mediaPath}`,
+      position: 37,
+      presetId: 2,
+    }))
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input))
+      if (url.pathname === "/api/v1/status") return Response.json({ name: "fsvr" })
+      if (url.pathname === "/api/v1/auth") return Response.json({ authenticated: true })
+      if (url.pathname === "/api/v1/sources") {
+        return Response.json([{ id: "local", name: "Movies", kind: "local" }])
+      }
+      if (url.pathname === "/api/v1/sources/local/entries" && !url.searchParams.has("path")) {
+        return Response.json([{ id: "Zm9sZGVy", name: "folder", kind: "folder" }])
+      }
+      if (url.pathname === "/api/v1/sources/local/entries" && url.searchParams.get("path") === "Zm9sZGVy") {
+        return Response.json([{ id: "Zm9sZGVyL21vdmllLm1wNA", name: "movie.mp4", kind: "video" }])
+      }
+      return Response.json({ error: "not found" }, { status: 404 })
+    }))
+
+    const { controller, dispose, video } = setupController()
+    await settle()
+    await vi.advanceTimersByTimeAsync(200)
+    await settle()
+
+    expect(video.getAttribute("src")).toBe(`${window.location.origin}${mediaPath}`)
+    expect(video.currentTime).toBe(37)
+    expect(controller.playlist.state.expandedFolderIds).toEqual([
+      "source:local",
+      "local:Zm9sZGVy",
+    ])
+    expect(controller.playlist.state.selectedId).toBe("local:Zm9sZGVyL21vdmllLm1wNA")
+    expect(JSON.parse(localStorage.getItem("foursmith-vr:last-playback")!)).toMatchObject({
+      key: "fsvr:local/Zm9sZGVyL21vdmllLm1wNA",
+      position: 37,
+      presetId: 2,
+    })
+    dispose()
+  })
+
+  it("does not persist playback data for DLNA videos", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input))
+      if (url.pathname === "/api/v1/status") return Response.json({ name: "fsvr" })
+      if (url.pathname === "/api/v1/auth") return Response.json({ authenticated: true })
+      if (url.pathname === "/api/v1/sources") {
+        return Response.json([{ id: "dlna-device", name: "Media Server", kind: "dlna" }])
+      }
+      if (url.pathname === "/api/v1/sources/dlna-device/entries") {
+        return Response.json([{ id: "video-entry", name: "DLNA movie", kind: "video" }])
+      }
+      return Response.json({ error: "not found" }, { status: 404 })
+    }))
+
+    const { controller, dispose, video } = setupController()
+    for (let index = 0; index < 4; index += 1) await settle()
+    await vi.advanceTimersByTimeAsync(0)
+    await settle()
+    expect(controller.server.state.status).toBe("connected")
+    controller.playlist.togglePlaylistFolder("source:dlna-device")
+    for (let index = 0; index < 4; index += 1) await settle()
+    await vi.advanceTimersByTimeAsync(0)
+    await settle()
+    expect(controller.playlist.playlistVideos().map(node => node.id)).toContain("dlna-device:video-entry")
+    controller.playlist.playPlaylistNode("dlna-device:video-entry")
+    await vi.advanceTimersByTimeAsync(200)
+    await settle()
+    video.currentTime = 48
+    controller.playback.syncTime()
+    controller.display.setPresetId(2)
+    controller.playback.handlePlayingChange(false)
+    await settle()
+
+    const mediaUrl = `${window.location.origin}/api/v1/media/dlna-device/video-entry`
+    expect(video.getAttribute("src")).toBe(mediaUrl)
+    expect(localStorage.getItem("foursmith-vr:last-playback")).toBeNull()
+    vi.useRealTimers()
+    expect(await loadVideoPlaybackState(videoStateKey({ name: "DLNA movie", url: mediaUrl }))).toBeUndefined()
+    dispose()
   })
 })

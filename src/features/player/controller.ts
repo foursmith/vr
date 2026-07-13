@@ -27,7 +27,7 @@ import {
 
 import { createControls } from "./controls"
 import { createDisplay } from "./display"
-import { DEFAULT_GLOBAL_PREFERENCES, loadGlobalPreferences, loadLastPlayback, loadVideoPlaybackState, saveGlobalPreferences, saveLastPlayback, saveVideoPlaybackState, videoStateKey } from "./playback-state"
+import { DEFAULT_GLOBAL_PREFERENCES, fsvrMediaIdentity, loadGlobalPreferences, loadLastPlayback, loadVideoPlaybackState, saveGlobalPreferences, saveLastPlayback, saveVideoPlaybackState, videoStateKey } from "./playback-state"
 
 export type { RepeatMode } from "./playback-state"
 
@@ -45,6 +45,45 @@ const VIDEO_RELEASE_SETTLE_MS = 160
 const VIDEO_EMPTY_TIMEOUT_MS = 1200
 const VIDEO_STATE_SAVE_INTERVAL_MS = 10_000
 const LAST_PLAYBACK_SAVE_INTERVAL_MS = 1_000
+
+const playlistFolderIds = (nodes: PlaylistNode[], targetId: string, folderIds: string[] = []): string[] | undefined => {
+  for (const node of nodes) {
+    if (node.id === targetId) return folderIds
+    if (node.kind !== "folder") continue
+    const found = playlistFolderIds(node.children ?? [], targetId, [...folderIds, node.id])
+    if (found) return found
+  }
+}
+
+const decodeBase64Url = (value: string) => {
+  const base64 = value.replaceAll("-", "+").replaceAll("_", "/")
+  const bytes = Uint8Array.from(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "=")), character => character.charCodeAt(0))
+  return new TextDecoder().decode(bytes)
+}
+
+const encodeBase64Url = (value: string) => {
+  let binary = ""
+  new TextEncoder().encode(value).forEach(byte => (binary += String.fromCharCode(byte)))
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "")
+}
+
+const localFsvrVideoLocation = (entryId: string) => {
+  try {
+    const path = decodeBase64Url(entryId)
+    const separator = path.includes("\\") && !path.includes("/") ? "\\" : "/"
+    const parts = path.split(/[\\/]/).filter(Boolean)
+    const name = parts.pop()
+    if (!name) return
+    let parentPath = ""
+    const folderIds = ["source:local", ...parts.map((part) => {
+      parentPath = parentPath ? `${parentPath}${separator}${part}` : part
+      return `local:${encodeBase64Url(parentPath)}`
+    })]
+    return { folderIds, name }
+  } catch {
+    // Ignore malformed local entry IDs from stale playback data.
+  }
+}
 
 export function createPlayerController() {
   const initialPreferences = loadGlobalPreferences()
@@ -457,11 +496,12 @@ export function createPlayerController() {
     setPlaying(false)
     setCurrentTime(0)
     setDuration(0)
-    activeVideoKey = videoStateKey(resource)
-    const resumePlayback = lastPlayback?.key === activeVideoKey ? lastPlayback : undefined
-    lastPlayback = resumePlayback ?? { key: activeVideoKey, position: 0, presetId: 0 }
-    writeLastPlayback(lastPlayback)
-    restorePreset(lastPlayback.presetId)
+    const fsvrIdentity = resource.url && fsvrMediaIdentity(resource.url)
+    const playbackKey = !fsvrIdentity || fsvrIdentity.sourceId === "local" ? videoStateKey(resource) : undefined
+    activeVideoKey = playbackKey
+    const resumePlayback = playbackKey && lastPlayback?.key === playbackKey ? lastPlayback : undefined
+    if (playbackKey) writeLastPlayback(resumePlayback ?? { key: playbackKey, position: 0, presetId: 0 })
+    restorePreset(resumePlayback?.presetId ?? 0)
     resetTransientView()
     setAbLoop((draft) => {
       draft.a = undefined
@@ -483,9 +523,9 @@ export function createPlayerController() {
       pendingResumeTime = resumePlayback.position
       if (Number.isFinite(video.duration)) syncTime()
       void persistVideoHistory(resumePlayback)
-    } else {
+    } else if (playbackKey) {
       try {
-        const savedState = await loadVideoPlaybackState(activeVideoKey)
+        const savedState = await loadVideoPlaybackState(playbackKey)
         if (savedState && generation === videoLoadGeneration && !appDisposed) {
           restorePreset(savedState.presetId)
           pendingResumeTime = savedState.position
@@ -589,11 +629,14 @@ export function createPlayerController() {
       }
     }
     const preferredVideo = lastPlayback ? findLastPlayedVideo(nodes) : undefined
+    const videoToLoad = preferredVideo ?? firstVideo
+    const videoFolderIds = videoToLoad ? playlistFolderIds(nodes, videoToLoad.id) ?? [] : []
 
     appendPlaylist(nodes)
     setExpandedFolders((current) => {
       const next = new Set(current)
       nodes.forEach(node => node.kind === "folder" && node.remoteSourceId === undefined && next.add(node.id))
+      videoFolderIds.forEach(id => next.add(id))
       return next
     })
 
@@ -602,7 +645,6 @@ export function createPlayerController() {
       showControls()
     }
 
-    const videoToLoad = preferredVideo ?? firstVideo
     const shouldLoadImportedVideo = Boolean(preferredVideo) || (!playing() && (firstVideo?.file || firstVideo?.mediaUrl)
       && (playback === "always" || (playback === "when-empty" && !hasVideo())))
     if (shouldLoadImportedVideo && videoToLoad) {
@@ -757,6 +799,24 @@ export function createPlayerController() {
       draft.error = undefined
       draft.dlnaDevices = dlnaDevices
     })
+    const playback = lastPlayback
+    const identity = playback && fsvrMediaIdentity(playback.key)
+    const location = identity?.sourceId === "local" && localFsvrVideoLocation(identity.entryId)
+    if (playback && identity && location && nodes.some(node => node.remoteSourceId === "local")) {
+      await Promise.resolve()
+      for (const folderId of location.folderIds) {
+        if (appDisposed) return
+        await loadRemoteFolder(folderId)
+        setExpandedFolders(current => new Set(current).add(folderId))
+        await Promise.resolve()
+      }
+      const mediaUrl = new URL(
+        `/api/v1/media/${encodeURIComponent(identity.sourceId)}/${encodeURIComponent(identity.entryId)}`,
+        serverState.endpoint,
+      ).href
+      lastPlayback = { ...playback, key: videoStateKey({ name: location.name, url: mediaUrl }) }
+      loadVideoUrl(mediaUrl, location.name, `${identity.sourceId}:${identity.entryId}`)
+    }
   }
 
   const authenticateServer = async (password: string) => {

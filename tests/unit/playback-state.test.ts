@@ -2,6 +2,7 @@ import { indexedDB } from "fake-indexeddb"
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   DEFAULT_GLOBAL_PREFERENCES,
+  fsvrMediaIdentity,
   loadGlobalPreferences,
   loadLastPlayback,
   loadVideoPlaybackState,
@@ -57,6 +58,11 @@ describe("player state persistence", () => {
     const file = new File(["video"], "movie.mp4", { lastModified: 42 })
     expect(videoStateKey({ name: file.name, file })).toBe(`file:movie.mp4:${file.size}:42`)
     expect(videoStateKey({ name: "Remote", url: "https://example.com/movie.mp4" })).toBe("url:https://example.com/movie.mp4")
+    expect(videoStateKey({ name: "Remote", url: "http://127.0.0.1:4190/api/v1/media/local/folder%2Fmovie" })).toBe("fsvr:local/folder%2Fmovie")
+    expect(fsvrMediaIdentity("url:http://localhost:4190/api/v1/media/local/folder%2Fmovie")).toEqual({
+      sourceId: "local",
+      entryId: "folder/movie",
+    })
   })
 
   it("saves the last playback position separately from global preferences", () => {
