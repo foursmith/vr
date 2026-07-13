@@ -12,6 +12,24 @@ afterEach(async () => {
 })
 
 describe("fsvr media server", () => {
+  test("allows requests without a password when authentication is disabled", async () => {
+    const root = await mkdtemp(join(tmpdir(), "fsvr-no-auth-"))
+    await writeFile(join(root, "sample.mp4"), "video")
+    const source = await createLocalSource(root)
+    const server = createMediaServer({
+      hostname: "127.0.0.1",
+      port: 0,
+      sources: new Map([[source.id, source]]),
+    })
+    servers.push(server)
+    const base = `http://${server.hostname}:${server.port}`
+
+    expect(await fetch(`${base}/api/v1/auth`).then(response => response.json()))
+      .toEqual({ authenticated: true })
+    expect((await fetch(`${base}/api/v1/sources`)).status).toBe(200)
+    expect((await fetch(`${base}/api/v1/sources/local/entries`)).status).toBe(200)
+  })
+
   test("lists media and serves authenticated byte ranges", async () => {
     const root = await mkdtemp(join(tmpdir(), "fsvr-"))
     await mkdir(join(root, "Movies"))

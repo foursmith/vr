@@ -11,6 +11,12 @@ describe("fsvr command", () => {
     expect(hostnameForHostFlag(exposedArgs.host)).toBe("0.0.0.0")
   })
 
+  test("supports explicitly disabling password authentication", () => {
+    const args = parseArgs<typeof mainArgs>(["--disable-password"], mainArgs)
+
+    expect(args["disable-password"]).toBe(true)
+  })
+
   test("opens the Web UI only once across hot reloads", () => {
     const hotReloadState = {}
 

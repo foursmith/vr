@@ -16,6 +16,7 @@ export const mainArgs = {
   "host": { type: "boolean", description: "Listen on all network interfaces", default: false },
   "port": { type: "string", description: "Port to listen on", valueHint: "port", default: "4090" },
   "password": { type: "string", description: "Stable access password", valueHint: "password" },
+  "disable-password": { type: "boolean", description: "Disable password authentication", default: false },
   "dlna-scan": { type: "boolean", description: "Scan for DLNA servers before startup", default: false },
   "open": { type: "boolean", description: "Open the Web UI", default: false },
 } as const
@@ -42,8 +43,10 @@ export const mainCommand = defineCommand({
     const port = Number(args.port)
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("port must be between 1 and 65535")
 
-    const password = args.password ?? randomBytes(24).toString("base64url")
-    if (!password.trim()) throw new Error("password must not be empty")
+    const password = args["disable-password"]
+      ? undefined
+      : args.password ?? randomBytes(24).toString("base64url")
+    if (password !== undefined && !password.trim()) throw new Error("password must not be empty")
 
     const source = await createLocalSource(resolve(args.directory))
     const sources = new Map<string, MediaSource>([[source.id, source]])
@@ -71,10 +74,10 @@ export const mainCommand = defineCommand({
     const localUrl = `http://127.0.0.1:${server.port}`
     const webUrl = process.env.FSVR_WEB_URL ?? localUrl
     const authenticatedLocalUrl = new URL(webUrl)
-    authenticatedLocalUrl.searchParams.set("password", password)
+    if (password !== undefined) authenticatedLocalUrl.searchParams.set("password", password)
     console.log(`Local server: ${localUrl}`)
     console.log(`Media root:   ${source.name}`)
-    console.log(`Password:     ${password}`)
+    console.log(`Password:     ${password ?? "disabled"}`)
     console.log(`Web UI:       ${webUrl}`)
 
     if (args.host) {

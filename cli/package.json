@@ -9,7 +9,7 @@
   },
   "scripts": {
     "prepare:web": "bun run scripts/prepare-web.ts",
-    "dev": "bun run scripts/dev.ts ~/Movies --port 4091 --open --password fsvr",
+    "dev": "bun run scripts/dev.ts ~/Movies --port 4091 --open --disable-password",
     "build": "bun run scripts/build.ts",
     "typecheck": "bun run prepare:web && tsgo --noEmit",
     "test": "bun test"

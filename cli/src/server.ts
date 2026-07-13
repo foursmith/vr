@@ -9,7 +9,7 @@ const AUTH_COOKIE_ATTRIBUTES = "HttpOnly; Secure; SameSite=Strict; Path=/"
 export interface MediaServerOptions {
   hostname: string
   port: number
-  password: string
+  password?: string
   sources: Map<string, MediaSource>
   discoverDlna?: () => Promise<MediaSource[]>
   webAssets?: Record<string, string>
@@ -38,9 +38,9 @@ const authCookie = (value: string, maxAge: number) =>
   `${AUTH_COOKIE_NAME}=${encodeURIComponent(value)}; ${AUTH_COOKIE_ATTRIBUTES}; Max-Age=${maxAge}`
 
 const authenticated = <Path extends string>(
-  password: string,
+  password: string | undefined,
   handle: RouteHandler<Path>,
-): RouteHandler<Path> => request => passwordMatches(request.cookies.get(AUTH_COOKIE_NAME), password)
+): RouteHandler<Path> => request => password === undefined || passwordMatches(request.cookies.get(AUTH_COOKIE_NAME), password)
   ? handle(request)
   : errorResponse("unauthorized", 401)
 
@@ -118,9 +118,11 @@ const createRoutes = (options: MediaServerOptions) => {
     },
     "/api/v1/auth": {
       GET: (request: Bun.BunRequest<"/api/v1/auth">) => json({
-        authenticated: passwordMatches(request.cookies.get(AUTH_COOKIE_NAME), options.password),
+        authenticated: options.password === undefined
+          || passwordMatches(request.cookies.get(AUTH_COOKIE_NAME), options.password),
       }),
       POST: async (request: Bun.BunRequest<"/api/v1/auth">) => {
+        if (options.password === undefined) return json({ authenticated: true })
         const body = await request.json().catch(() => undefined) as { password?: unknown } | undefined
         if (typeof body?.password !== "string" || !passwordMatches(body.password, options.password)) {
           return errorResponse("unauthorized", 401, { "set-cookie": authCookie("", 0) })
