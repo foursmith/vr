@@ -13,10 +13,10 @@ import { SettingsModal } from "./SettingsModal"
 const glassPillClass = "text-white transition hover:text-white focus-within:text-white"
 const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2] as const
 const REPEAT_MODES = [
-  { value: "off", label: "一次", icon: "play-once" },
-  { value: "playlist", label: "列表", icon: "playlist-repeat" },
-  { value: "folder", label: "文件夹", icon: "folder-repeat" },
-  { value: "file", label: "单文件", icon: "repeat-once" },
+  { value: "off", label: "Once", icon: "play-once" },
+  { value: "playlist", label: "Playlist", icon: "playlist-repeat" },
+  { value: "folder", label: "Folder", icon: "folder-repeat" },
+  { value: "file", label: "File", icon: "repeat-once" },
 ] as const
 export function PlayerControls(props: { controller: PlayerController }) {
   const controller = untrack(() => props.controller)
@@ -117,7 +117,7 @@ export function PlayerControls(props: { controller: PlayerController }) {
           <div class="flex min-w-0 items-center justify-end gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] max-sm:col-start-2 max-sm:row-start-1 max-sm:w-full max-sm:[&::-webkit-scrollbar]:hidden sm:flex-nowrap lg:justify-end">
             <div ref={repeatButton} class="relative shrink-0">
               <IconButton
-                label={`播放模式：${REPEAT_MODES.find(mode => mode.value === repeatMode())?.label}`}
+                label={`Playback mode: ${REPEAT_MODES.find(mode => mode.value === repeatMode())?.label}`}
                 icon={REPEAT_MODES.find(mode => mode.value === repeatMode())?.icon ?? "play-once"}
                 pressed={repeatOpen() || repeatMode() !== "off"}
                 onClick={() => {
@@ -145,7 +145,7 @@ export function PlayerControls(props: { controller: PlayerController }) {
                     elasticity={0.08}
                     castShadow
                   >
-                    <div class="grid w-full grid-cols-4 gap-1 p-1.5 text-white" role="radiogroup" aria-label="播放模式">
+                    <div class="grid w-full grid-cols-4 gap-1 p-1.5 text-white" role="radiogroup" aria-label="Playback mode">
                       <For each={REPEAT_MODES}>
                         {mode => (
                           <button

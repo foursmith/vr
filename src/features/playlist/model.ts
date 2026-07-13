@@ -93,7 +93,7 @@ const fileStem = (name: string) => name.replace(/\.[^.]+$/, "")
 const normalizedName = (name: string) => fileStem(name)
   .normalize("NFKD")
   .toLocaleLowerCase()
-  .replace(/\b(zh|zho|chi|chs|cht|cn|eng|en|english|简体|繁体|字幕|subtitle|sub)\b/g, " ")
+  .replace(/\b(zh|zho|chi|chs|cht|cn|eng|en|english|subtitle|sub)\b/g, " ")
   .replace(/[^\p{L}\p{N}]+/gu, " ")
   .trim()
 
