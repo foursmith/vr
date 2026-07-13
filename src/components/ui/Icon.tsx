@@ -1,5 +1,6 @@
 const ICONS = {
   "bug": "i-ph-bug",
+  "caret-down": "i-ph-caret-down",
   "corners-in": "i-ph-corners-in",
   "corners-out": "i-ph-corners-out",
   "cube-focus": "i-ph-cube-focus",
@@ -12,6 +13,8 @@ const ICONS = {
   "folder-open": "i-ph-folder-open",
   "folder-open-fill": "i-ph-folder-open-fill",
   "gauge": "i-ph-gauge",
+  "github": "i-ph-github-logo",
+  "keyboard": "i-ph-keyboard",
   "lock": "i-ph-lock-key",
   "unlock": "i-ph-lock-key-open",
   "pause": "i-ph-pause",

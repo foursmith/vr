@@ -1,8 +1,10 @@
 import type { PlayerController } from "../../features/player/controller"
 import type { IconName } from "../ui/Icon"
 import { createSignal, For, onSettled, Show, untrack } from "solid-js"
+import appPackage from "../../../package.json"
 import { SHORTCUT_DEFINITIONS } from "../../features/player/shortcuts"
 import { Drawer } from "../ui/Drawer"
+import { FsvrLogo } from "../ui/FsvrLogo"
 import { Icon } from "../ui/Icon"
 import { Modal } from "../ui/Modal"
 import { Switch } from "../ui/Switch"
@@ -36,7 +38,7 @@ function SettingToggle(props: {
 
 export function SettingsModal(props: { controller: PlayerController, open: boolean, onOpenChange: (open: boolean) => void }) {
   const controller = untrack(() => props.controller)
-  const { debug, display, server } = controller
+  const { debug, display } = controller
   const { setFaceAutoCenter, setSplitScreen, state } = display
   const [narrowScreen, setNarrowScreen] = createSignal(window.matchMedia("(max-width: 639.9px)").matches)
 
@@ -49,7 +51,7 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
 
   const content = () => (
     <div class="max-h-[calc(100dvh-1rem)] w-full overflow-y-auto pb-[env(safe-area-inset-bottom)] pt-3 overscroll-contain">
-      <div class="flex items-start justify-between px-5 pb-3 pt-5">
+      <div class="flex items-start justify-between px-5 py-3">
         <div>
           <h2 id="settings-title" class="text-sm font-semibold tracking-tight text-white">Settings</h2>
           <p id="settings-description" class="mt-1 text-[11px] text-white/46">Choose how the video view behaves.</p>
@@ -87,70 +89,19 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
           onCheckedChange={debug.setPanelOpen}
         />
 
-        <Show when={server.state.status !== "disconnected"}>
-          <section class="mt-1 overflow-hidden rounded-2xl bg-white/4" aria-labelledby="server-settings-title">
-            <div class="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-3 px-3 py-3">
-              <span class="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-white/8 text-white/78">
-                <Icon name="server" class="h-4 w-4" />
-              </span>
-              <div class="min-w-0 flex-1">
-                <h3 id="server-settings-title" class="text-xs font-semibold text-white/92">Local media server</h3>
-                <p class="mt-0.5 truncate text-[11px] text-white/48">Local files and DLNA devices</p>
-              </div>
-              <span class={`flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-[9px] font-semibold ${server.state.status === "connected" ? "bg-emerald-400/10 text-emerald-200/80" : "bg-white/6 text-white/38"}`}>
-                <span class={`h-1.5 w-1.5 rounded-full ${server.state.status === "connected" ? "bg-emerald-300" : "bg-amber-200/70"}`}></span>
-                {server.state.status === "authentication-required" ? "Locked" : server.state.status}
-              </span>
-            </div>
-
-            <Show when={server.state.error}>
-              {message => (
-                <div class="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3 border-t border-white/7 px-3 py-2.5">
-                  <p class="col-start-2 text-[10px] text-red-300/85">{message()}</p>
-                </div>
-              )}
-            </Show>
-
-            <Show when={server.state.status === "connected"}>
-              <div class="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3 border-t border-white/7 px-3 py-2.5">
-                <div class="col-start-2">
-                  <div class="flex items-center gap-2">
-                    <h4 class="text-[10px] font-semibold text-white/56">DLNA devices</h4>
-                    <Show when={server.state.dlnaDevices.length}>
-                      <span class="font-mono text-[9px] text-accent/70">{server.state.dlnaDevices.length}</span>
-                    </Show>
-                  </div>
-                  <p class="mt-0.5 text-[9px] text-white/32">Visible on the server network</p>
-                </div>
-                <Show
-                  when={server.state.dlnaDevices.length}
-                  fallback={<p class="col-start-2 mt-2 text-[9px] text-white/28">No devices connected.</p>}
-                >
-                  <ul class="col-start-2 mt-2.5 divide-y divide-white/6 border-t border-white/6">
-                    <For each={server.state.dlnaDevices}>
-                      {device => (
-                        <li class="flex h-8 items-center gap-2 text-[10px] text-white/68">
-                          <span class="h-1 w-1 rounded-full bg-emerald-300/80"></span>
-                          <span class="min-w-0 flex-1 truncate font-medium">{device.name}</span>
-                          <span class="font-mono text-[8px] uppercase tracking-wider text-white/24">online</span>
-                        </li>
-                      )}
-                    </For>
-                  </ul>
-                </Show>
-              </div>
-            </Show>
-          </section>
-        </Show>
-
         <Show when={!narrowScreen()}>
-          <details class="group mt-1 overflow-hidden rounded-2xl bg-white/4">
-            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 marker:hidden">
-              <div>
+          <details class="group overflow-hidden rounded-2xl bg-white/4">
+            <summary class="grid min-h-13 cursor-pointer list-none grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-3 py-1 pl-3 pr-1 text-left transition-colors marker:hidden hover:bg-white/8">
+              <span class="grid h-8 w-8 place-items-center rounded-xl bg-white/8 text-white/78 transition group-hover:text-white">
+                <Icon name="keyboard" class="h-4 w-4" />
+              </span>
+              <div class="min-w-0">
                 <h3 class="text-xs font-semibold text-white/92">Keyboard shortcuts</h3>
-                <p class="mt-0.5 text-[11px] text-white/48">View all player keyboard controls.</p>
+                <span class="mt-0.5 block text-[11px] leading-snug text-white/48">View all player keyboard controls.</span>
               </div>
-              <span aria-hidden="true" class="text-xs text-white/42 transition-transform group-open:rotate-180">⌄</span>
+              <span class="grid h-8 w-8 place-items-center text-white/42 transition-colors group-hover:text-white/68">
+                <Icon name="caret-down" class="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+              </span>
             </summary>
             <div class="grid grid-cols-2 gap-x-4 border-t border-white/7 px-4 py-2">
               <For each={SHORTCUT_DEFINITIONS}>
@@ -164,6 +115,39 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
             </div>
           </details>
         </Show>
+
+        <section class="overflow-hidden rounded-2xl bg-white/4" aria-labelledby="about-title">
+          <div class="grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-3 px-3 py-3">
+            <span class="grid h-10 w-10 place-items-center rounded-xl bg-white/8 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
+              <FsvrLogo class="h-8 w-8" />
+            </span>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <h3 id="about-title" class="text-xs font-semibold text-white/94">Foursmith VR</h3>
+                <span class="rounded-full bg-white/7 px-1.5 py-0.5 font-mono text-[8px] text-white/38">
+                  v
+                  {appPackage.version}
+                </span>
+              </div>
+              <p class="mt-1 text-[11px] leading-snug text-white/48">Watch VR like TikTok — no headset required.</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 border-t border-white/7 px-3 py-2.5 text-[10px]">
+            <div class="flex min-w-0 items-center gap-2 text-white/42">
+              <span class="whitespace-nowrap">
+                By
+                {" "}
+                <a class="font-medium text-white/68 transition-colors hover:text-white focus-visible:text-white focus-visible:outline-none focus-visible:underline" href="https://github.com/ourongxing" target="_blank" rel="noreferrer">ourongxing</a>
+              </span>
+              <span aria-hidden="true" class="h-0.5 w-0.5 shrink-0 rounded-full bg-white/24"></span>
+              <a class="whitespace-nowrap transition-colors hover:text-white/72 focus-visible:text-white/72 focus-visible:outline-none focus-visible:underline" href="https://github.com/foursmith/vr/blob/main/LICENSE" target="_blank" rel="noreferrer">{appPackage.license.replace("-", " ")}</a>
+            </div>
+            <a class="ml-auto flex shrink-0 items-center gap-1.5 rounded-lg px-1.5 py-1 font-medium text-white/58 transition-colors hover:bg-white/7 hover:text-white focus-visible:bg-white/7 focus-visible:text-white focus-visible:outline-none" href="https://github.com/foursmith/vr" target="_blank" rel="noreferrer">
+              <Icon name="github" class="h-3.5 w-3.5" />
+              GitHub
+            </a>
+          </div>
+        </section>
       </div>
     </div>
   )
