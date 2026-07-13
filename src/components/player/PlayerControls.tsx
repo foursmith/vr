@@ -17,13 +17,11 @@ export function PlayerControls(props: { controller: PlayerController }) {
   const {
     activeSlider,
     cancelHideSlider,
-    containsControlsPanel,
     controlsVisible,
-    scheduleHideControls,
+    registerUiSurface,
     scheduleHideSlider,
     setControlsPanel,
-    setControlsZone,
-    showControls,
+    setControlsHold,
     showSlider,
   } = controls
   const { setPlaylistOpen, state: playlistState } = playlist
@@ -44,19 +42,19 @@ export function PlayerControls(props: { controller: PlayerController }) {
   } = display
   return (
     <aside
-      ref={setControlsZone}
       class="player-controls pointer-events-auto absolute inset-x-0 bottom-0 z-20 p-3 sm:p-6"
     >
       <div
-        ref={setControlsPanel}
+        ref={[setControlsPanel, registerUiSurface]}
         class={`pointer-events-auto relative mx-auto grid max-w-6xl gap-3 overflow-visible rounded-[24px] bg-transparent p-2 text-white shadow-none transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:p-4 ${
           controlsVisible() ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-4 opacity-0"
         }`}
-        onMouseEnter={showControls}
-        onFocusIn={showControls}
+        onFocusIn={(event) => {
+          setControlsHold("focus", (event.target as HTMLElement).matches(":focus-visible"))
+        }}
         onFocusOut={(event) => {
-          if (containsControlsPanel(event.relatedTarget as Node | null)) return
-          if (loadingState.resourcesReady) scheduleHideControls()
+          if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+          setControlsHold("focus", false)
         }}
       >
         <ControlSliderPopover controller={controller} />
@@ -169,9 +167,16 @@ export function PlayerControls(props: { controller: PlayerController }) {
           </div>
         </div>
 
-        <PlaybackTimeline controller={playback} />
+        <PlaybackTimeline controller={controller} />
       </div>
-      <SettingsModal controller={controller} open={settingsOpen()} onOpenChange={setSettingsOpen} />
+      <SettingsModal
+        controller={controller}
+        open={settingsOpen()}
+        onOpenChange={(open) => {
+          setSettingsOpen(open)
+          setControlsHold("settings", open)
+        }}
+      />
     </aside>
   )
 }

@@ -7,10 +7,9 @@ import { PlayerStage } from "./PlayerStage"
 
 export function Player(props: { controller: PlayerController }) {
   const controller = untrack(() => props.controller)
-  const { frame, playlist } = controller
+  const { controls, frame } = controller
   const {
     chooseFolder,
-    cursorVisible,
     handleFile,
     handleFolder,
     handlePlayerPointerMove,
@@ -25,7 +24,7 @@ export function Player(props: { controller: PlayerController }) {
     <main
       ref={setPlayer}
       id="player"
-      class={`relative h-dvh overflow-hidden bg-black text-white ${cursorVisible() ? "" : "cursor-none"}`}
+      class={`relative h-dvh overflow-hidden bg-black text-white ${controls.controlsVisible() ? "" : "cursor-none"}`}
       onPointerMove={handlePlayerPointerMove}
       onDragEnter={(event) => {
         if (Array.from(event.dataTransfer?.types ?? []).includes("Files")) event.preventDefault()
@@ -51,7 +50,7 @@ export function Player(props: { controller: PlayerController }) {
         <EmptyState onChooseFiles={openVideoFile} onChooseFolder={() => chooseFolder()} />
       </Show>
 
-      <PlaylistPanel controller={playlist} />
+      <PlaylistPanel controller={controller} />
       <Show when={hasVideo()}>
         <PlayerControls controller={controller} />
       </Show>
