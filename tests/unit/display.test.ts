@@ -42,4 +42,19 @@ describe("player display state", () => {
     await display.controller.toggleFullscreen()
     expect(exitFullscreen).toHaveBeenCalled()
   })
+
+  it("applies initial global display preferences and updates transient display state", () => {
+    const display = createDisplay({
+      getPlayer: () => document.body,
+      resourcesReady: () => true,
+      viewRef: { current: { yaw: 0, pitch: 0, zoom: 1, pausedUntil: 0 } },
+      initialState: { qualityId: 1, splitScreen: false, faceAutoCenter: false },
+    })
+    expect(display.controller.state).toMatchObject({ qualityId: 1, splitScreen: false, faceAutoCenter: false })
+    display.controller.setPresetId(2)
+    display.controller.setZoom(1.5)
+    flush()
+    expect(display.controller.state.presetId).toBe(2)
+    expect(display.controller.zoom()).toBe(1.5)
+  })
 })

@@ -2,6 +2,7 @@ import type { PlaylistNode, PlaylistStateNode } from "../playlist/model"
 import type { DlnaDevice } from "../sources/fsvr-client"
 import type { SubtitleCue } from "../subtitles/parser"
 import type { CameraView, VrSceneController } from "../vr/scene"
+import type { LastPlayback, RepeatMode } from "./playback-state"
 import { createEffect, createMemo, createSignal, createStore, onSettled } from "solid-js"
 import { releaseFaceAutoCenterResources } from "../face-tracking/client"
 import {
@@ -26,14 +27,15 @@ import {
 
 import { createControls } from "./controls"
 import { createDisplay } from "./display"
-import { loadCachedPlaybackPosition, loadCachedSeekLandingCounts, loadLastPlayedVideoKey, playbackCacheKey, saveCachedPlaybackPosition, saveCachedSeekLandingCounts, saveLastPlayedVideoKey } from "./playback-cache"
+import { DEFAULT_GLOBAL_PREFERENCES, loadGlobalPreferences, loadLastPlayback, loadVideoPlaybackState, saveGlobalPreferences, saveLastPlayback, saveVideoPlaybackState, videoStateKey } from "./playback-state"
+
+export type { RepeatMode } from "./playback-state"
 
 type ValueUpdate<T> = T | ((current: T) => T)
 const LOCAL_PLAYLIST_REFRESH_INTERVAL_MS = 10_000
 type PlaylistImportPlayback = "always" | "when-empty" | "never"
 interface VideoResource { name: string, file?: File, url?: string }
 interface SubtitleResource { name: string, file?: File, url?: string }
-export type RepeatMode = "off" | "playlist" | "folder" | "file"
 
 const resolveUpdate = <T>(current: T, update: ValueUpdate<T>) =>
   typeof update === "function" ? (update as (current: T) => T)(current) : update
@@ -41,8 +43,11 @@ const resolveUpdate = <T>(current: T, update: ValueUpdate<T>) =>
 const VIDEO_SWITCH_DEBOUNCE_MS = 180
 const VIDEO_RELEASE_SETTLE_MS = 160
 const VIDEO_EMPTY_TIMEOUT_MS = 1200
+const VIDEO_STATE_SAVE_INTERVAL_MS = 10_000
+const LAST_PLAYBACK_SAVE_INTERVAL_MS = 1_000
 
 export function createPlayerController() {
+  const initialPreferences = loadGlobalPreferences()
   let player!: HTMLElement
   let fileInput!: HTMLInputElement
   let folderInput!: HTMLInputElement
@@ -56,23 +61,17 @@ export function createPlayerController() {
   const viewRef = { current: { yaw: 0, pitch: 0, zoom: DEFAULT_ZOOM, pausedUntil: 0 } satisfies CameraView }
   let scene: VrSceneController | undefined
   let fileUrl: string | undefined
-  let lastAudibleVolume = 1
+  let lastAudibleVolume = initialPreferences.volume || DEFAULT_GLOBAL_PREFERENCES.volume
   let videoLoadGeneration = 0
   let videoSwitchTimer: number | undefined
   let videoSwitchInProgress = false
   let pendingVideoSwitch: { resource: VideoResource, playlistId?: string } | undefined
   let autoplayPending = false
-  let seekLandingCounts: number[] = []
-  let activePlaybackCacheKey: string | undefined
-  let landingCountsSaveTimer: number | undefined
-  let playbackPositionSaveTimer: number | undefined
+  let activeVideoKey: string | undefined
+  let videoStateSaveTimer: number | undefined
+  let lastPlayback = loadLastPlayback()
+  let lastPlaybackSavedAt = 0
   let pendingResumeTime: number | undefined
-  let lastPlayedVideoKey: string | undefined
-  const lastPlayedVideoKeyPromise = loadLastPlayedVideoKey().then((key) => {
-    if (lastPlayedVideoKey === undefined) lastPlayedVideoKey = key
-  }).catch((error) => {
-    console.warn("last played video could not be loaded", error)
-  })
   let playlistImportGeneration = 0
   let resourcesInitialized = false
   const playlistFiles = new Map<string, File>()
@@ -82,7 +81,6 @@ export function createPlayerController() {
   const playlistSubtitleUrls = new Map<string, { name: string, url: string }>()
 
   const [fileName, setFileName] = createSignal<string>()
-  const [seekLandingHeatmap, setSeekLandingHeatmap] = createSignal<number[]>([])
   const [serverState, setServerState] = createStore({
     endpoint: "",
     status: "disconnected" as "disconnected" | "connecting" | "authentication-required" | "connected" | "error",
@@ -134,12 +132,12 @@ export function createPlayerController() {
   const [playing, setPlaying] = createSignal(false)
   const [currentTime, setCurrentTime] = createSignal(0)
   const [duration, setDuration] = createSignal(0)
-  const [volume, setVolume] = createSignal(1)
-  const [playbackRate, setPlaybackRate] = createSignal(1)
-  const [repeatMode, setRepeatMode] = createSignal<RepeatMode>("off")
+  const [volume, setVolume] = createSignal(initialPreferences.volume)
+  const [playbackRate, setPlaybackRate] = createSignal(initialPreferences.playbackRate)
+  const [repeatMode, setRepeatMode] = createSignal<RepeatMode>(initialPreferences.repeatMode)
   const [abLoop, setAbLoop] = createStore({ a: undefined as number | undefined, b: undefined as number | undefined })
   const [subtitleCues, setSubtitleCues] = createSignal<SubtitleCue[]>([])
-  const [subtitlesEnabled, setSubtitlesEnabled] = createSignal(true)
+  const [subtitlesEnabled, setSubtitlesEnabled] = createSignal(initialPreferences.subtitlesEnabled)
   const [subtitleFileName, setSubtitleFileName] = createSignal<string>()
   const [debugPanelOpen, setDebugPanelOpen] = createSignal(false)
   const [loadingState, setLoadingState] = createStore({
@@ -166,6 +164,7 @@ export function createPlayerController() {
     getPlayer: () => player,
     resourcesReady,
     viewRef,
+    initialState: initialPreferences,
   })
   const {
     changeQualityBy,
@@ -173,12 +172,14 @@ export function createPlayerController() {
     presetId,
     qualityId,
     splitScreen,
+    resetTransientView,
+    restorePreset,
     syncFullscreen,
     syncZoom,
   } = displayModule
   const {
     resetView,
-    setPresetId,
+    setPresetId: setDisplayPresetId,
     setZoom,
     toggleFullscreen,
     zoom,
@@ -221,6 +222,58 @@ export function createPlayerController() {
   let loadingPromise: Promise<void> | undefined
   let appDisposed = false
 
+  const activePlaybackSnapshot = (nextPresetId = presetId()): LastPlayback | undefined => {
+    const key = activeVideoKey
+    if (!key) return
+    return { key, position: video.currentTime || 0, presetId: nextPresetId }
+  }
+
+  const persistVideoHistory = async (playback: LastPlayback) => {
+    try {
+      await saveVideoPlaybackState({ ...playback, updatedAt: Date.now() })
+    } catch (error) {
+      console.warn("video playback state could not be saved", error)
+    }
+  }
+
+  const writeLastPlayback = (playback: LastPlayback) => {
+    lastPlayback = { key: playback.key, position: playback.position, presetId: playback.presetId }
+    saveLastPlayback(lastPlayback)
+    lastPlaybackSavedAt = Date.now()
+  }
+
+  const persistLastPlayback = (force = false, nextPresetId = presetId()) => {
+    const now = Date.now()
+    if (!force && now - lastPlaybackSavedAt < LAST_PLAYBACK_SAVE_INTERVAL_MS) return
+    const playback = activePlaybackSnapshot(nextPresetId)
+    if (playback) writeLastPlayback(playback)
+  }
+
+  function scheduleActiveVideoStateSave(delay = VIDEO_STATE_SAVE_INTERVAL_MS) {
+    if (!activeVideoKey || videoStateSaveTimer !== undefined) return
+    videoStateSaveTimer = window.setTimeout(() => {
+      videoStateSaveTimer = undefined
+      const playback = activePlaybackSnapshot()
+      if (playback) void persistVideoHistory(playback)
+    }, delay)
+  }
+
+  const setPresetId = (update: ValueUpdate<number>) => {
+    const nextPresetId = setDisplayPresetId(update)
+    persistLastPlayback(true, nextPresetId)
+    scheduleActiveVideoStateSave()
+    return nextPresetId
+  }
+
+  const persistActiveVideoState = () => {
+    if (videoStateSaveTimer !== undefined) window.clearTimeout(videoStateSaveTimer)
+    videoStateSaveTimer = undefined
+    const playback = activePlaybackSnapshot()
+    if (!playback) return
+    writeLastPlayback(playback)
+    void persistVideoHistory(playback)
+  }
+
   const progress = createMemo(() => {
     const total = duration()
     return total ? Math.min(100, Math.max(0, (currentTime() / total) * 100)) : 0
@@ -252,21 +305,6 @@ export function createPlayerController() {
     video.dataset.displayMode = "vr-translation-layer"
   }
 
-  const recordPlaybackLanding = (time: number) => {
-    const second = Math.max(0, Math.floor(time))
-    const seconds = Math.max(second + 1, Math.ceil(video.duration || 0))
-    if (seekLandingCounts.length < seconds) seekLandingCounts.push(...Array.from<number>({ length: seconds - seekLandingCounts.length }).fill(0))
-    if (seekLandingCounts.length > seconds) seekLandingCounts.length = seconds
-    seekLandingCounts[second] = (seekLandingCounts[second] ?? 0) + 1
-    setSeekLandingHeatmap([...seekLandingCounts])
-    if (landingCountsSaveTimer === undefined && activePlaybackCacheKey) {
-      landingCountsSaveTimer = window.setTimeout(() => {
-        landingCountsSaveTimer = undefined
-        if (activePlaybackCacheKey) void saveCachedSeekLandingCounts(activePlaybackCacheKey, [...seekLandingCounts])
-      }, 5_000)
-    }
-  }
-
   const syncTime = () => {
     if (pendingResumeTime !== undefined && Number.isFinite(video.duration)) {
       const resumeTime = pendingResumeTime >= video.duration - 5 ? 0 : Math.min(pendingResumeTime, video.duration)
@@ -282,12 +320,8 @@ export function createPlayerController() {
     }
     setCurrentTime(time)
     setDuration(video.duration || 0)
-    if (activePlaybackCacheKey && playbackPositionSaveTimer === undefined) {
-      playbackPositionSaveTimer = window.setTimeout(() => {
-        playbackPositionSaveTimer = undefined
-        if (activePlaybackCacheKey) void saveCachedPlaybackPosition(activePlaybackCacheKey, video.currentTime || 0)
-      }, 2_000)
-    }
+    persistLastPlayback()
+    scheduleActiveVideoStateSave()
   }
 
   const subtitleText = createMemo(() => subtitlesEnabled()
@@ -339,7 +373,6 @@ export function createPlayerController() {
     if (!Number.isFinite(video.duration)) return
     const nextTime = Math.min(video.duration, Math.max(0, video.currentTime + amount))
     video.currentTime = nextTime
-    recordPlaybackLanding(nextTime)
   }
 
   const setVolumeLevel = (next: number) => {
@@ -413,14 +446,8 @@ export function createPlayerController() {
 
   const commitVideoResource = async (resource: VideoResource, playlistId?: string) => {
     const generation = ++videoLoadGeneration
-    if (activePlaybackCacheKey) void saveCachedPlaybackPosition(activePlaybackCacheKey, video.currentTime || 0)
-    if (activePlaybackCacheKey && seekLandingCounts.some(count => count > 0)) {
-      void saveCachedSeekLandingCounts(activePlaybackCacheKey, [...seekLandingCounts])
-    }
-    if (landingCountsSaveTimer !== undefined) window.clearTimeout(landingCountsSaveTimer)
-    landingCountsSaveTimer = undefined
-    if (playbackPositionSaveTimer !== undefined) window.clearTimeout(playbackPositionSaveTimer)
-    playbackPositionSaveTimer = undefined
+    persistActiveVideoState()
+    activeVideoKey = undefined
     pendingResumeTime = undefined
     scene?.resetMedia()
     await detachCurrentVideoSource()
@@ -430,11 +457,12 @@ export function createPlayerController() {
     setPlaying(false)
     setCurrentTime(0)
     setDuration(0)
-    seekLandingCounts = []
-    activePlaybackCacheKey = playbackCacheKey(resource)
-    lastPlayedVideoKey = activePlaybackCacheKey
-    void saveLastPlayedVideoKey(activePlaybackCacheKey).catch(error => console.warn("last played video could not be saved", error))
-    setSeekLandingHeatmap([])
+    activeVideoKey = videoStateKey(resource)
+    const resumePlayback = lastPlayback?.key === activeVideoKey ? lastPlayback : undefined
+    lastPlayback = resumePlayback ?? { key: activeVideoKey, position: 0, presetId: 0 }
+    writeLastPlayback(lastPlayback)
+    restorePreset(lastPlayback.presetId)
+    resetTransientView()
     setAbLoop((draft) => {
       draft.a = undefined
       draft.b = undefined
@@ -451,17 +479,24 @@ export function createPlayerController() {
     )
     video.src = fileUrl ?? resource.url ?? ""
     video.load()
-    void loadCachedSeekLandingCounts(activePlaybackCacheKey).then((cached) => {
-      if (!cached || generation !== videoLoadGeneration || appDisposed) return
-      const length = Math.max(cached.length, seekLandingCounts.length)
-      seekLandingCounts = Array.from({ length }, (_, index) => Math.max(seekLandingCounts[index] ?? 0, cached[index] ?? 0))
-      setSeekLandingHeatmap([...seekLandingCounts])
-    }).catch(error => console.warn("cached seek landing counts could not be loaded", error))
-    void loadCachedPlaybackPosition(activePlaybackCacheKey).then((position) => {
-      if (position === undefined || generation !== videoLoadGeneration || appDisposed) return
-      pendingResumeTime = position
+    if (resumePlayback) {
+      pendingResumeTime = resumePlayback.position
       if (Number.isFinite(video.duration)) syncTime()
-    }).catch(error => console.warn("cached playback position could not be loaded", error))
+      void persistVideoHistory(resumePlayback)
+    } else {
+      try {
+        const savedState = await loadVideoPlaybackState(activeVideoKey)
+        if (savedState && generation === videoLoadGeneration && !appDisposed) {
+          restorePreset(savedState.presetId)
+          pendingResumeTime = savedState.position
+          writeLastPlayback(savedState)
+          if (Number.isFinite(video.duration)) syncTime()
+        }
+      } catch (error) {
+        console.warn("video playback state could not be loaded", error)
+      }
+    }
+    if (generation !== videoLoadGeneration || appDisposed) return
     if (resourcesInitialized && resourcesReady()) {
       requestVideoPlayback(generation)
       startInitialIdleCountdown()
@@ -546,15 +581,14 @@ export function createPlayerController() {
     if (!nodes.length) return
     const firstVideo = firstVideoNode(nodes)
     if (playback === "always" && !firstVideo?.file && !firstVideo?.mediaUrl) return
-    await lastPlayedVideoKeyPromise
     const findLastPlayedVideo = (items: PlaylistNode[]): PlaylistNode | undefined => {
       for (const node of items) {
-        if (node.kind === "video" && playbackCacheKey({ name: node.name, file: node.file, url: node.mediaUrl }) === lastPlayedVideoKey) return node
+        if (node.kind === "video" && videoStateKey({ name: node.name, file: node.file, url: node.mediaUrl }) === lastPlayback?.key) return node
         const nested = findLastPlayedVideo(node.children ?? [])
         if (nested) return nested
       }
     }
-    const preferredVideo = lastPlayedVideoKey ? findLastPlayedVideo(nodes) : undefined
+    const preferredVideo = lastPlayback ? findLastPlayedVideo(nodes) : undefined
 
     appendPlaylist(nodes)
     setExpandedFolders((current) => {
@@ -974,12 +1008,15 @@ export function createPlayerController() {
     const handleVisibilityChange = () => {
       if (document.hidden) {
         stopLocalPlaylistRefresh()
+        persistActiveVideoState()
       } else {
         void refreshLocalPlaylist()
         startLocalPlaylistRefresh()
       }
     }
+    const handlePageHide = () => persistActiveVideoState()
     document.addEventListener("visibilitychange", handleVisibilityChange)
+    window.addEventListener("pagehide", handlePageHide)
     startLocalPlaylistRefresh()
 
     return () => {
@@ -987,6 +1024,7 @@ export function createPlayerController() {
       window.removeEventListener("keydown", handleKeydown)
       document.removeEventListener("fullscreenchange", handleFullscreenChange)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
+      window.removeEventListener("pagehide", handlePageHide)
       stopLocalPlaylistRefresh()
       if (videoSwitchTimer !== undefined) window.clearTimeout(videoSwitchTimer)
       pendingVideoSwitch = undefined
@@ -995,12 +1033,7 @@ export function createPlayerController() {
       disposeControls()
       scene?.destroy()
       releaseFaceAutoCenterResources()
-      if (landingCountsSaveTimer !== undefined) window.clearTimeout(landingCountsSaveTimer)
-      if (playbackPositionSaveTimer !== undefined) window.clearTimeout(playbackPositionSaveTimer)
-      if (activePlaybackCacheKey) void saveCachedPlaybackPosition(activePlaybackCacheKey, video.currentTime || 0)
-      if (activePlaybackCacheKey && seekLandingCounts.some(count => count > 0)) {
-        void saveCachedSeekLandingCounts(activePlaybackCacheKey, [...seekLandingCounts])
-      }
+      persistActiveVideoState()
       videoLoadGeneration += 1
       video.pause()
       video.removeAttribute("src")
@@ -1033,6 +1066,19 @@ export function createPlayerController() {
     },
   )
 
+  createEffect(
+    () => ({
+      volume: volume(),
+      playbackRate: playbackRate(),
+      qualityId: qualityId(),
+      splitScreen: splitScreen(),
+      faceAutoCenter: faceAutoCenter(),
+      subtitlesEnabled: subtitlesEnabled(),
+      repeatMode: repeatMode(),
+    }),
+    preferences => saveGlobalPreferences(preferences),
+  )
+
   const handleVolumeChange = () => {
     const nextVolume = video.muted ? 0 : video.volume
     if (nextVolume > 0) lastAudibleVolume = nextVolume
@@ -1045,10 +1091,15 @@ export function createPlayerController() {
     setPlaying(isPlaying)
     if (isPlaying) {
       syncTime()
-    } else if (activePlaybackCacheKey && seekLandingCounts.some(count => count > 0)) {
-      void saveCachedSeekLandingCounts(activePlaybackCacheKey, [...seekLandingCounts])
     }
-    if (!isPlaying && activePlaybackCacheKey) void saveCachedPlaybackPosition(activePlaybackCacheKey, video.currentTime || 0)
+    if (!isPlaying) persistActiveVideoState()
+  }
+
+  const setVideoElement = (element: HTMLVideoElement) => {
+    video = element
+    video.volume = initialPreferences.volume
+    video.muted = initialPreferences.volume === 0
+    video.playbackRate = initialPreferences.playbackRate
   }
 
   const seekTo = (time: number) => {
@@ -1057,7 +1108,6 @@ export function createPlayerController() {
     const nextTime = Math.min(total, Math.max(0, time))
     video.currentTime = nextTime
     setCurrentTime(nextTime)
-    recordPlaybackLanding(nextTime)
   }
 
   return {
@@ -1074,7 +1124,7 @@ export function createPlayerController() {
       setFileInput: (element: HTMLInputElement) => (fileInput = element),
       setFolderInput: (element: HTMLInputElement) => (folderInput = element),
       setPlayer: (element: HTMLElement) => (player = element),
-      setVideo: (element: HTMLVideoElement) => (video = element),
+      setVideo: setVideoElement,
       setVrMount: (element: HTMLDivElement) => (vrMount = element),
       setVrRoot: (element: HTMLElement) => (vrRoot = element),
     },
@@ -1118,7 +1168,6 @@ export function createPlayerController() {
       syncTime,
       togglePlay,
       volume,
-      seekLandingHeatmap,
     },
     subtitles: {
       enabled: subtitlesEnabled,
@@ -1127,7 +1176,10 @@ export function createPlayerController() {
       text: subtitleText,
       toggle: () => setSubtitlesEnabled(current => !current),
     },
-    display: displayModule.controller,
+    display: {
+      ...displayModule.controller,
+      setPresetId,
+    },
     controls: {
       activeSlider,
       cancelHideSlider,

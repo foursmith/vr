@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Player } from "../../src/components/player/Player"
 
 import { createPlayerController } from "../../src/features/player/controller"
+import { loadGlobalPreferences } from "../../src/features/player/playback-state"
 
 const mocks = vi.hoisted(() => ({
   sceneController: {
@@ -64,6 +65,7 @@ const setupController = () => {
 
 beforeEach(() => {
   vi.useFakeTimers()
+  localStorage.clear()
   vi.stubGlobal("matchMedia", vi.fn((query: string) => ({
     matches: false,
     media: query,
@@ -138,6 +140,29 @@ describe("player controller", () => {
     controller.display.setPresetId(2)
     await settle()
     expect(controller.display.state.presetId).toBe(2)
+    dispose()
+  })
+
+  it("persists global player preferences as one record", async () => {
+    const { controller, dispose } = setupController()
+    await settle()
+    controller.playback.setVolumeLevel(0.4)
+    controller.playback.setPlaybackRateLevel(1.5)
+    controller.playback.setRepeatMode("folder")
+    controller.display.setQualityId(1)
+    controller.display.setSplitScreen(false)
+    controller.display.setFaceAutoCenter(false)
+    controller.subtitles.toggle()
+    await settle()
+    expect(loadGlobalPreferences()).toMatchObject({
+      volume: 0.4,
+      playbackRate: 1.5,
+      repeatMode: "folder",
+      qualityId: 1,
+      splitScreen: false,
+      faceAutoCenter: false,
+      subtitlesEnabled: false,
+    })
     dispose()
   })
 

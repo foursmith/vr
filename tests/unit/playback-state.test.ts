@@ -1,0 +1,90 @@
+import { indexedDB } from "fake-indexeddb"
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import {
+  DEFAULT_GLOBAL_PREFERENCES,
+  loadGlobalPreferences,
+  loadLastPlayback,
+  loadVideoPlaybackState,
+  saveGlobalPreferences,
+  saveLastPlayback,
+  saveVideoPlaybackState,
+  videoStateKey,
+} from "../../src/features/player/playback-state"
+
+describe("player state persistence", () => {
+  beforeAll(() => vi.stubGlobal("indexedDB", indexedDB))
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it("loads defaults when global preferences are absent or invalid", () => {
+    expect(loadGlobalPreferences()).toEqual(DEFAULT_GLOBAL_PREFERENCES)
+    localStorage.setItem("foursmith-vr:preferences", "not-json")
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {})
+    expect(loadGlobalPreferences()).toEqual(DEFAULT_GLOBAL_PREFERENCES)
+    expect(warning).toHaveBeenCalledOnce()
+    warning.mockRestore()
+  })
+
+  it("validates global preferences at the storage boundary", () => {
+    localStorage.setItem("foursmith-vr:preferences", JSON.stringify({
+      volume: 5,
+      playbackRate: 0,
+      qualityId: 2.6,
+      splitScreen: false,
+      faceAutoCenter: false,
+      subtitlesEnabled: false,
+      repeatMode: "folder",
+    }))
+    expect(loadGlobalPreferences()).toEqual({
+      volume: 1,
+      playbackRate: 0.25,
+      qualityId: 3,
+      splitScreen: false,
+      faceAutoCenter: false,
+      subtitlesEnabled: false,
+      repeatMode: "folder",
+    })
+  })
+
+  it("saves global preferences as one value", () => {
+    const preferences = { ...DEFAULT_GLOBAL_PREFERENCES, volume: 0.4, repeatMode: "file" as const }
+    saveGlobalPreferences(preferences)
+    expect(loadGlobalPreferences()).toEqual(preferences)
+  })
+
+  it("creates stable state keys for files and URLs", () => {
+    const file = new File(["video"], "movie.mp4", { lastModified: 42 })
+    expect(videoStateKey({ name: file.name, file })).toBe(`file:movie.mp4:${file.size}:42`)
+    expect(videoStateKey({ name: "Remote", url: "https://example.com/movie.mp4" })).toBe("url:https://example.com/movie.mp4")
+  })
+
+  it("saves the last playback position separately from global preferences", () => {
+    const playback = { key: "url:movie.mp4", position: 18.5, presetId: 2 }
+    saveLastPlayback(playback)
+    expect(loadLastPlayback()).toEqual(playback)
+  })
+
+  it.each([
+    { key: "", position: 18.5, presetId: 2 },
+    { key: "url:movie.mp4", presetId: 2 },
+    { key: "url:movie.mp4", position: Number.NaN, presetId: 2 },
+    { key: "url:movie.mp4", position: -1, presetId: 2 },
+    { key: "url:movie.mp4", position: 18.5 },
+    { key: "url:movie.mp4", position: 18.5, presetId: 4 },
+  ])("rejects an invalid last playback snapshot", (playback) => {
+    localStorage.setItem("foursmith-vr:last-playback", JSON.stringify(playback))
+    expect(loadLastPlayback()).toBeUndefined()
+  })
+
+  it("round-trips one aggregated record for a video", async () => {
+    const state = {
+      key: "url:https://example.com/movie.mp4",
+      updatedAt: 42,
+      position: 73.5,
+      presetId: 2,
+    }
+    await saveVideoPlaybackState(state)
+    expect(await loadVideoPlaybackState(state.key)).toEqual(state)
+  })
+})

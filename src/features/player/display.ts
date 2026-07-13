@@ -12,12 +12,17 @@ export function createDisplay(options: {
   getPlayer: () => HTMLElement
   resourcesReady: () => boolean
   viewRef: ViewRef
+  initialState?: Partial<{
+    qualityId: number
+    splitScreen: boolean
+    faceAutoCenter: boolean
+  }>
 }) {
   const [state, setState] = createStore({
     presetId: 0,
-    qualityId: 2,
-    splitScreen: true,
-    faceAutoCenter: true,
+    qualityId: options.initialState?.qualityId ?? 2,
+    splitScreen: options.initialState?.splitScreen ?? true,
+    faceAutoCenter: options.initialState?.faceAutoCenter ?? true,
   })
   const [zoom, setZoomSignal] = createSignal(DEFAULT_ZOOM)
   const [fullscreen, setFullscreen] = createSignal(false)
@@ -27,7 +32,11 @@ export function createDisplay(options: {
       draft[key] = resolveUpdate(draft[key], update)
     })
   }
-  const setPresetId = (update: ValueUpdate<number>) => setValue("presetId", update)
+  const setPresetId = (update: ValueUpdate<number>) => {
+    const next = resolveUpdate(state.presetId, update)
+    setValue("presetId", next)
+    return next
+  }
   const setQualityId = (update: ValueUpdate<number>) => setValue("qualityId", update)
   const setSplitScreen = (update: ValueUpdate<boolean>) => setValue("splitScreen", update)
   const setFaceAutoCenter = (update: ValueUpdate<boolean>) => setValue("faceAutoCenter", update)
@@ -45,13 +54,21 @@ export function createDisplay(options: {
     setZoomSignal(next)
   }
 
-  const resetView = () => {
-    if (!options.resourcesReady()) return
+  const restorePreset = (presetId: number) => {
+    setValue("presetId", presetId)
+  }
+
+  const resetTransientView = () => {
     options.viewRef.current.yaw = 0
     options.viewRef.current.pitch = 0
     options.viewRef.current.zoom = DEFAULT_ZOOM
     options.viewRef.current.pausedUntil = performance.now() + 900
     setZoomSignal(DEFAULT_ZOOM)
+  }
+
+  const resetView = () => {
+    if (!options.resourcesReady()) return
+    resetTransientView()
   }
 
   const changeQualityBy = (amount: number) => {
@@ -96,6 +113,8 @@ export function createDisplay(options: {
     presetId: () => state.presetId,
     qualityId: () => state.qualityId,
     splitScreen: () => state.splitScreen,
+    resetTransientView,
+    restorePreset,
     syncFullscreen,
     syncZoom,
   }

@@ -2,7 +2,6 @@ import type { PlayerController } from "../../features/player/controller"
 import { createSignal, Show, untrack } from "solid-js"
 import { formatTime } from "../../lib/format-time"
 import { LiquidGlass } from "../ui/LiquidGlass"
-import { SeekLandingHeatmap } from "./SeekLandingHeatmap"
 
 export function PlaybackTimeline(props: { controller: PlayerController }) {
   const controller = untrack(() => props.controller)
@@ -18,7 +17,6 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
     seekTo,
     setAbEnd,
     setAbStart,
-    seekLandingHeatmap,
   } = controller.playback
   const { registerActivity, setControlsHold } = controller.controls
   const [hoverPreview, setHoverPreview] = createSignal<{ left: number, time: number }>()
@@ -49,28 +47,16 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
 
   return (
     <div
-      class="grid grid-rows-[4.25rem_1rem] gap-1 max-sm:grid-rows-[4.75rem_1rem]"
+      class="grid grid-rows-[1.35rem_1rem] gap-1 max-sm:grid-rows-[2.75rem_1rem]"
       role={loadingState.resourcesReady ? undefined : "status"}
       aria-live={loadingState.resourcesReady ? undefined : "polite"}
     >
       <div
-        class="relative h-[4.25rem] w-full touch-none [--fill:rgba(255,255,255,0.92)] [--track:rgba(255,255,255,0.24)] max-sm:h-[4.75rem]"
+        class="relative h-[1.35rem] w-full touch-none [--fill:rgba(255,255,255,0.82)] [--track:rgba(255,255,255,0.18)] max-sm:h-11"
         style={`--progress:${loadingState.resourcesReady ? timelineProgress() : loadingPercent()}%`}
         onPointerMove={updateHoverPreview}
         onPointerLeave={() => setHoverPreview()}
       >
-        <div class="pointer-events-none absolute inset-x-0 bottom-[0.45rem] h-12 overflow-hidden max-sm:bottom-[0.92rem] max-sm:h-14">
-          <Show
-            when={loadingState.resourcesReady && seekLandingHeatmap().some(count => count > 0)}
-            fallback={(
-              <div class="grid h-full place-items-center font-mono text-[10px] tracking-[0.12em] text-white/55">
-                Seek to build landing heatmap
-              </div>
-            )}
-          >
-            <SeekLandingHeatmap counts={seekLandingHeatmap()} progress={timelineProgress()} />
-          </Show>
-        </div>
         <Show when={hoverPreview()}>
           {preview => (
             <span
@@ -84,7 +70,7 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
         </Show>
         <span
           aria-hidden="true"
-          class="pointer-events-none absolute inset-x-0 bottom-[0.47rem] h-[0.32rem] overflow-hidden rounded-full max-sm:bottom-[0.95rem]"
+          class="pointer-events-none absolute inset-x-0 top-1/2 h-[0.28rem] -translate-y-1/2 overflow-hidden rounded-full"
           style={{ background: "var(--track)" }}
         >
           <span class="block h-full rounded-full" style={{ width: "var(--progress)", background: "var(--fill)" }}></span>
@@ -103,7 +89,7 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
           value={loadingState.resourcesReady ? pendingTime() ?? currentTime() : loadingPercent()}
           aria-label={loadingState.resourcesReady ? "Playback position" : "Loading progress"}
           disabled={!loadingState.resourcesReady}
-          class="media-range absolute inset-x-0 bottom-0 z-10 h-[1.35rem] w-full cursor-default appearance-none bg-transparent max-sm:bottom-2 max-sm:h-11"
+          class="media-range absolute inset-0 z-10 h-[1.35rem] w-full cursor-default appearance-none bg-transparent max-sm:h-11"
           onPointerDown={() => setControlsHold("scrubbing", true)}
           onPointerUp={(event) => {
             setControlsHold("scrubbing", false)
@@ -124,9 +110,10 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
         />
         <Show when={loadingState.resourcesReady}>
           <LiquidGlass
-            class="liquid-glass-range-thumb pointer-events-none !absolute bottom-[0.1rem] z-20 h-4 w-4 rounded-full max-sm:bottom-[0.6rem]"
+            class="liquid-glass-range-thumb pointer-events-none !absolute z-20 h-4 w-4 rounded-full"
             style={{
               left: "calc(var(--progress) - 0.5rem)",
+              top: "calc(50% - 0.5rem)",
             }}
             cornerRadius={999}
             elasticity={0}
@@ -141,11 +128,11 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
           </LiquidGlass>
         </Show>
       </div>
-      <div class="grid h-4 min-w-0 grid-cols-[1fr_minmax(0,2fr)_1fr] items-center font-mono text-[11px] leading-4 text-white/48">
-        <span class="col-start-1 min-w-0 truncate">{loadingState.resourcesReady ? formatTime(currentTime()) : loadingState.error ?? loadingState.label}</span>
-        <Show when={fileName()}>
-          {name => (
-            <span class="col-start-2 flex min-w-0 items-center justify-center gap-1.5 px-3 text-center font-sans font-medium text-white/70">
+      <div class="relative flex h-4 min-w-0 items-center font-mono text-[11px] leading-4 text-white/48">
+        <div class="flex min-w-0 items-center gap-1.5">
+          <span class="shrink-0">{loadingState.resourcesReady ? formatTime(currentTime()) : loadingState.error ?? loadingState.label}</span>
+          <Show when={fileName()}>
+            <span class="flex shrink-0 items-center gap-1.5">
               <button
                 type="button"
                 aria-label="Set the current position as point A"
@@ -171,11 +158,20 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
                 <span class="font-bold">B</span>
                 <Show when={abLoop.b !== undefined}>{formatTime(abLoop.b!)}</Show>
               </button>
-              <span class="min-w-0 truncate">{name()}</span>
+            </span>
+          </Show>
+        </div>
+        <Show when={fileName()}>
+          {name => (
+            <span
+              class="pointer-events-none absolute left-1/2 min-w-0 max-w-[40vw] -translate-x-1/2 truncate px-3 text-center font-sans font-medium text-white/70 lg:max-w-lg"
+              title={name()}
+            >
+              {name()}
             </span>
           )}
         </Show>
-        <span class="col-start-3 min-w-0 truncate text-right">{loadingState.resourcesReady ? formatTime(duration()) : `${loadingPercent()}%`}</span>
+        <span class="ml-auto shrink-0 text-right">{loadingState.resourcesReady ? formatTime(duration()) : `${loadingPercent()}%`}</span>
       </div>
     </div>
   )
