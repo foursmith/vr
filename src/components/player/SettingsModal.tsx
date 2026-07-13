@@ -1,6 +1,7 @@
 import type { PlayerController } from "../../features/player/controller"
 import type { IconName } from "../ui/Icon"
 import { createSignal, For, onSettled, Show, untrack } from "solid-js"
+import { SHORTCUT_DEFINITIONS } from "../../features/player/shortcuts"
 import { Drawer } from "../ui/Drawer"
 import { Icon } from "../ui/Icon"
 import { Modal } from "../ui/Modal"
@@ -178,6 +179,28 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
               </div>
             </Show>
           </section>
+        </Show>
+
+        <Show when={!narrowScreen()}>
+          <details class="group mt-1 overflow-hidden rounded-2xl bg-white/4">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 marker:hidden">
+              <div>
+                <h3 class="text-xs font-semibold text-white/92">Keyboard shortcuts</h3>
+                <p class="mt-0.5 text-[11px] text-white/48">View all player keyboard controls.</p>
+              </div>
+              <span aria-hidden="true" class="text-xs text-white/42 transition-transform group-open:rotate-180">⌄</span>
+            </summary>
+            <div class="grid grid-cols-2 gap-x-4 border-t border-white/7 px-4 py-2">
+              <For each={SHORTCUT_DEFINITIONS}>
+                {shortcut => (
+                  <div class="flex min-w-0 items-center justify-between gap-2 border-b border-white/6 py-2 last:border-b-0">
+                    <span class="min-w-0 truncate text-[10px] font-medium text-white/66">{shortcut.label}</span>
+                    <kbd class="min-w-5 shrink-0 rounded-md border border-white/9 bg-black/14 px-1.5 py-1 text-center font-mono text-[9px] font-semibold text-white/72">{shortcut.key}</kbd>
+                  </div>
+                )}
+              </For>
+            </div>
+          </details>
         </Show>
       </div>
     </div>

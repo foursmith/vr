@@ -704,20 +704,14 @@ export function createPlayerController() {
     let handled = true
     switch (event.key) {
       case " ":
-      case "k":
-      case "K":
         event.preventDefault()
         togglePlay()
         break
       case "ArrowLeft":
-      case "j":
-      case "J":
         event.preventDefault()
         seekBy(-seekAmount)
         break
       case "ArrowRight":
-      case "l":
-      case "L":
         event.preventDefault()
         seekBy(seekAmount)
         break
