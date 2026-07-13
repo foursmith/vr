@@ -30,6 +30,7 @@ export interface MutableRefObject<T> { current: T }
 const MIN_ZOOM = 0.8
 const MAX_ZOOM = 2.4
 const WHEEL_ZOOM_SPEED = 0.0016
+const TRACKPAD_PINCH_ZOOM_SPEED = 0.01
 const VIEWPORT_TARGET_X = 0.5
 const VIEWPORT_TARGET_Y = 1 / 3
 const VIEWPORT_DEAD_ZONE_X = 0.04
@@ -353,7 +354,50 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   }
 
   const dragging = { active: false, pointerId: 0, x: 0, y: 0 }
+  const touchPoints = new Map<number, { x: number, y: number }>()
+  let pinch: { pointerIds: [number, number], distance: number, zoom: number } | undefined
+
+  const applyZoom = (nextZoom: number) => {
+    const clampedZoom = clamp(nextZoom, MIN_ZOOM, MAX_ZOOM)
+    if (clampedZoom === options.viewRef.current.zoom) return
+    options.viewRef.current.zoom = clampedZoom
+    options.onZoomChange(clampedZoom)
+    pauseFaceCenter()
+    requestRender()
+  }
+
+  const startTouchPinch = () => {
+    const points = Array.from(touchPoints.entries()).slice(0, 2)
+    if (points.length < 2) {
+      pinch = undefined
+      return
+    }
+    const [[firstId, first], [secondId, second]] = points
+    pinch = {
+      pointerIds: [firstId, secondId],
+      distance: Math.max(1, Math.hypot(second.x - first.x, second.y - first.y)),
+      zoom: options.viewRef.current.zoom,
+    }
+    dragging.active = false
+  }
+
   const onPointerDown = (event: PointerEvent) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return
+    if (event.pointerType === "touch") {
+      touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      renderer.domElement.setPointerCapture?.(event.pointerId)
+      if (touchPoints.size > 1) {
+        startTouchPinch()
+      } else {
+        dragging.active = true
+        dragging.pointerId = event.pointerId
+        dragging.x = event.clientX
+        dragging.y = event.clientY
+      }
+      pauseFaceCenter()
+      requestRender()
+      return
+    }
     dragging.active = true
     dragging.pointerId = event.pointerId
     dragging.x = event.clientX
@@ -363,7 +407,28 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     requestRender()
   }
   const onPointerMove = (event: PointerEvent) => {
+    if (event.pointerType === "touch" && touchPoints.has(event.pointerId)) {
+      touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      if (pinch) {
+        const [firstId, secondId] = pinch.pointerIds
+        const first = touchPoints.get(firstId)
+        const second = touchPoints.get(secondId)
+        if (!first || !second) {
+          startTouchPinch()
+          return
+        }
+        const distance = Math.max(1, Math.hypot(second.x - first.x, second.y - first.y))
+        applyZoom(pinch.zoom * distance / pinch.distance)
+        return
+      }
+    }
     if (!dragging.active || dragging.pointerId !== event.pointerId) return
+    if (event.pointerType === "mouse" && (event.buttons & 1) === 0) {
+      dragging.active = false
+      if (renderer.domElement.hasPointerCapture?.(event.pointerId)) renderer.domElement.releasePointerCapture?.(event.pointerId)
+      requestRender()
+      return
+    }
     const dx = event.clientX - dragging.x
     const dy = event.clientY - dragging.y
     dragging.x = event.clientX
@@ -373,18 +438,38 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     requestRender()
   }
   const onPointerUp = (event: PointerEvent) => {
-    if (dragging.pointerId !== event.pointerId) return
+    if (event.pointerType === "touch" && touchPoints.has(event.pointerId)) {
+      touchPoints.delete(event.pointerId)
+      if (renderer.domElement.hasPointerCapture?.(event.pointerId)) renderer.domElement.releasePointerCapture?.(event.pointerId)
+      pinch = undefined
+      if (touchPoints.size > 1) {
+        startTouchPinch()
+      } else {
+        const remaining = touchPoints.entries().next().value as [number, { x: number, y: number }] | undefined
+        dragging.active = Boolean(remaining)
+        if (remaining) {
+          dragging.pointerId = remaining[0]
+          dragging.x = remaining[1].x
+          dragging.y = remaining[1].y
+        }
+      }
+      requestRender()
+      return
+    }
+    if (!dragging.active || dragging.pointerId !== event.pointerId) return
     dragging.active = false
-    renderer.domElement.releasePointerCapture?.(event.pointerId)
+    if (renderer.domElement.hasPointerCapture?.(event.pointerId)) renderer.domElement.releasePointerCapture?.(event.pointerId)
     requestRender()
   }
   const onWheel = (event: WheelEvent) => {
     event.preventDefault()
-    pauseFaceCenter()
-    const nextZoom = clamp(options.viewRef.current.zoom - event.deltaY * WHEEL_ZOOM_SPEED, MIN_ZOOM, MAX_ZOOM)
-    options.viewRef.current.zoom = nextZoom
-    options.onZoomChange(nextZoom)
-    requestRender()
+    const deltaScale = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+      ? 16
+      : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+        ? mount.clientHeight
+        : 1
+    const speed = event.ctrlKey ? TRACKPAD_PINCH_ZOOM_SPEED : WHEEL_ZOOM_SPEED
+    applyZoom(options.viewRef.current.zoom * Math.exp(-event.deltaY * deltaScale * speed))
   }
 
   renderer.domElement.addEventListener("pointerdown", onPointerDown)
@@ -808,6 +893,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       renderer.domElement.removeEventListener("pointerup", onPointerUp)
       renderer.domElement.removeEventListener("pointercancel", onPointerUp)
       renderer.domElement.removeEventListener("wheel", onWheel)
+      touchPoints.clear()
+      pinch = undefined
       scene.remove(projection)
       disposeObject(projection)
       texture.dispose()
