@@ -50,8 +50,8 @@ button {
 }
 
 .ui-switch[data-checked='true'] .ui-switch-track {
-  background: rgba(138, 231, 228, 0.28);
-  border-color: rgba(185, 255, 251, 0.3);
+  background: rgba(98, 207, 216, 0.3);
+  border-color: rgba(184, 243, 236, 0.34);
   box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.12),
     0 0 12px rgba(98, 207, 216, 0.1);

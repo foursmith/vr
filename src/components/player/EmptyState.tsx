@@ -13,7 +13,7 @@ export function EmptyState(props: { onChooseFiles: () => void, onChooseFolder: (
           <svg aria-hidden="true" viewBox="0 0 240 240" class="empty-depth-rings absolute left-1/2 top-1/2 h-58 w-58 overflow-visible sm:h-68 sm:w-68">
             <defs>
               <linearGradient id="depth-ring-inner" x1="52" y1="42" x2="186" y2="194" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="#d9fffc" stop-opacity="0.12" />
+                <stop offset="0" stop-color="#f5fffc" stop-opacity="0.12" />
                 <stop offset="0.42" stop-color="currentColor" stop-opacity="0.62" class="text-accent" />
                 <stop offset="1" stop-color="#62cfd8" stop-opacity="0.16" />
               </linearGradient>
@@ -48,8 +48,9 @@ export function EmptyState(props: { onChooseFiles: () => void, onChooseFolder: (
               class="empty-orbit-badge empty-github-badge empty-orbit-badge-2"
             >
               <img
-                src="https://img.shields.io/github/stars/foursmith/vr?style=flat-square&logo=github&logoColor=b9fffb&label=Open%20Source&color=176d73&labelColor=0c373d"
+                src="https://img.shields.io/github/stars/foursmith/vr?style=flat-square&logo=github&logoColor=f5fffc&label=Open%20Source&color=08758f&labelColor=04354e"
                 alt="GitHub stars"
+                class="rounded-full"
               />
             </a>
             <span class="empty-orbit-badge empty-orbit-badge-6">
@@ -74,7 +75,7 @@ export function EmptyState(props: { onChooseFiles: () => void, onChooseFolder: (
         <div class="flex flex-col items-center gap-8">
           <div class="flex flex-col items-center gap-5 sm:gap-6">
             <h1 class="flex items-center gap-2.5 text-[10px] font-medium tracking-[0.18em] sm:text-[11px] sm:tracking-[0.21em]">
-              <span class="italic text-[#d9fffc]/42">Watch VR like TikTok</span>
+              <span class="italic text-[#f5fffc]/42">Watch VR like TikTok</span>
             </h1>
             <div class="flex flex-col items-center">
               <MediaPickerButtons onChooseFiles={props.onChooseFiles} onChooseFolder={props.onChooseFolder} />
