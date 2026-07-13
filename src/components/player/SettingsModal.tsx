@@ -2,13 +2,22 @@ import type { PlayerController } from "../../features/player/controller"
 import type { IconName } from "../ui/Icon"
 import { createSignal, For, onSettled, Show, untrack } from "solid-js"
 import appPackage from "../../../package.json"
+import { EXPORT_FRAME_RATE_OPTIONS } from "../../features/player/controller"
 import { SHORTCUT_DEFINITIONS } from "../../features/player/shortcuts"
-import { QUALITY_OPTIONS } from "../../features/vr/scene"
 import { Drawer } from "../ui/Drawer"
 import { FsvrLogo } from "../ui/FsvrLogo"
 import { Icon } from "../ui/Icon"
 import { Modal } from "../ui/Modal"
+import { MatrixRange } from "../ui/RangeControls"
 import { Switch } from "../ui/Switch"
+
+const EXPORT_MATRIX_COLORS = ["#58bde2", "#5ed59a", "#efa557", "#9d74f7"]
+const VIDEO_QUALITY_LABELS = ["Low", "Medium", "High", "Ultra"]
+const VIDEO_MATRIX_COLUMNS = VIDEO_QUALITY_LABELS.map((label, index) => ({
+  label,
+  color: EXPORT_MATRIX_COLORS[index]!,
+}))
+const EXPORT_MATRIX_ROWS = EXPORT_FRAME_RATE_OPTIONS.slice(1)
 
 function SettingToggle(props: {
   title: string
@@ -37,13 +46,35 @@ function SettingToggle(props: {
   )
 }
 
+function ExportModeLever(props: { active: boolean, onToggle: (active: boolean) => void }) {
+  return (
+    <div class="video-mode-lever">
+      <span class={props.active ? "video-mode-label export active" : "video-mode-label playback active"}>
+        {props.active ? "Export" : "Playback"}
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-label="Control export video settings"
+        aria-checked={props.active ? "true" : "false"}
+        title={props.active ? "Controlling export video" : "Controlling playback video"}
+        class="video-mode-switch"
+        data-export={props.active ? "true" : "false"}
+        onClick={() => props.onToggle(!props.active)}
+      >
+        <span class="video-mode-switch-rail" aria-hidden="true"></span>
+        <span class="video-mode-switch-thumb" aria-hidden="true"></span>
+      </button>
+    </div>
+  )
+}
+
 export function SettingsModal(props: { controller: PlayerController, open: boolean, onOpenChange: (open: boolean) => void }) {
   const controller = untrack(() => props.controller)
-  const { debug, display, frame } = controller
-  const { setFaceAutoCenter, setQualityId, setSplitScreen, state } = display
+  const { debug, display, frame, playback } = controller
+  const { setFaceAutoCenter, setQualityId, setRenderFrameRateId, setSplitScreen, state } = display
   const [narrowScreen, setNarrowScreen] = createSignal(window.matchMedia("(max-width: 639.9px)").matches)
-  const qualityPosition = () => state.qualityId / (QUALITY_OPTIONS.length - 1)
-
+  const [controlsExport, setControlsExport] = createSignal(false)
   onSettled(() => {
     const media = window.matchMedia("(max-width: 639.9px)")
     const sync = () => setNarrowScreen(media.matches)
@@ -69,64 +100,30 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
       </div>
 
       <div class="grid gap-1.5 px-2.5 pb-2.5">
-        <section class="overflow-hidden rounded-2xl bg-white/4" aria-labelledby="quality-title">
-          <div class="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 px-3 pb-2 pt-2">
-            <span class="grid h-8 w-8 place-items-center rounded-xl bg-white/8 text-white/78">
-              <Icon name="gauge" class="h-4 w-4" />
-            </span>
-            <div class="min-w-0">
-              <h3 id="quality-title" class="text-xs font-semibold text-white/92">Quality</h3>
-              <p class="mt-0.5 text-[11px] leading-snug text-white/48">Balance image detail and rendering performance.</p>
-            </div>
-            <span class="rounded-full bg-white/8 px-2 py-1 text-[10px] font-semibold text-white/74">
-              {QUALITY_OPTIONS[state.qualityId]?.label}
-            </span>
-          </div>
+        <section class="overflow-hidden rounded-2xl bg-white/4" aria-label="Video quality and frame rate">
           <div
-            class="border-t border-white/7 px-4 pb-3 pt-2.5"
-            style={`--quality-progress:${qualityPosition() * 100}%;--quality-fill-offset:${(1 - qualityPosition()) * 1.25}rem`}
+            class="grid gap-3 px-3.5 py-3"
+            role="group"
+            aria-label={controlsExport() ? "Export video settings" : "Playback video settings"}
           >
-            <div class="relative h-8">
-              <span aria-hidden="true" class="absolute inset-x-0 top-1/2 h-5 -translate-y-1/2 overflow-hidden rounded-full bg-white/7 shadow-[inset_0_1px_2px_rgba(0,0,0,.22)]">
-                <span class="quality-track-fill absolute inset-y-0 left-0 rounded-full"></span>
-              </span>
-              <span aria-hidden="true" class="absolute inset-x-2.5 top-1/2 -translate-y-1/2">
-                <For each={QUALITY_OPTIONS}>
-                  {(_, index) => (
-                    <span
-                      class="absolute top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/56"
-                      style={{ left: `${(index() / (QUALITY_OPTIONS.length - 1)) * 100}%` }}
-                    >
-                    </span>
-                  )}
-                </For>
-              </span>
-              <input
-                type="range"
-                min="0"
-                max={QUALITY_OPTIONS.length - 1}
-                step="1"
-                value={state.qualityId}
-                aria-labelledby="quality-title"
-                aria-valuetext={QUALITY_OPTIONS[state.qualityId]?.label}
-                class="quality-range absolute inset-0 z-10 h-8 w-full cursor-pointer appearance-none bg-transparent"
-                onInput={event => setQualityId(Number(event.currentTarget.value))}
+            <div class="grid grid-cols-[minmax(0,1fr)_3.875rem] items-stretch gap-3">
+              <MatrixRange
+                columns={VIDEO_MATRIX_COLUMNS}
+                rows={EXPORT_MATRIX_ROWS}
+                column={controlsExport() ? playback.exportQualityId() : state.qualityId}
+                row={Math.max(0, (controlsExport() ? playback.exportFrameRateId() : state.renderFrameRateId) - 1)}
+                label={controlsExport() ? "Export quality and frame rate matrix" : "Playback quality and frame rate matrix"}
+                onChange={(qualityId, frameRateIndex) => {
+                  if (controlsExport()) {
+                    playback.setExportQualityId(qualityId)
+                    playback.setExportFrameRateId(frameRateIndex + 1)
+                  } else {
+                    setQualityId(qualityId)
+                    setRenderFrameRateId(frameRateIndex + 1)
+                  }
+                }}
               />
-              <span aria-hidden="true" class="pointer-events-none absolute inset-x-2.5 top-1/2">
-                <span class="quality-range-thumb absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/46 bg-white shadow-[0_2px_9px_rgba(0,0,0,.4)]"></span>
-              </span>
-            </div>
-            <div class="relative mx-2.5 h-3 text-[9px] font-medium text-white/38">
-              <For each={QUALITY_OPTIONS}>
-                {(option, index) => (
-                  <span
-                    class={`absolute top-0 whitespace-nowrap ${index() === 0 ? "translate-x-0" : index() === QUALITY_OPTIONS.length - 1 ? "-translate-x-full" : "-translate-x-1/2"}`}
-                    style={{ left: `${(index() / (QUALITY_OPTIONS.length - 1)) * 100}%` }}
-                  >
-                    {option.label}
-                  </span>
-                )}
-              </For>
+              <ExportModeLever active={controlsExport()} onToggle={setControlsExport} />
             </div>
           </div>
         </section>

@@ -168,24 +168,24 @@ input[type='range']:focus {
   box-shadow: 0 0 0 3px rgba(98, 207, 216, 0.28);
 }
 
-.quality-track-fill {
+.discrete-range-fill {
   background: linear-gradient(90deg, #62cfd8 0%, #86bddf 58%, #ae9bea 100%);
   box-shadow: 0 0 14px rgba(98, 207, 216, 0.16);
   transition: width 260ms cubic-bezier(0.34, 1.36, 0.64, 1);
-  width: calc(var(--quality-progress) + var(--quality-fill-offset));
+  width: calc(var(--discrete-progress) + var(--discrete-fill-offset));
 }
 
-.quality-range-thumb {
-  left: var(--quality-progress);
+.discrete-range-thumb {
+  left: var(--discrete-progress);
   transition: left 260ms cubic-bezier(0.34, 1.36, 0.64, 1);
 }
 
-.quality-range::-webkit-slider-runnable-track {
+.discrete-range-input::-webkit-slider-runnable-track {
   background: transparent;
   height: 1.25rem;
 }
 
-.quality-range::-webkit-slider-thumb {
+.discrete-range-input::-webkit-slider-thumb {
   appearance: none;
   background: transparent;
   border: 0;
@@ -193,28 +193,28 @@ input[type='range']:focus {
   width: 1.25rem;
 }
 
-.quality-range::-moz-range-track,
-.quality-range::-moz-range-progress {
+.discrete-range-input::-moz-range-track,
+.discrete-range-input::-moz-range-progress {
   background: transparent;
   height: 1.25rem;
 }
 
-.quality-range::-moz-range-thumb {
+.discrete-range-input::-moz-range-thumb {
   background: transparent;
   border: 0;
   height: 1.25rem;
   width: 1.25rem;
 }
 
-.quality-range:focus-visible + span .quality-range-thumb {
+.discrete-range-input:focus-visible + span .discrete-range-thumb {
   box-shadow:
     0 2px 9px rgba(0, 0, 0, 0.4),
     0 0 0 3px rgba(98, 207, 216, 0.3);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .quality-track-fill,
-  .quality-range-thumb {
+  .discrete-range-fill,
+  .discrete-range-thumb {
     transition: none;
   }
 }

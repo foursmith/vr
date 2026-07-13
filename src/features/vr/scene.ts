@@ -7,7 +7,7 @@ import {
 
   DEFAULT_FOV,
 
-  QUALITY_OPTIONS,
+  projectionPixelRatio,
 } from "./config"
 import {
   applyDetections,
@@ -19,6 +19,7 @@ import {
   setViewportTarget,
 } from "./face-auto-center"
 import { drawPanoramaInferenceSample, drawSampleBoxes, drawViewportInferenceSample } from "./face-sampling"
+import { scheduleFrame } from "./frame-scheduler"
 import { createProjectionGroup, disposeObject } from "./projection"
 
 export { preloadFaceAutoCenterResources } from "../face-tracking/client"
@@ -89,6 +90,7 @@ export interface VrSceneOptions {
   video: HTMLVideoElement | null
   preset: ProjectionPreset
   quality: ProjectionQuality
+  frameRate: number
   hidden: boolean
   splitScreen: boolean
   faceAutoCenter: boolean
@@ -98,7 +100,9 @@ export interface VrSceneOptions {
 }
 
 export interface VrSceneController {
-  update: (nextOptions: Partial<Pick<VrSceneOptions, "preset" | "quality" | "hidden" | "splitScreen" | "faceAutoCenter" | "debugPanelOpen">>) => void
+  update: (nextOptions: Partial<Pick<VrSceneOptions, "preset" | "quality" | "frameRate" | "hidden" | "splitScreen" | "faceAutoCenter" | "debugPanelOpen">>) => void
+  getOutputCanvas: () => HTMLCanvasElement
+  setFrameCapture: (capture?: (canvas: HTMLCanvasElement) => void) => void
   resetMedia: () => void
   destroy: () => void
 }
@@ -113,7 +117,9 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   let disposed = false
   let frameId = 0
   let videoFrameCallbackId = 0
+  let frameCapture: ((canvas: HTMLCanvasElement) => void) | undefined
   let lastFrameAt = performance.now()
+  let nextPlaybackFrameAt: number | undefined
   let fpsSampleStartedAt = lastFrameAt
   let fpsFrameCount = 0
   const recentFrameTimes: number[] = []
@@ -145,9 +151,16 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     powerPreference: "high-performance",
   })
   renderer.outputColorSpace = SRGBColorSpace
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, QUALITY_OPTIONS.find(item => item.component === options.quality)?.pixelRatio ?? 1))
-  renderer.setSize(mount.clientWidth, mount.clientHeight, false)
   renderer.domElement.className = "block h-dvh w-full touch-none saturate-105 contrast-102"
+  const applyRenderQuality = () => {
+    const pixelRatio = projectionPixelRatio(options.quality, window.devicePixelRatio || 1)
+    renderer.setPixelRatio(pixelRatio)
+    renderer.setSize(mount.clientWidth, mount.clientHeight, false)
+    renderer.domElement.style.imageRendering = "auto"
+    renderer.domElement.dataset.quality = options.quality
+    renderer.domElement.dataset.pixelRatio = pixelRatio.toFixed(2)
+  }
+  applyRenderQuality()
   mount.appendChild(renderer.domElement)
 
   const texture = new VideoTexture(video)
@@ -767,6 +780,14 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   function render(now: number) {
     if (disposed) return
     frameId = 0
+    if (!frameCapture) {
+      const schedule = scheduleFrame(now, options.frameRate, nextPlaybackFrameAt)
+      nextPlaybackFrameAt = schedule.nextFrameAt
+      if (!schedule.render) {
+        requestRender()
+        return
+      }
+    }
     const delta = (now - lastFrameAt) / 1000
     lastFrameAt = now
     if (camera.zoom !== options.viewRef.current.zoom) {
@@ -787,6 +808,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
 
     viewports.forEach(renderViewport)
     renderer.setScissorTest(false)
+    frameCapture?.(renderer.domElement)
     lastRenderMs = performance.now() - renderStartedAt
     recentRenderTimes.push(lastRenderMs)
     if (recentRenderTimes.length > 180) recentRenderTimes.shift()
@@ -807,8 +829,13 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   requestRender()
 
   return {
+    getOutputCanvas: () => renderer.domElement,
+    setFrameCapture: capture => (frameCapture = capture),
     update(nextOptions) {
-      const shouldRebuild = nextOptions.preset !== undefined || nextOptions.quality !== undefined
+      if (nextOptions.frameRate !== undefined && nextOptions.frameRate !== options.frameRate) {
+        nextPlaybackFrameAt = undefined
+      }
+      const shouldRebuild = nextOptions.preset !== undefined
       const opensDebugPanel = nextOptions.debugPanelOpen === true && !options.debugPanelOpen
       const invalidatesInference
         = nextOptions.preset !== undefined
@@ -830,7 +857,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         options.fpsElement.textContent = "FPS --  P95 -- ms"
       }
       if (nextOptions.quality !== undefined) {
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, QUALITY_OPTIONS.find(item => item.component === options.quality)?.pixelRatio ?? 1))
+        applyRenderQuality()
       }
       if (shouldRebuild) {
         rebuildProjection()

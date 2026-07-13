@@ -21,12 +21,7 @@ import {
 
 } from "three"
 
-const QUALITY_SEGMENTS: Record<ProjectionQuality, { eqrHalfWidth: number, eqrFullWidth: number, eqrHeight: number, fisheye: number }> = {
-  performance: { eqrHalfWidth: 48, eqrFullWidth: 64, eqrHeight: 32, fisheye: 48 },
-  balanced: { eqrHalfWidth: 72, eqrFullWidth: 96, eqrHeight: 48, fisheye: 72 },
-  sharp: { eqrHalfWidth: 96, eqrFullWidth: 128, eqrHeight: 64, fisheye: 96 },
-  ultra: { eqrHalfWidth: 128, eqrFullWidth: 192, eqrHeight: 96, fisheye: 128 },
-}
+const PROJECTION_SEGMENTS = { eqrHalfWidth: 96, eqrFullWidth: 128, eqrHeight: 64, fisheye: 96 }
 
 const getUv = (geometry: BufferGeometry) => geometry.attributes.uv as BufferAttribute
 
@@ -71,10 +66,10 @@ export const createProjectionGroup = (
   video: HTMLVideoElement,
   texture: VideoTexture,
   preset: ProjectionPreset,
-  quality: ProjectionQuality,
+  _quality: ProjectionQuality,
 ) => {
   const group = new Group()
-  const segments = QUALITY_SEGMENTS[quality]
+  const segments = PROJECTION_SEGMENTS
 
   switch (preset) {
     case "sbs_180_eqr": {

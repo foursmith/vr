@@ -21,6 +21,9 @@ describe("player display state", () => {
     display.changeQualityBy(99)
     flush()
     expect(display.qualityId()).toBe(3)
+    display.controller.setRenderFrameRateId(99)
+    flush()
+    expect(display.renderFrameRateId()).toBe(3)
     display.controller.resetView()
     flush()
     expect(viewRef.current).toMatchObject({ yaw: 0, pitch: 0, zoom: 1 })
@@ -48,9 +51,9 @@ describe("player display state", () => {
       getPlayer: () => document.body,
       resourcesReady: () => true,
       viewRef: { current: { yaw: 0, pitch: 0, zoom: 1, pausedUntil: 0 } },
-      initialState: { qualityId: 1, splitScreen: false, faceAutoCenter: false },
+      initialState: { qualityId: 1, renderFrameRateId: 1, splitScreen: false, faceAutoCenter: false },
     })
-    expect(display.controller.state).toMatchObject({ qualityId: 1, splitScreen: false, faceAutoCenter: false })
+    expect(display.controller.state).toMatchObject({ qualityId: 1, renderFrameRateId: 1, splitScreen: false, faceAutoCenter: false })
     display.controller.setPresetId(2)
     display.controller.setZoom(1.5)
     flush()

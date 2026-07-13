@@ -1,11 +1,13 @@
 const ICONS = {
   "bug": "i-ph-bug",
   "caret-down": "i-ph-caret-down",
+  "check": "i-ph-check",
   "corners-in": "i-ph-corners-in",
   "corners-out": "i-ph-corners-out",
   "cube-focus": "i-ph-cube-focus",
   "columns": "i-ph-columns",
   "dlna-scan": "i-ph-broadcast-duotone",
+  "download": "i-ph-download-simple",
   "fast-forward": "i-ph-fast-forward",
   "file-video": "i-ph-youtube-logo-duotone",
   "folder": "i-ph-folder",
