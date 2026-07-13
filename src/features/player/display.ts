@@ -14,6 +14,7 @@ export function createDisplay(options: {
   viewRef: ViewRef
   initialState?: Partial<{
     qualityId: number
+    renderFrameRateId: number
     splitScreen: boolean
     faceAutoCenter: boolean
   }>
@@ -21,6 +22,7 @@ export function createDisplay(options: {
   const [state, setState] = createStore({
     presetId: 0,
     qualityId: options.initialState?.qualityId ?? 2,
+    renderFrameRateId: options.initialState?.renderFrameRateId ?? 2,
     splitScreen: options.initialState?.splitScreen ?? true,
     faceAutoCenter: options.initialState?.faceAutoCenter ?? true,
   })
@@ -38,6 +40,10 @@ export function createDisplay(options: {
     return next
   }
   const setQualityId = (update: ValueUpdate<number>) => setValue("qualityId", update)
+  const setRenderFrameRateId = (update: ValueUpdate<number>) => {
+    const next = resolveUpdate(state.renderFrameRateId, update)
+    setValue("renderFrameRateId", Math.min(3, Math.max(1, Math.round(next))))
+  }
   const setSplitScreen = (update: ValueUpdate<boolean>) => setValue("splitScreen", update)
   const setFaceAutoCenter = (update: ValueUpdate<boolean>) => setValue("faceAutoCenter", update)
 
@@ -99,6 +105,7 @@ export function createDisplay(options: {
     setFaceAutoCenter,
     setPresetId,
     setQualityId,
+    setRenderFrameRateId,
     setSplitScreen,
     setZoom,
     state,
@@ -112,6 +119,7 @@ export function createDisplay(options: {
     faceAutoCenter: () => state.faceAutoCenter,
     presetId: () => state.presetId,
     qualityId: () => state.qualityId,
+    renderFrameRateId: () => state.renderFrameRateId,
     splitScreen: () => state.splitScreen,
     resetTransientView,
     restorePreset,

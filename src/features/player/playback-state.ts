@@ -4,10 +4,13 @@ export interface GlobalPreferences {
   volume: number
   playbackRate: number
   qualityId: number
+  renderFrameRateId: number
   splitScreen: boolean
   faceAutoCenter: boolean
   subtitlesEnabled: boolean
   repeatMode: RepeatMode
+  exportFrameRateId: number
+  exportQualityId: number
 }
 
 export interface LastPlayback {
@@ -24,10 +27,13 @@ export const DEFAULT_GLOBAL_PREFERENCES: GlobalPreferences = {
   volume: 1,
   playbackRate: 1,
   qualityId: 2,
+  renderFrameRateId: 2,
   splitScreen: true,
   faceAutoCenter: true,
   subtitlesEnabled: true,
   repeatMode: "off",
+  exportFrameRateId: 2,
+  exportQualityId: 1,
 }
 
 const GLOBAL_PREFERENCES_KEY = "foursmith-vr:preferences"
@@ -57,14 +63,19 @@ export function loadGlobalPreferences(storage: Storage = localStorage): GlobalPr
     if (!raw) return { ...DEFAULT_GLOBAL_PREFERENCES }
     const parsed: unknown = JSON.parse(raw)
     if (!isRecord(parsed)) return { ...DEFAULT_GLOBAL_PREFERENCES }
+    const exportQualityId = Math.round(numberInRange(parsed.exportQualityId, DEFAULT_GLOBAL_PREFERENCES.exportQualityId, 0, 3))
+    const storedExportFrameRateId = Math.round(numberInRange(parsed.exportFrameRateId, DEFAULT_GLOBAL_PREFERENCES.exportFrameRateId, 0, 3))
     return {
       volume: numberInRange(parsed.volume, DEFAULT_GLOBAL_PREFERENCES.volume, 0, 1),
       playbackRate: numberInRange(parsed.playbackRate, DEFAULT_GLOBAL_PREFERENCES.playbackRate, 0.25, 4),
       qualityId: Math.round(numberInRange(parsed.qualityId, DEFAULT_GLOBAL_PREFERENCES.qualityId, 0, 3)),
+      renderFrameRateId: Math.round(numberInRange(parsed.renderFrameRateId, DEFAULT_GLOBAL_PREFERENCES.renderFrameRateId, 1, 3)),
       splitScreen: booleanOr(parsed.splitScreen, DEFAULT_GLOBAL_PREFERENCES.splitScreen),
       faceAutoCenter: booleanOr(parsed.faceAutoCenter, DEFAULT_GLOBAL_PREFERENCES.faceAutoCenter),
       subtitlesEnabled: booleanOr(parsed.subtitlesEnabled, DEFAULT_GLOBAL_PREFERENCES.subtitlesEnabled),
       repeatMode: isRepeatMode(parsed.repeatMode) ? parsed.repeatMode : DEFAULT_GLOBAL_PREFERENCES.repeatMode,
+      exportFrameRateId: storedExportFrameRateId === 0 ? 2 : storedExportFrameRateId,
+      exportQualityId,
     }
   } catch (error) {
     console.warn("global preferences could not be loaded", error)

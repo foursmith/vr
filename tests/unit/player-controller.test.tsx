@@ -10,6 +10,8 @@ import { loadGlobalPreferences, loadVideoPlaybackState, videoStateKey } from "..
 const mocks = vi.hoisted(() => ({
   sceneController: {
     update: vi.fn(),
+    getOutputCanvas: vi.fn(),
+    setFrameCapture: vi.fn(),
     resetMedia: vi.fn(),
     destroy: vi.fn(),
   },
@@ -93,6 +95,8 @@ beforeEach(() => {
   mocks.releaseResources.mockClear()
   mocks.createVrScene.mockReset().mockReturnValue(mocks.sceneController)
   Object.values(mocks.sceneController).forEach(mock => mock.mockClear())
+  mocks.sceneController.getOutputCanvas.mockReset()
+  mocks.sceneController.setFrameCapture.mockReset()
 })
 
 afterEach(() => {
@@ -155,6 +159,7 @@ describe("player controller", () => {
     expect(mocks.preload).toHaveBeenCalledOnce()
     expect(controller.playback.loadingState).toMatchObject({ resourcesReady: true, progress: 100, label: "Ready" })
     expect(mocks.createVrScene).toHaveBeenCalledOnce()
+    expect(mocks.createVrScene).toHaveBeenCalledWith(expect.objectContaining({ quality: "sharp", frameRate: 30 }))
     dispose()
     expect(mocks.sceneController.destroy).toHaveBeenCalledOnce()
     expect(mocks.releaseResources).toHaveBeenCalledOnce()
@@ -188,7 +193,139 @@ describe("player controller", () => {
     controller.display.setPresetId(2)
     await settle()
     expect(controller.display.state.presetId).toBe(2)
+
+    mocks.sceneController.update.mockClear()
+    controller.display.setQualityId(3)
+    controller.display.setRenderFrameRateId(1)
+    await settle()
+    expect(mocks.sceneController.update).toHaveBeenLastCalledWith(expect.objectContaining({ quality: "ultra", frameRate: 24 }))
     dispose()
+  })
+
+  it("composites the rendered VR view, active subtitles, and source audio", async () => {
+    const viewTrack = { kind: "video", stop: vi.fn() } as unknown as MediaStreamTrack
+    const sourceVideoTrack = { kind: "video", stop: vi.fn() } as unknown as MediaStreamTrack
+    const audioTrack = { kind: "audio", stop: vi.fn() } as unknown as MediaStreamTrack
+    class FakeMediaStream {
+      tracks: MediaStreamTrack[]
+
+      constructor(tracks: MediaStreamTrack[] = []) {
+        this.tracks = tracks
+      }
+
+      getTracks() {
+        return this.tracks
+      }
+
+      getVideoTracks() {
+        return this.tracks.filter(track => track.kind === "video")
+      }
+
+      getAudioTracks() {
+        return this.tracks.filter(track => track.kind === "audio")
+      }
+    }
+    const recordedStreams: FakeMediaStream[] = []
+    const recordedOptions: MediaRecorderOptions[] = []
+    class FakeMediaRecorder extends EventTarget {
+      static isTypeSupported = vi.fn(() => true)
+      mimeType = "video/webm"
+      state: RecordingState = "inactive"
+
+      constructor(stream: FakeMediaStream, options: MediaRecorderOptions) {
+        super()
+        recordedStreams.push(stream)
+        recordedOptions.push(options)
+      }
+
+      start() {
+        this.state = "recording"
+      }
+
+      stop() {
+        if (this.state === "inactive") return
+        this.state = "inactive"
+        const dataEvent = new Event("dataavailable")
+        Object.defineProperty(dataEvent, "data", { value: new Blob(["view"]) })
+        this.dispatchEvent(dataEvent)
+        this.dispatchEvent(new Event("stop"))
+      }
+    }
+    vi.stubGlobal("MediaStream", FakeMediaStream)
+    vi.stubGlobal("MediaRecorder", FakeMediaRecorder)
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
+
+    const drawImage = vi.fn()
+    const fillText = vi.fn()
+    const exportContext = {
+      clearRect: vi.fn(),
+      drawImage,
+      fillText,
+      font: "",
+      lineJoin: "miter",
+      lineWidth: 1,
+      measureText: vi.fn((text: string) => ({ width: text.length * 10 })),
+      strokeText: vi.fn(),
+      textAlign: "start",
+      textBaseline: "alphabetic",
+    } as unknown as CanvasRenderingContext2D
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(exportContext)
+    const captureExport = vi.fn(() => new FakeMediaStream([viewTrack]))
+    Object.defineProperty(HTMLCanvasElement.prototype, "captureStream", { configurable: true, value: captureExport })
+
+    const outputCanvas = document.createElement("canvas")
+    mocks.sceneController.getOutputCanvas.mockReturnValue(outputCanvas)
+
+    const { controller, dispose, host, video } = setupController()
+    Object.defineProperty(video, "captureStream", {
+      configurable: true,
+      value: vi.fn(() => new FakeMediaStream([sourceVideoTrack, audioTrack])),
+    })
+    await controller.playback.startInitialLoad()
+    const subtitle = new File([], "movie.srt", { type: "text/plain" })
+    Object.defineProperty(subtitle, "text", {
+      value: vi.fn(async () => "1\n00:00:01,000 --> 00:00:30,000\nRendered subtitle"),
+    })
+    const fileInput = host.querySelector<HTMLInputElement>("input[type='file']:not([webkitdirectory])")!
+    Object.defineProperty(fileInput, "files", {
+      configurable: true,
+      value: [new File(["video"], "movie.mp4", { type: "video/mp4" }), subtitle],
+    })
+    controller.frame.handleFile()
+    await vi.advanceTimersByTimeAsync(200)
+    await settle()
+    await settle()
+
+    video.currentTime = 10
+    controller.playback.setAbStart()
+    await settle()
+    video.currentTime = 20
+    controller.playback.setAbEnd()
+    controller.playback.setExportFrameRateId(2)
+    controller.playback.setExportQualityId(2)
+    await settle()
+
+    const exporting = controller.playback.exportAbLoop()
+    await settle()
+    video.currentTime = 20
+    video.dispatchEvent(new Event("timeupdate"))
+    await exporting
+    await settle()
+
+    expect(captureExport).toHaveBeenCalledWith(30)
+    expect(drawImage).toHaveBeenCalledWith(outputCanvas, 0, 0, outputCanvas.width, outputCanvas.height)
+    expect(fillText).toHaveBeenCalledWith("Rendered subtitle", outputCanvas.width / 2, expect.any(Number))
+    expect(mocks.sceneController.setFrameCapture).toHaveBeenCalledWith(expect.any(Function))
+    expect(mocks.sceneController.setFrameCapture).toHaveBeenLastCalledWith()
+    expect(recordedStreams).toHaveLength(1)
+    expect(recordedStreams[0].getVideoTracks()).toEqual([viewTrack])
+    expect(recordedStreams[0].getAudioTracks()).toEqual([audioTrack])
+    expect(recordedStreams[0].getTracks()).not.toContain(sourceVideoTrack)
+    expect(recordedOptions[0]).toMatchObject({ videoBitsPerSecond: 8_000_000, audioBitsPerSecond: 128_000 })
+    expect(controller.playback.abExport.status).toBe("done")
+    dispose()
+    getContext.mockRestore()
+    delete (HTMLCanvasElement.prototype as HTMLCanvasElement & { captureStream?: () => MediaStream }).captureStream
   })
 
   it("persists global player preferences as one record", async () => {
@@ -197,7 +334,10 @@ describe("player controller", () => {
     controller.playback.setVolumeLevel(0.4)
     controller.playback.setPlaybackRateLevel(1.5)
     controller.playback.setRepeatMode("folder")
+    controller.playback.setExportFrameRateId(3)
+    controller.playback.setExportQualityId(2)
     controller.display.setQualityId(1)
+    controller.display.setRenderFrameRateId(1)
     controller.display.setSplitScreen(false)
     controller.display.setFaceAutoCenter(false)
     controller.subtitles.toggle()
@@ -206,7 +346,10 @@ describe("player controller", () => {
       volume: 0.4,
       playbackRate: 1.5,
       repeatMode: "folder",
+      exportFrameRateId: 3,
+      exportQualityId: 2,
       qualityId: 1,
+      renderFrameRateId: 1,
       splitScreen: false,
       faceAutoCenter: false,
       subtitlesEnabled: false,

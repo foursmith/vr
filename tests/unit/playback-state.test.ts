@@ -32,19 +32,25 @@ describe("player state persistence", () => {
       volume: 5,
       playbackRate: 0,
       qualityId: 2.6,
+      renderFrameRateId: 99,
       splitScreen: false,
       faceAutoCenter: false,
       subtitlesEnabled: false,
       repeatMode: "folder",
+      exportFrameRateId: 0,
+      exportQualityId: 1,
     }))
     expect(loadGlobalPreferences()).toEqual({
       volume: 1,
       playbackRate: 0.25,
       qualityId: 3,
+      renderFrameRateId: 3,
       splitScreen: false,
       faceAutoCenter: false,
       subtitlesEnabled: false,
       repeatMode: "folder",
+      exportFrameRateId: 2,
+      exportQualityId: 1,
     })
   })
 

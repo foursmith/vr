@@ -9,10 +9,10 @@ export const PRESETS = [
 ] as const
 
 export const QUALITY_OPTIONS = [
-  { label: "Performance", component: "performance", pixelRatio: 1 },
-  { label: "Balanced", component: "balanced", pixelRatio: 1.5 },
-  { label: "Sharp", component: "sharp", pixelRatio: 2 },
-  { label: "Ultra", component: "ultra", pixelRatio: 2.5 },
+  { label: "Performance", component: "performance", pixelRatioScale: 0.6 },
+  { label: "Balanced", component: "balanced", pixelRatioScale: 0.8 },
+  { label: "Sharp", component: "sharp", pixelRatioScale: 1 },
+  { label: "Ultra", component: "ultra", pixelRatioScale: 1.1 },
 ] as const
 
 export const DEFAULT_FOV = 80
@@ -20,6 +20,11 @@ export const DEFAULT_ZOOM = 1
 
 export type ProjectionPreset = (typeof PRESETS)[number]["component"]
 export type ProjectionQuality = (typeof QUALITY_OPTIONS)[number]["component"]
+
+export const projectionPixelRatio = (quality: ProjectionQuality, devicePixelRatio: number) => {
+  const scale = QUALITY_OPTIONS.find(option => option.component === quality)?.pixelRatioScale ?? 1
+  return Math.min(4, Math.max(0.5, devicePixelRatio * scale))
+}
 
 export interface CameraView {
   yaw: number

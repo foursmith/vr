@@ -1,6 +1,8 @@
 import type { PlayerController } from "../../features/player/controller"
 import { createSignal, Show, untrack } from "solid-js"
+import { MAX_AB_EXPORT_DURATION_SECONDS } from "../../features/player/controller"
 import { formatTime } from "../../lib/format-time"
+import { Icon } from "../ui/Icon"
 import { LiquidGlass } from "../ui/LiquidGlass"
 
 export function PlaybackTimeline(props: { controller: PlayerController }) {
@@ -8,12 +10,14 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
   const {
     currentTime,
     abLoop,
+    abExport,
     clearAbLoop,
     duration,
     fileName,
     loadingPercent,
     loadingState,
     progress,
+    exportAbLoop,
     seekTo,
     setAbEnd,
     setAbStart,
@@ -21,6 +25,8 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
   const { registerActivity, setControlsHold } = controller.controls
   const [hoverPreview, setHoverPreview] = createSignal<{ left: number, time: number }>()
   const [pendingTime, setPendingTime] = createSignal<number>()
+  const abDuration = () => abLoop.a === undefined || abLoop.b === undefined ? 0 : abLoop.b - abLoop.a
+  const abTooLong = () => abDuration() > MAX_AB_EXPORT_DURATION_SECONDS
 
   const timelineProgress = () => {
     const pending = pendingTime()
@@ -180,6 +186,19 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
                   <span class="font-bold">B</span>
                   <Show when={abLoop.b !== undefined}>{formatTime(abLoop.b!)}</Show>
                 </button>
+                <Show when={abLoop.b !== undefined}>
+                  <button
+                    type="button"
+                    aria-label={abTooLong() ? "AB clip is longer than 1 minute" : "Export AB clip"}
+                    title={abExport.message ?? (abTooLong() ? "Only AB clips up to 1 minute can be exported" : "Export AB clip from the current view")}
+                    disabled={abTooLong() || abExport.status === "recording"}
+                    class={`flex h-5 shrink-0 items-center gap-1 rounded-md border-0 px-1.5 font-sans text-[9px] font-semibold transition disabled:cursor-not-allowed ${abTooLong() || abExport.status === "error" ? "bg-red-300/12 text-red-200/80" : abExport.status === "done" ? "bg-emerald-300/14 text-emerald-200" : "bg-white/8 text-white/62 hover:bg-white/14 hover:text-white"}`}
+                    onClick={() => void exportAbLoop()}
+                  >
+                    <Icon name={abExport.status === "done" ? "check" : "download"} class="h-3 w-3" />
+                    <span>{abExport.status === "recording" ? `${abExport.progress}%` : abTooLong() ? "1:00 max" : abExport.status === "done" ? "Saved" : "Export"}</span>
+                  </button>
+                </Show>
               </span>
             </Show>
           </div>
@@ -194,6 +213,7 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
             )}
           </Show>
           <span class="ml-auto shrink-0 text-right">{formatTime(duration())}</span>
+          <span class="sr-only" role="status" aria-live="polite">{abExport.message}</span>
         </div>
       </div>
     </Show>

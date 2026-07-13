@@ -1,6 +1,6 @@
 import { Mesh, Texture } from "three"
 import { describe, expect, it, vi } from "vitest"
-import { PRESETS, QUALITY_OPTIONS } from "../../src/features/vr/config"
+import { PRESETS, projectionPixelRatio, QUALITY_OPTIONS } from "../../src/features/vr/config"
 import { createProjectionGroup, disposeObject } from "../../src/features/vr/projection"
 
 describe("vR projections", () => {
@@ -14,7 +14,7 @@ describe("vR projections", () => {
     disposeObject(group)
   })
 
-  it("increases equirectangular geometry detail with quality", () => {
+  it("keeps projection geometry stable across render quality changes", () => {
     const video = {} as HTMLVideoElement
     const counts = QUALITY_OPTIONS.map(({ component }) => {
       const group = createProjectionGroup(video, new Texture() as never, "mono_360_eqr", component)
@@ -22,8 +22,14 @@ describe("vR projections", () => {
       disposeObject(group)
       return count
     })
-    expect(counts).toEqual([...counts].sort((a, b) => a - b))
-    expect(new Set(counts).size).toBe(counts.length)
+    expect(new Set(counts).size).toBe(1)
+  })
+
+  it("applies visibly different render scales on standard and Retina displays", () => {
+    const standard = QUALITY_OPTIONS.map(({ component }) => projectionPixelRatio(component, 1))
+    const retina = QUALITY_OPTIONS.map(({ component }) => projectionPixelRatio(component, 2))
+    expect(standard).toEqual([0.6, 0.8, 1, 1.1])
+    expect(retina).toEqual([1.2, 1.6, 2, 2.2])
   })
 
   it("disposes geometries and materials", () => {
