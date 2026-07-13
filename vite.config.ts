@@ -6,8 +6,16 @@ import solid from "vite-plugin-solid"
 export default defineConfig(({ command, mode }) => ({
   server: {
     host: "0.0.0.0",
-    port: 2333,
+    port: mode === "fsvr-dev" ? 4090 : 2333,
     strictPort: true,
+    proxy: mode === "fsvr-dev"
+      ? {
+          "/api": {
+            target: process.env.FSVR_API_ORIGIN ?? "http://127.0.0.1:4191",
+            changeOrigin: true,
+          },
+        }
+      : undefined,
   },
   build: {
     chunkSizeWarningLimit: 550,

@@ -65,9 +65,11 @@ bun install
 bun run cli:dev -- ~/Movies
 ```
 
+In this development mode, the Web UI runs on Vite at `http://127.0.0.1:4090` with hot module replacement, while CLI API and media requests are proxied to the local server on port `4191`. Changes to CLI server source files are applied with Bun's hot reloading without changing the session password. Pass `--open` to open the Web UI once after startup.
+
 Pass `--password <password>` to keep a stable password across restarts. Otherwise, `fsvr` generates and prints a random password. A link may include `?password=<password>` for sign-in; after validation, the Web UI removes it from the address bar and stores it in an HttpOnly authentication cookie.
 
-`fsvr` opens its integrated Web UI at `http://127.0.0.1:4190`. To make the complete Web UI and API available to other devices on the LAN, pass `--host 0.0.0.0`; the CLI will print the available LAN addresses.
+`fsvr` serves its integrated Web UI at `http://127.0.0.1:4090` without opening a browser by default. Pass `--open` to open it after startup. To make the complete Web UI and API available to other devices on the LAN, pass `--host 0.0.0.0`; the CLI will print the available LAN addresses.
 
 DLNA media servers are not scanned during startup by default. Pass `--dlna-scan` to discover them before opening the Web UI; manual scanning remains available in the Web UI.
 

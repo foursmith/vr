@@ -57,6 +57,7 @@ export function createMediaServer(options: {
   return Bun.serve({
     hostname: options.hostname,
     port: options.port,
+    idleTimeout: 10,
     async fetch(request) {
       const url = new URL(request.url)
       const origin = request.headers.get("origin")

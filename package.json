@@ -13,14 +13,14 @@
     }
   },
   "scripts": {
-    "dev": "bun run --bun vite",
-    "build": "bun run --bun vite build",
+    "dev": "vite",
+    "build": "vite build",
     "lint": "eslint .",
     "prepare": "simple-git-hooks",
     "preview": "bun run build && wrangler dev",
     "typecheck": "tsgo --noEmit",
-    "test": "bun run --bun vitest run",
-    "test:watch": "bun run --bun vitest",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:coverage": "bun run test --coverage",
     "test:e2e": "bun run --bun playwright test",
     "test:all": "bun run typecheck && bun run test && bun run test:e2e",
