@@ -146,7 +146,7 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
           onCheckedChange={setFaceAutoCenter}
         />
         <Show when={!narrowScreen()}>
-          <details class="group overflow-hidden rounded-2xl bg-white/4">
+          <details class="settings-collapsible group overflow-hidden rounded-2xl bg-white/4">
             <summary class="grid min-h-13 cursor-pointer list-none grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-3 py-1 pl-3 pr-1 text-left transition-colors marker:hidden hover:bg-white/8">
               <span class="grid h-8 w-8 place-items-center rounded-xl bg-white/8 text-white/78 transition group-hover:text-white">
                 <Icon name="keyboard" class="h-4 w-4" />
