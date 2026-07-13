@@ -2,7 +2,7 @@ import type { MediaSource } from "./source"
 import { Buffer } from "node:buffer"
 import { timingSafeEqual } from "node:crypto"
 
-const AUTH_COOKIE_NAME = "fsvr_password"
+export const AUTH_COOKIE_NAME = "fsvr_password"
 const AUTH_COOKIE_MAX_AGE = 365 * 24 * 60 * 60
 const AUTH_COOKIE_ATTRIBUTES = "HttpOnly; Secure; SameSite=Strict; Path=/"
 
@@ -117,10 +117,22 @@ const createRoutes = (options: MediaServerOptions) => {
       GET: () => json({ name: "fsvr", version: "0.1.0" }),
     },
     "/api/v1/auth": {
-      GET: (request: Bun.BunRequest<"/api/v1/auth">) => json({
-        authenticated: options.password === undefined
-          || passwordMatches(request.cookies.get(AUTH_COOKIE_NAME), options.password),
-      }),
+      GET: (request: Bun.BunRequest<"/api/v1/auth">) => {
+        const queryPassword = new URL(request.url).searchParams.get(AUTH_COOKIE_NAME)
+        if (queryPassword !== null && options.password !== undefined) {
+          if (!passwordMatches(queryPassword, options.password)) {
+            return errorResponse("unauthorized", 401, { "set-cookie": authCookie("", 0) })
+          }
+          return new Response(null, {
+            status: 302,
+            headers: { "location": "/", "set-cookie": authCookie(queryPassword, AUTH_COOKIE_MAX_AGE) },
+          })
+        }
+        return json({
+          authenticated: options.password === undefined
+            || passwordMatches(request.cookies.get(AUTH_COOKIE_NAME), options.password),
+        })
+      },
       POST: async (request: Bun.BunRequest<"/api/v1/auth">) => {
         if (options.password === undefined) return json({ authenticated: true })
         const body = await request.json().catch(() => undefined) as { password?: unknown } | undefined

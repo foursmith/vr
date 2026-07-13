@@ -60,6 +60,12 @@ describe("fsvr media server", () => {
     const webResponse = await fetch(`${base}/`)
     expect(await webResponse.text()).toBe("<html>fsvr</html>")
     expect(webResponse.headers.get("set-cookie")).toBeNull()
+    const queryAuthResponse = await fetch(`${base}/api/v1/auth?fsvr_password=secret`, { redirect: "manual" })
+    expect(queryAuthResponse.status).toBe(302)
+    expect(queryAuthResponse.headers.get("location")).toBe("/")
+    const queryAuthCookie = queryAuthResponse.headers.get("set-cookie")!.split(";", 1)[0]
+    expect(queryAuthCookie).toBe("fsvr_password=secret")
+    expect((await fetch(`${base}/api/v1/sources`, { headers: { cookie: queryAuthCookie } })).status).toBe(200)
     expect(await fetch(`${base}/api/v1/auth`, {
       method: "POST",
       headers: { "content-type": "application/json" },

@@ -67,7 +67,7 @@ bun run dev:cli -- ~/Movies
 
 In this development mode, the Web UI runs on Vite at `http://127.0.0.1:4090` with hot module replacement, while CLI API and media requests are proxied to the local server on port `4191`. The development script passes `--disable-password`, so authentication is disabled. Changes to CLI server source files are applied with Bun's hot reloading. Pass `--open` to open the Web UI once after startup.
 
-Pass `--password <password>` to keep a stable password across restarts, or `--disable-password` to disable authentication. Otherwise, `fsvr` generates and prints a random password. A link may include `?password=<password>` for sign-in; after validation, the Web UI removes it from the address bar and stores it in an HttpOnly authentication cookie.
+Pass `--password <password>` to keep a stable password across restarts, or `--disable-password` to disable authentication. Otherwise, `fsvr` generates and prints a random password. The CLI opens `/api/v1/auth?fsvr_password=<password>` for sign-in; after validation, the server stores it in an HttpOnly authentication cookie and redirects to the Web UI.
 
 `fsvr` serves its integrated Web UI at `http://127.0.0.1:4090` without opening a browser by default. Pass `--open` to open it after startup. To make the complete Web UI and API available to other devices on the LAN, pass `--host`; the CLI will then listen on `0.0.0.0` and print the available LAN addresses.
 
