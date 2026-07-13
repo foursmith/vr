@@ -1,33 +1,34 @@
-import { createSignal } from "solid-js"
+import { createMemo, createSignal } from "solid-js"
 
 export type SliderControl = "quality" | "volume" | "scale"
+export type ControlsHoldReason = "paused" | "focus" | "pointer" | "scrubbing" | "popover" | "settings" | "loading"
 interface SliderAnchor { x: number, bottom: number }
 
-const CONTROL_IDLE_HIDE_DELAY = 1800
-const CURSOR_IDLE_HIDE_DELAY = 1800
+const CONTROL_IDLE_HIDE_DELAY = 2500
+const TOUCH_IDLE_HIDE_DELAY = 3000
+const KEYBOARD_IDLE_HIDE_DELAY = 1500
 const INITIAL_CONTROL_HIDE_DELAY = 3600
+const MOUSE_JITTER_THRESHOLD = 3
 
 export function createControls(options: {
   hasVideo: () => boolean
-  playlistOpen: () => boolean
   resourcesReady: () => boolean
 }) {
-  let controlsZone!: HTMLElement
   let controlsPanel!: HTMLDivElement
   let hideControlsTimer: number | undefined
-  let hideCursorTimer: number | undefined
   let hideSliderTimer: number | undefined
   let mouseMoveFrame = 0
   let pendingMousePosition = { x: 0, y: 0 }
-  let controlsZoneRect: DOMRect | undefined
-  let controlsZoneResizeObserver: ResizeObserver | undefined
-  let pointerInControlZone = false
+  let lastMousePosition: { x: number, y: number } | undefined
   let touchStart: { id: number, x: number, y: number } | undefined
+  let heldReasons: ReadonlySet<ControlsHoldReason> = new Set()
+  const uiSurfaces = new Set<HTMLElement>()
 
-  const [activeSlider, setActiveSlider] = createSignal<SliderControl>()
+  const [activeSlider, setActiveSliderState] = createSignal<SliderControl>()
   const [sliderAnchor, setSliderAnchor] = createSignal<SliderAnchor>({ x: 0, bottom: 72 })
-  const [controlsVisible, setControlsVisible] = createSignal(true)
-  const [cursorVisible, setCursorVisible] = createSignal(true)
+  const [temporarilyVisible, setTemporarilyVisible] = createSignal(true)
+  const [holdReasons, setHoldReasons] = createSignal(heldReasons)
+  const controlsVisible = createMemo(() => temporarilyVisible() || holdReasons().size > 0 || !options.hasVideo())
 
   const cancelHideControls = () => {
     if (hideControlsTimer === undefined) return
@@ -37,78 +38,82 @@ export function createControls(options: {
 
   const showControls = () => {
     cancelHideControls()
-    setControlsVisible(true)
+    setTemporarilyVisible(true)
   }
 
-  const scheduleHideControls = (delay = CONTROL_IDLE_HIDE_DELAY) => {
-    if (!options.hasVideo()) {
-      setControlsVisible(true)
-      return
-    }
+  const armHideControls = (delay: number) => {
     cancelHideControls()
     hideControlsTimer = window.setTimeout(() => {
-      setControlsVisible(false)
-      setActiveSlider(undefined)
+      if (heldReasons.size > 0) return
+      setTemporarilyVisible(false)
+      setActiveSliderState(undefined)
       hideControlsTimer = undefined
     }, delay)
   }
 
-  const cancelHideCursor = () => {
-    if (hideCursorTimer === undefined) return
-    window.clearTimeout(hideCursorTimer)
-    hideCursorTimer = undefined
+  const setControlsHold = (reason: ControlsHoldReason, held: boolean) => {
+    const current = heldReasons
+    if (current.has(reason) === held) return
+    const next = new Set(current)
+    if (held) next.add(reason)
+    else next.delete(reason)
+    heldReasons = next
+    setHoldReasons(next)
+    if (held) {
+      cancelHideControls()
+      setTemporarilyVisible(true)
+    } else if (next.size === 0 && options.hasVideo()) {
+      armHideControls(CONTROL_IDLE_HIDE_DELAY)
+    }
   }
 
-  const showCursor = () => {
-    cancelHideCursor()
-    setCursorVisible(true)
-  }
-
-  const scheduleHideCursor = (delay = CURSOR_IDLE_HIDE_DELAY) => {
-    if (!options.hasVideo()) {
-      setCursorVisible(true)
+  function scheduleHideControls(delay = CONTROL_IDLE_HIDE_DELAY) {
+    if (!options.hasVideo() || heldReasons.size > 0) {
+      setTemporarilyVisible(true)
       return
     }
-    cancelHideCursor()
-    hideCursorTimer = window.setTimeout(() => {
-      setCursorVisible(false)
-      hideCursorTimer = undefined
-    }, delay)
+    armHideControls(delay)
   }
 
-  const updateControlsZoneRect = () => {
-    controlsZoneRect = controlsZone.getBoundingClientRect()
+  const registerActivity = (source: "mouse" | "touch" | "keyboard") => {
+    if (!options.resourcesReady()) return
+    showControls()
+    scheduleHideControls(source === "touch" ? TOUCH_IDLE_HIDE_DELAY : source === "keyboard" ? KEYBOARD_IDLE_HIDE_DELAY : CONTROL_IDLE_HIDE_DELAY)
   }
 
-  const isInControlZone = (x: number, y: number) => {
-    const rect = controlsZoneRect
-    if (!rect) return false
-    const playlistActivationWidth = window.matchMedia("(min-width: 640px)").matches
-      ? 312
-      : Math.min(252, window.innerWidth)
-    const isInPlaylistZone = options.playlistOpen() && x <= playlistActivationWidth
-    const isInPlaybackZone = x >= rect.left && x <= rect.right
-      && y >= rect.top && y <= rect.bottom
-    return isInPlaylistZone || isInPlaybackZone
+  const registerUiSurface = (element: HTMLElement) => {
+    uiSurfaces.add(element)
+  }
+
+  const resyncPointerHold = () => {
+    const position = lastMousePosition
+    if (!position) {
+      setControlsHold("pointer", false)
+      return
+    }
+    const hit = document.elementFromPoint(position.x, position.y)
+    let pointerOverUi = false
+    for (const surface of uiSurfaces) {
+      if (!surface.isConnected) {
+        uiSurfaces.delete(surface)
+        continue
+      }
+      if (hit && surface.contains(hit)) pointerOverUi = true
+    }
+    setControlsHold("pointer", pointerOverUi)
   }
 
   const applyPlayerMouseMove = () => {
     mouseMoveFrame = 0
-    if (isInControlZone(pendingMousePosition.x, pendingMousePosition.y)) {
-      pointerInControlZone = true
-      showControls()
-      showCursor()
-      return
-    }
-    if (pointerInControlZone) pointerInControlZone = false
-    showCursor()
-    scheduleHideCursor()
-    scheduleHideControls()
+    const previous = lastMousePosition
+    lastMousePosition = pendingMousePosition
+    if (previous && Math.hypot(pendingMousePosition.x - previous.x, pendingMousePosition.y - previous.y) < MOUSE_JITTER_THRESHOLD) return
+    registerActivity("mouse")
+    resyncPointerHold()
   }
 
   const handlePlayerPointerMove = (event: PointerEvent) => {
-    if (event.pointerType !== "mouse") return
-    if (!options.resourcesReady()) return
+    if (event.pointerType !== "mouse" || !options.resourcesReady()) return
     pendingMousePosition = { x: event.clientX, y: event.clientY }
     if (!mouseMoveFrame) mouseMoveFrame = window.requestAnimationFrame(applyPlayerMouseMove)
   }
@@ -128,16 +133,15 @@ export function createControls(options: {
       return
     }
     cancelHideControls()
-    setActiveSlider(undefined)
-    setControlsVisible(current => !current)
+    setActiveSliderState(undefined)
+    if (controlsVisible() && heldReasons.size === 0) setTemporarilyVisible(false)
+    else registerActivity("touch")
   }
 
   const startInitialIdleCountdown = () => {
-    pointerInControlZone = false
+    lastMousePosition = undefined
     showControls()
-    showCursor()
     scheduleHideControls(INITIAL_CONTROL_HIDE_DELAY)
-    scheduleHideCursor(INITIAL_CONTROL_HIDE_DELAY)
   }
 
   const cancelHideSlider = () => {
@@ -146,10 +150,15 @@ export function createControls(options: {
     hideSliderTimer = undefined
   }
 
+  const closeSlider = () => {
+    setActiveSliderState(undefined)
+    setControlsHold("popover", false)
+  }
+
   const scheduleHideSlider = (delay = 180) => {
     cancelHideSlider()
     hideSliderTimer = window.setTimeout(() => {
-      setActiveSlider(undefined)
+      closeSlider()
       hideSliderTimer = undefined
     }, delay)
   }
@@ -162,44 +171,32 @@ export function createControls(options: {
       x: buttonRect.left + buttonRect.width / 2 - panelRect.left,
       bottom: panelRect.bottom - buttonRect.top + 10,
     })
-    setActiveSlider(control)
-    showControls()
+    setActiveSliderState(control)
+    setControlsHold("popover", true)
   }
 
   const dispose = () => {
     cancelHideControls()
-    cancelHideCursor()
     cancelHideSlider()
     if (mouseMoveFrame) window.cancelAnimationFrame(mouseMoveFrame)
-    controlsZoneResizeObserver?.disconnect()
-    window.removeEventListener("resize", updateControlsZoneRect)
-  }
-
-  const setControlsZone = (element: HTMLElement) => {
-    controlsZone = element
-    controlsZoneResizeObserver?.disconnect()
-    controlsZoneResizeObserver = new ResizeObserver(updateControlsZoneRect)
-    controlsZoneResizeObserver.observe(element)
-    window.removeEventListener("resize", updateControlsZoneRect)
-    window.addEventListener("resize", updateControlsZoneRect)
-    updateControlsZoneRect()
+    uiSurfaces.clear()
   }
 
   return {
     activeSlider,
     cancelHideSlider,
-    containsControlsPanel: (node: Node | null) => controlsPanel.contains(node),
     controlsVisible,
-    cursorVisible,
     dispose,
     handlePlayerPointerMove,
     handlePlayerPointerDown,
     handlePlayerPointerUp,
+    registerActivity,
+    registerUiSurface,
+    resyncPointerHold,
     scheduleHideControls,
     scheduleHideSlider,
-    setActiveSlider,
+    setControlsHold,
     setControlsPanel: (element: HTMLDivElement) => (controlsPanel = element),
-    setControlsZone,
     showControls,
     showSlider,
     sliderAnchor,

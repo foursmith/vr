@@ -6,7 +6,9 @@ import { IconButton } from "../ui/IconButton"
 import { LiquidGlass } from "../ui/LiquidGlass"
 import { MediaPickerButtons } from "../ui/MediaPickerButtons"
 
-export function PlaylistPanel(props: { controller: PlayerController["playlist"] }) {
+export function PlaylistPanel(props: { controller: PlayerController }) {
+  const controller = untrack(() => props.controller)
+  const { registerUiSurface, setControlsHold } = controller.controls
   const {
     chooseFiles,
     chooseFolder,
@@ -18,14 +20,22 @@ export function PlaylistPanel(props: { controller: PlayerController["playlist"] 
     state,
     togglePlaylistFolder,
     visible,
-  } = untrack(() => props.controller)
+  } = controller.playlist
   return (
     <div
+      ref={registerUiSurface}
       class={`pointer-events-auto absolute left-3 top-3 z-30 max-h-[calc(100dvh-14.75rem)] w-[min(15rem,calc(100vw-1.5rem))] transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:left-6 sm:top-6 sm:max-h-[calc(100dvh-13.5rem)] sm:w-72 ${
         visible() ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-[calc(100%+1.5rem)] opacity-0"
       }`}
       aria-hidden={visible() ? "false" : "true"}
       inert={!visible()}
+      onFocusIn={(event) => {
+        setControlsHold("focus", (event.target as HTMLElement).matches(":focus-visible"))
+      }}
+      onFocusOut={(event) => {
+        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+        setControlsHold("focus", false)
+      }}
     >
       <LiquidGlass
         class="min-h-0 w-full rounded-[20px] text-white"

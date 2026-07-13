@@ -2,7 +2,10 @@ import { createRoot, flush } from "solid-js"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { createControls } from "../../src/features/player/controls"
 
-afterEach(() => vi.useRealTimers())
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 
 describe("player controls", () => {
   it("keeps controls visible without media and hides them after media inactivity", () => {
@@ -11,7 +14,7 @@ describe("player controls", () => {
     let dispose!: () => void
     const controls = createRoot((rootDispose) => {
       dispose = rootDispose
-      return createControls({ hasVideo: () => hasVideo, playlistOpen: () => false, resourcesReady: () => true })
+      return createControls({ hasVideo: () => hasVideo, resourcesReady: () => true })
     })
     controls.scheduleHideControls(10)
     vi.advanceTimersByTime(10)
@@ -35,7 +38,7 @@ describe("player controls", () => {
     let dispose!: () => void
     const controls = createRoot((rootDispose) => {
       dispose = rootDispose
-      return createControls({ hasVideo: () => true, playlistOpen: () => false, resourcesReady: () => true })
+      return createControls({ hasVideo: () => true, resourcesReady: () => true })
     })
     const panel = document.createElement("div")
     const button = document.createElement("button")
@@ -45,6 +48,7 @@ describe("player controls", () => {
     controls.showSlider("volume", button)
     flush()
     expect(controls.activeSlider()).toBe("volume")
+    expect(controls.controlsVisible()).toBe(true)
     expect(controls.sliderAnchor()).toEqual({ x: 100, bottom: 90 })
 
     controls.scheduleHideSlider(10)
@@ -57,5 +61,88 @@ describe("player controls", () => {
     expect(controls.activeSlider()).toBeUndefined()
     controls.dispose()
     dispose()
+  })
+
+  it("pins controls while an interaction hold is active", () => {
+    vi.useFakeTimers()
+    let dispose!: () => void
+    const controls = createRoot((rootDispose) => {
+      dispose = rootDispose
+      return createControls({ hasVideo: () => true, resourcesReady: () => true })
+    })
+
+    controls.setControlsHold("paused", true)
+    controls.scheduleHideControls(10)
+    vi.advanceTimersByTime(10)
+    flush()
+    expect(controls.controlsVisible()).toBe(true)
+
+    controls.setControlsHold("paused", false)
+    controls.scheduleHideControls(10)
+    vi.advanceTimersByTime(10)
+    flush()
+    expect(controls.controlsVisible()).toBe(false)
+    controls.dispose()
+    dispose()
+  })
+
+  it("shows controls temporarily for keyboard activity", () => {
+    vi.useFakeTimers()
+    let dispose!: () => void
+    const controls = createRoot((rootDispose) => {
+      dispose = rootDispose
+      return createControls({ hasVideo: () => true, resourcesReady: () => true })
+    })
+    controls.scheduleHideControls(0)
+    vi.advanceTimersByTime(0)
+    flush()
+    expect(controls.controlsVisible()).toBe(false)
+
+    controls.registerActivity("keyboard")
+    flush()
+    expect(controls.controlsVisible()).toBe(true)
+    vi.advanceTimersByTime(1500)
+    flush()
+    expect(controls.controlsVisible()).toBe(false)
+    controls.dispose()
+    dispose()
+  })
+
+  it("pins controls only while the pointer hits a registered UI surface", () => {
+    vi.useFakeTimers()
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => window.setTimeout(callback, 0, 0))
+    const originalElementFromPoint = Object.getOwnPropertyDescriptor(document, "elementFromPoint")
+    const surface = document.createElement("div")
+    const child = document.createElement("button")
+    surface.append(child)
+    document.body.append(surface)
+    let hit: Element | null = child
+    Object.defineProperty(document, "elementFromPoint", { configurable: true, value: () => hit })
+    let dispose!: () => void
+    const controls = createRoot((rootDispose) => {
+      dispose = rootDispose
+      return createControls({ hasVideo: () => true, resourcesReady: () => true })
+    })
+    controls.registerUiSurface(surface)
+
+    controls.handlePlayerPointerMove({ pointerType: "mouse", clientX: 10, clientY: 10 } as PointerEvent)
+    vi.advanceTimersByTime(0)
+    controls.scheduleHideControls(10)
+    vi.advanceTimersByTime(10)
+    flush()
+    expect(controls.controlsVisible()).toBe(true)
+
+    hit = document.body
+    controls.handlePlayerPointerMove({ pointerType: "mouse", clientX: 20, clientY: 20 } as PointerEvent)
+    vi.advanceTimersByTime(0)
+    vi.advanceTimersByTime(2500)
+    flush()
+    expect(controls.controlsVisible()).toBe(false)
+
+    controls.dispose()
+    dispose()
+    surface.remove()
+    if (originalElementFromPoint) Object.defineProperty(document, "elementFromPoint", originalElementFromPoint)
+    else delete (document as { elementFromPoint?: typeof document.elementFromPoint }).elementFromPoint
   })
 })

@@ -3,7 +3,8 @@ import { createSignal, Show, untrack } from "solid-js"
 import { formatTime } from "../../lib/format-time"
 import { LiquidGlass } from "../ui/LiquidGlass"
 
-export function PlaybackTimeline(props: { controller: PlayerController["playback"] }) {
+export function PlaybackTimeline(props: { controller: PlayerController }) {
+  const controller = untrack(() => props.controller)
   const {
     currentTime,
     duration,
@@ -12,7 +13,8 @@ export function PlaybackTimeline(props: { controller: PlayerController["playback
     loadingState,
     progress,
     seekTo,
-  } = untrack(() => props.controller)
+  } = controller.playback
+  const { registerActivity, setControlsHold } = controller.controls
   const [hoverPreview, setHoverPreview] = createSignal<{ left: number, time: number }>()
   const [pendingTime, setPendingTime] = createSignal<number>()
 
@@ -78,6 +80,12 @@ export function PlaybackTimeline(props: { controller: PlayerController["playback
           aria-label={loadingState.resourcesReady ? "Playback position" : "Loading progress"}
           disabled={!loadingState.resourcesReady}
           class="media-range absolute inset-0 z-10 h-[1.35rem] w-full cursor-default appearance-none bg-transparent max-sm:h-11"
+          onPointerDown={() => setControlsHold("scrubbing", true)}
+          onPointerUp={(event) => {
+            setControlsHold("scrubbing", false)
+            registerActivity(event.pointerType === "touch" ? "touch" : "mouse")
+          }}
+          onPointerCancel={() => setControlsHold("scrubbing", false)}
           onInput={(event) => {
             if (!loadingState.resourcesReady) return
             if (!duration()) return

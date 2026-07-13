@@ -165,25 +165,41 @@ export function createPlayerController() {
     toggleFullscreen,
     zoom,
   } = displayModule.controller
-  const controlsModule = createControls({ hasVideo, playlistOpen, resourcesReady })
+  const controlsModule = createControls({ hasVideo, resourcesReady })
   const {
     activeSlider,
     cancelHideSlider,
     controlsVisible,
-    cursorVisible,
     dispose: disposeControls,
     handlePlayerPointerMove,
     handlePlayerPointerDown,
     handlePlayerPointerUp,
-    scheduleHideControls,
+    registerActivity,
+    registerUiSurface,
+    resyncPointerHold,
     scheduleHideSlider,
-    setActiveSlider,
+    setControlsHold,
     showControls,
     showSlider,
     sliderAnchor,
     startInitialIdleCountdown,
   } = controlsModule
   const playlistVisible = createMemo(() => playlistOpen() && controlsVisible())
+  const syncPointerHoldAfterLayout = () => {
+    window.requestAnimationFrame(() => {
+      resyncPointerHold()
+    })
+  }
+  const handleFullscreenChange = () => {
+    syncFullscreen()
+    syncPointerHoldAfterLayout()
+  }
+  createEffect(
+    () => ({ controlsVisible: controlsVisible(), playlistOpen: playlistOpen() }),
+    (state) => {
+      if (state.controlsVisible) syncPointerHoldAfterLayout()
+    },
+  )
   let loadingPromise: Promise<void> | undefined
   let appDisposed = false
 
@@ -685,6 +701,7 @@ export function createPlayerController() {
 
     const seekAmount = event.shiftKey ? 60 : 10
 
+    let handled = true
     switch (event.key) {
       case " ":
       case "k":
@@ -742,9 +759,12 @@ export function createPlayerController() {
         const presetNumber = Number(event.key)
         if (Number.isInteger(presetNumber) && presetNumber >= 1 && presetNumber <= PRESETS.length) {
           setPresetId(presetNumber - 1)
+        } else {
+          handled = false
         }
       }
     }
+    if (handled) registerActivity("keyboard")
   }
 
   const startInitialLoad = () => {
@@ -799,7 +819,7 @@ export function createPlayerController() {
 
   onSettled(() => {
     window.addEventListener("keydown", handleKeydown)
-    document.addEventListener("fullscreenchange", syncFullscreen)
+    document.addEventListener("fullscreenchange", handleFullscreenChange)
 
     void connectServer().catch(error => console.warn("fsvr connection failed", error))
     let localPlaylistRefreshTimer: number | undefined
@@ -838,7 +858,7 @@ export function createPlayerController() {
     return () => {
       appDisposed = true
       window.removeEventListener("keydown", handleKeydown)
-      document.removeEventListener("fullscreenchange", syncFullscreen)
+      document.removeEventListener("fullscreenchange", handleFullscreenChange)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
       stopLocalPlaylistRefresh()
       if (videoSwitchTimer !== undefined) window.clearTimeout(videoSwitchTimer)
@@ -861,6 +881,14 @@ export function createPlayerController() {
     () => hasVideo(),
     (videoSelected) => {
       if (videoSelected) startInitialLoad()
+    },
+  )
+
+  createEffect(
+    () => ({ hasVideo: hasVideo(), playing: playing(), resourcesReady: resourcesReady() }),
+    (state) => {
+      setControlsHold("paused", state.hasVideo && !state.playing)
+      setControlsHold("loading", state.hasVideo && !state.resourcesReady)
     },
   )
 
@@ -889,7 +917,6 @@ export function createPlayerController() {
   return {
     frame: {
       chooseFolder: () => folderInput.click(),
-      cursorVisible,
       handleFile,
       handleFolder,
       handlePlayerPointerMove,
@@ -948,14 +975,12 @@ export function createPlayerController() {
     controls: {
       activeSlider,
       cancelHideSlider,
-      containsControlsPanel: controlsModule.containsControlsPanel,
       controlsVisible,
-      scheduleHideControls,
+      registerActivity,
+      registerUiSurface,
       scheduleHideSlider,
-      setActiveSlider,
       setControlsPanel: controlsModule.setControlsPanel,
-      setControlsZone: controlsModule.setControlsZone,
-      showControls,
+      setControlsHold,
       showSlider,
       sliderAnchor,
     },
