@@ -120,6 +120,7 @@ export function createPlayerController() {
   const [currentTime, setCurrentTime] = createSignal(0)
   const [duration, setDuration] = createSignal(0)
   const [volume, setVolume] = createSignal(1)
+  const [playbackRate, setPlaybackRate] = createSignal(1)
   const [subtitleCues, setSubtitleCues] = createSignal<SubtitleCue[]>([])
   const [subtitlesEnabled, setSubtitlesEnabled] = createSignal(true)
   const [subtitleFileName, setSubtitleFileName] = createSignal<string>()
@@ -296,6 +297,12 @@ export function createPlayerController() {
     video.muted = clamped === 0
     if (clamped > 0) lastAudibleVolume = clamped
     setVolume(clamped)
+  }
+
+  const setPlaybackRateLevel = (next: number) => {
+    if (!Number.isFinite(next) || next <= 0) return
+    video.playbackRate = next
+    setPlaybackRate(next)
   }
 
   const toggleMute = () => {
@@ -900,6 +907,8 @@ export function createPlayerController() {
     setVolume(nextVolume)
   }
 
+  const handlePlaybackRateChange = () => setPlaybackRate(video.playbackRate)
+
   const seekTo = (time: number) => {
     const total = duration()
     if (!resourcesReady() || !total) return
@@ -943,15 +952,18 @@ export function createPlayerController() {
       duration,
       fileName,
       handleVolumeChange,
+      handlePlaybackRateChange,
       loadingPercent,
       loadingState,
       openVideoFile,
       playNextPlaylistVideo,
       playing,
+      playbackRate,
       progress,
       seekBy,
       seekTo,
       setPlaying,
+      setPlaybackRateLevel,
       setVolumeLevel,
       startInitialLoad,
       syncTime,

@@ -130,6 +130,11 @@ describe("player controller", () => {
     expect(video.volume).toBe(0)
     expect(video.muted).toBe(true)
 
+    controller.playback.setPlaybackRateLevel(1.5)
+    await settle()
+    expect(video.playbackRate).toBe(1.5)
+    expect(controller.playback.playbackRate()).toBe(1.5)
+
     controller.display.setPresetId(2)
     await settle()
     expect(controller.display.state.presetId).toBe(2)

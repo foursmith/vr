@@ -1,5 +1,5 @@
 import type { PlayerController } from "../../features/player/controller"
-import { createSignal, Show, untrack } from "solid-js"
+import { createSignal, For, Show, untrack } from "solid-js"
 import { QUALITY_OPTIONS } from "../../features/vr/scene"
 import { Icon } from "../ui/Icon"
 import { IconButton } from "../ui/IconButton"
@@ -10,6 +10,7 @@ import { ProjectionSelect } from "./ProjectionSelect"
 import { SettingsModal } from "./SettingsModal"
 
 const glassPillClass = "text-white transition hover:text-white focus-within:text-white"
+const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2] as const
 export function PlayerControls(props: { controller: PlayerController }) {
   const controller = untrack(() => props.controller)
   const [settingsOpen, setSettingsOpen] = createSignal(false)
@@ -27,8 +28,10 @@ export function PlayerControls(props: { controller: PlayerController }) {
   const { setPlaylistOpen, state: playlistState } = playlist
   const {
     loadingState,
+    playbackRate,
     playing,
     seekBy,
+    setPlaybackRateLevel,
     startInitialLoad,
     togglePlay,
     volume,
@@ -109,6 +112,29 @@ export function PlayerControls(props: { controller: PlayerController }) {
                 onClick={subtitles.toggle}
               />
             </Show>
+            <LiquidGlass
+              class={[glassPillClass, "h-9 w-16 shrink-0 rounded-full max-sm:h-11"]}
+              cornerRadius={999}
+              elasticity={0.16}
+              castShadow={false}
+            >
+              <select
+                aria-label="Playback speed"
+                title={`Playback speed: ${playbackRate()}×`}
+                value={playbackRate()}
+                class="h-full w-full cursor-pointer appearance-none border-0 bg-transparent px-2 text-center text-xs font-semibold text-white outline-none"
+                onChange={event => setPlaybackRateLevel(Number(event.currentTarget.value))}
+              >
+                <For each={PLAYBACK_RATES}>
+                  {rate => (
+                    <option value={rate} class="bg-neutral-900 text-white">
+                      {rate}
+                      ×
+                    </option>
+                  )}
+                </For>
+              </select>
+            </LiquidGlass>
             <LiquidGlass
               class={[glassPillClass, "h-9 shrink-0 rounded-full max-sm:h-11"]}
               cornerRadius={999}

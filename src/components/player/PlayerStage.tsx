@@ -64,6 +64,7 @@ export function PlayerStage(props: { controller: PlayerController }) {
         onPause={() => playback.setPlaying(false)}
         onEnded={playback.playNextPlaylistVideo}
         onVolumeChange={playback.handleVolumeChange}
+        onRateChange={playback.handlePlaybackRateChange}
       >
       </video>
     </>
