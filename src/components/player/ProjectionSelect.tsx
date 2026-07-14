@@ -1,6 +1,7 @@
 import { Portal } from "@solidjs/web"
-import { createSignal, For, onSettled } from "solid-js"
+import { createSignal, For } from "solid-js"
 import { PRESETS } from "../../features/vr/scene"
+import { createPopover } from "../ui/createPopover"
 import { IconButton } from "../ui/IconButton"
 import { LiquidGlass } from "../ui/LiquidGlass"
 import { ProjectionIcon } from "../ui/ProjectionIcon"
@@ -45,23 +46,12 @@ export function ProjectionSelect(props: {
     list?.querySelector<HTMLButtonElement>(`[data-index="${next}"]`)?.focus()
   }
 
-  const onPointerDown = (event: PointerEvent) => {
-    const target = event.target as Node
-    if (!root?.contains(target) && !list?.contains(target)) close()
-  }
-  const onFocusIn = (event: FocusEvent) => {
-    const target = event.target as Node
-    if (!root?.contains(target) && !list?.contains(target)) close()
-  }
-  onSettled(() => {
-    document.addEventListener("pointerdown", onPointerDown)
-    document.addEventListener("focusin", onFocusIn)
-    window.addEventListener("resize", updateMenuPosition)
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown)
-      document.removeEventListener("focusin", onFocusIn)
-      window.removeEventListener("resize", updateMenuPosition)
-    }
+  createPopover({
+    open,
+    trigger: () => root,
+    panel: () => list,
+    close,
+    updatePosition: updateMenuPosition,
   })
 
   return (

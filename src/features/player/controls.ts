@@ -179,17 +179,21 @@ export function createControls(options: {
     setControlsHold("popover", false)
   }
 
-  const toggleSlider = (control: SliderControl, button: HTMLElement) => {
-    if (activeSlider() === control) {
-      closeSlider()
-      return
-    }
+  const updateSliderAnchor = (button: HTMLElement) => {
     const panelRect = controlsPanel.getBoundingClientRect()
     const buttonRect = button.getBoundingClientRect()
     setSliderAnchor({
       x: buttonRect.left + buttonRect.width / 2 - panelRect.left,
       bottom: panelRect.bottom - buttonRect.top + 10,
     })
+  }
+
+  const toggleSlider = (control: SliderControl, button: HTMLElement) => {
+    if (activeSlider() === control) {
+      closeSlider()
+      return
+    }
+    updateSliderAnchor(button)
     setActiveSliderState(control)
     setControlsHold("popover", true)
   }
@@ -220,6 +224,7 @@ export function createControls(options: {
     setControlsPanel: (element: HTMLDivElement) => (controlsPanel = element),
     showControls,
     toggleSlider,
+    updateSliderAnchor,
     sliderAnchor,
     startInitialIdleCountdown,
   }

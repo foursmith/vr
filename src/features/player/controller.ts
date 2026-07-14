@@ -1623,6 +1623,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       setControlsPanel: controlsModule.setControlsPanel,
       setControlsHold,
       toggleSlider,
+      updateSliderAnchor: controlsModule.updateSliderAnchor,
       sliderAnchor,
     },
     debug: {
