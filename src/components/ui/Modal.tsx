@@ -37,7 +37,7 @@ export function Modal(props: {
         inert={!props.open}
         data-open={props.open ? "true" : "false"}
       >
-        <div class="modal-backdrop absolute inset-0 bg-black/58 backdrop-blur-[2px]" onPointerDown={() => props.onOpenChange(false)}></div>
+        <div class="modal-backdrop absolute inset-0 bg-black/50" onPointerDown={() => props.onOpenChange(false)}></div>
         <div
           ref={popup}
           role="dialog"
