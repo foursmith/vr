@@ -2,8 +2,8 @@ import type { PlayerController } from "../../features/player/controller"
 import { createSignal, Show, untrack } from "solid-js"
 import { MAX_AB_EXPORT_DURATION_SECONDS } from "../../features/player/controller"
 import { formatTime } from "../../lib/format-time"
+import { GlassRange } from "../ui/GlassRange"
 import { Icon } from "../ui/Icon"
-import { LiquidGlass } from "../ui/LiquidGlass"
 
 export function PlaybackTimeline(props: { controller: PlayerController }) {
   const controller = untrack(() => props.controller)
@@ -85,8 +85,7 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
     >
       <div class="grid grid-rows-[1.35rem_1rem] gap-1 max-sm:grid-rows-[2.75rem_1rem]">
         <div
-          class="relative h-[1.35rem] w-full touch-none [--fill:rgba(255,255,255,0.82)] [--track:rgba(255,255,255,0.18)] max-sm:h-11"
-          style={`--progress:${timelineProgress()}%`}
+          class="relative h-[1.35rem] w-full touch-none max-sm:h-11"
           onPointerMove={updateHoverPreview}
           onPointerLeave={() => setHoverPreview()}
         >
@@ -101,60 +100,38 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
               </span>
             )}
           </Show>
-          <span
-            aria-hidden="true"
-            class="pointer-events-none absolute inset-x-0 top-1/2 h-[0.28rem] -translate-y-1/2 overflow-hidden rounded-full"
-            style={{ background: "var(--track)" }}
-          >
-            <span class="block h-full rounded-full" style={{ width: "var(--progress)", background: "var(--fill)" }}></span>
-          </span>
           <Show when={duration() && abLoop.a !== undefined}>
             <span class="pointer-events-none absolute top-0 z-20 h-full w-0.5 bg-amber-300/90" style={{ left: `${(abLoop.a! / duration()) * 100}%` }} aria-hidden="true"></span>
           </Show>
           <Show when={duration() && abLoop.b !== undefined}>
             <span class="pointer-events-none absolute top-0 z-20 h-full w-0.5 bg-sky-300/90" style={{ left: `${(abLoop.b! / duration()) * 100}%` }} aria-hidden="true"></span>
           </Show>
-          <input
-            type="range"
-            min="0"
+          <GlassRange
+            class="absolute inset-0 max-sm:h-11"
+            inputClass="cursor-default"
+            min={0}
             max={duration() || 0}
-            step="0.1"
+            step={0.1}
             value={pendingTime() ?? currentTime()}
-            aria-label="Playback position"
-            class="media-range absolute inset-0 z-10 h-[1.35rem] w-full cursor-default appearance-none bg-transparent max-sm:h-11"
+            progress={timelineProgress()}
+            label="Playback position"
+            disabled={!duration()}
             onPointerDown={() => setControlsHold("scrubbing", true)}
-            onPointerUp={(event) => {
+            onPointerUp={(pointerType) => {
               setControlsHold("scrubbing", false)
-              registerActivity(event.pointerType === "touch" ? "touch" : "mouse")
+              registerActivity(pointerType === "touch" ? "touch" : "mouse")
             }}
             onPointerCancel={() => setControlsHold("scrubbing", false)}
-            onInput={(event) => {
+            onInput={(value) => {
               if (!duration()) return
-              setPendingTime(Number(event.currentTarget.value))
+              setPendingTime(value)
             }}
-            onChange={(event) => {
+            onChange={(value) => {
               if (!duration()) return
-              seekTo(Number(event.currentTarget.value))
+              seekTo(value)
               setPendingTime()
             }}
           />
-          <LiquidGlass
-            class="liquid-glass-range-thumb pointer-events-none !absolute z-20 h-4 w-4 rounded-full"
-            style={{
-              left: "calc(var(--progress) - 0.5rem)",
-              top: "calc(50% - 0.5rem)",
-            }}
-            cornerRadius={999}
-            elasticity={0}
-            active
-            castShadow={false}
-          >
-            <span
-              aria-hidden="true"
-              class="block h-full w-full rounded-full border border-white/34 bg-[linear-gradient(145deg,rgba(255,255,255,0.26),rgba(255,255,255,0.12))] shadow-[inset_0_1px_1px_rgba(255,255,255,0.68),0_2px_8px_rgba(0,0,0,0.24)]"
-            >
-            </span>
-          </LiquidGlass>
         </div>
         <div class="relative flex h-4 min-w-0 items-center font-mono text-[11px] leading-4 text-white/48">
           <div class="flex min-w-0 items-center gap-1.5">

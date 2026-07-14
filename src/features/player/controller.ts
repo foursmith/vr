@@ -283,7 +283,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   const controlsModule = createControls({ hasVideo, resourcesReady })
   const {
     activeSlider,
-    cancelHideSlider,
     controlsVisible,
     dispose: disposeControls,
     handlePlayerPointerMove,
@@ -293,10 +292,9 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     registerActivity,
     registerUiSurface,
     resyncPointerHold,
-    scheduleHideSlider,
     setControlsHold,
     showControls,
-    showSlider,
+    toggleSlider,
     sliderAnchor,
     startInitialIdleCountdown,
   } = controlsModule
@@ -504,7 +502,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     if (volume() === 0 || video.muted) {
       setVolumeLevel(lastAudibleVolume || 0.7)
     } else {
-      video.muted = true
+      setVolumeLevel(0)
     }
   }
 
@@ -1602,6 +1600,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       setVolumeLevel,
       startInitialLoad,
       syncTime,
+      toggleMute,
       togglePlay,
       togglePlayAndHideControls,
       volume,
@@ -1619,14 +1618,13 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     },
     controls: {
       activeSlider,
-      cancelHideSlider,
+      closeSlider: controlsModule.closeSlider,
       controlsVisible,
       registerActivity,
       registerUiSurface,
-      scheduleHideSlider,
       setControlsPanel: controlsModule.setControlsPanel,
       setControlsHold,
-      showSlider,
+      toggleSlider,
       sliderAnchor,
     },
     debug: {

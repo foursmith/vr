@@ -6,9 +6,17 @@ import { IconButton } from "../ui/IconButton"
 import { LiquidGlass } from "../ui/LiquidGlass"
 import { MediaPickerButtons } from "../ui/MediaPickerButtons"
 
+const REPEAT_MODES = [
+  { value: "off", label: "Once", icon: "play-once" },
+  { value: "playlist", label: "Playlist", icon: "playlist-repeat" },
+  { value: "folder", label: "Folder", icon: "folder-repeat" },
+  { value: "file", label: "File", icon: "repeat-once" },
+] as const
+
 export function PlaylistPanel(props: { controller: PlayerController }) {
   const controller = untrack(() => props.controller)
   const { registerUiSurface, setControlsHold } = controller.controls
+  const { repeatMode, setRepeatMode } = controller.playback
   const { scanDlna, state: serverState } = controller.server
   const {
     chooseFiles,
@@ -22,6 +30,11 @@ export function PlaylistPanel(props: { controller: PlayerController }) {
     togglePlaylistFolder,
     visible,
   } = controller.playlist
+  const currentRepeatMode = () => REPEAT_MODES.find(mode => mode.value === repeatMode()) ?? REPEAT_MODES[0]
+  const cycleRepeatMode = () => {
+    const currentIndex = REPEAT_MODES.findIndex(mode => mode.value === repeatMode())
+    setRepeatMode(REPEAT_MODES[(currentIndex + 1) % REPEAT_MODES.length].value)
+  }
   return (
     <div
       ref={registerUiSurface}
@@ -53,6 +66,13 @@ export function PlaylistPanel(props: { controller: PlayerController }) {
               <Icon name="playlist" class="h-4.5 w-4.5" />
             </span>
             <h2 class="min-w-0 flex-1 text-sm font-semibold tracking-tight text-white/94">Playlist</h2>
+            <IconButton
+              label={`Playback mode: ${currentRepeatMode().label}`}
+              icon={currentRepeatMode().icon}
+              iconClass="h-4 w-4"
+              class="!h-8 !w-8"
+              onClick={cycleRepeatMode}
+            />
             <Show when={serverState.status === "connected"}>
               <IconButton
                 label={serverState.scanningDlna ? "Scanning for DLNA devices" : "Scan for DLNA devices"}

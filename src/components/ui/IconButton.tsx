@@ -1,3 +1,4 @@
+import type { JSX } from "@solidjs/web"
 import type { IconName } from "./Icon"
 import { Show } from "solid-js"
 import { Icon } from "./Icon"
@@ -9,12 +10,17 @@ const activeButtonClass = "text-white bg-white/10"
 
 export function IconButton(props: {
   label: string
-  icon: IconName
+  icon?: IconName
+  customIcon?: JSX.Element
   iconClass?: string
   class?: string
   disabled?: boolean
   pressed?: boolean
+  title?: string
+  hasPopup?: "menu" | "listbox"
+  expanded?: boolean
   onClick?: () => void
+  onKeyDown?: JSX.EventHandlerUnion<HTMLButtonElement, KeyboardEvent>
 }) {
   return (
     <LiquidGlass
@@ -29,10 +35,16 @@ export function IconButton(props: {
         disabled={props.disabled}
         aria-label={props.label}
         aria-pressed={props.pressed === undefined ? undefined : props.pressed ? "true" : "false"}
+        aria-haspopup={props.hasPopup}
+        aria-expanded={props.expanded === undefined ? undefined : props.expanded ? "true" : "false"}
+        title={props.title}
         class="relative grid h-full w-full place-items-center rounded-full border-0 bg-transparent p-0 text-inherit disabled:cursor-wait"
         onClick={props.onClick}
+        onKeyDown={props.onKeyDown}
       >
-        <Icon name={props.icon} class={props.iconClass} />
+        <Show when={props.customIcon} fallback={props.icon && <Icon name={props.icon} class={props.iconClass} />}>
+          {icon => icon()}
+        </Show>
         <Show when={props.pressed}>
           <LiquidGlass
             class="pointer-events-none !absolute bottom-1 h-1.5 w-1.5 rounded-full"
