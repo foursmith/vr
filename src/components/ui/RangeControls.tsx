@@ -80,6 +80,7 @@ export function MatrixRange(props: {
   column: number
   row: number
   label: string
+  cornerLabel?: string
   class?: string
   cellLabel?: (column: RangeOption, row: RangeOption) => string
   onChange: (column: number, row: number) => void
@@ -97,7 +98,9 @@ export function MatrixRange(props: {
   return (
     <div role="radiogroup" aria-label={props.label} class={`select-none ${props.class ?? ""}`}>
       <div class="matrix-range-layout items-end pb-1.5">
-        <span aria-hidden="true"></span>
+        <span aria-hidden="true" class="pr-3 text-right text-[11px] font-semibold tracking-tight text-white/78">
+          {props.cornerLabel}
+        </span>
         <div class="grid" style={columnsStyle()}>
           <For each={props.columns}>
             {option => <span class="truncate px-0.5 text-center text-[9px] font-medium text-white/42">{option.label}</span>}
@@ -111,7 +114,7 @@ export function MatrixRange(props: {
             class="matrix-range-fill absolute left-1.5 h-7 rounded-full shadow-[0_3px_10px_rgba(0,0,0,.3)]"
             style={{
               top: `${activeRow() * rowHeightRem + 0.5}rem`,
-              width: `calc(${columnPosition()}% - 0.375rem)`,
+              width: `calc(${columnPosition()}%)`,
               background: `linear-gradient(180deg, color-mix(in srgb, ${props.columns[props.column]?.color} 86%, white), ${props.columns[props.column]?.color})`,
             }}
           >

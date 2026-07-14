@@ -19,7 +19,7 @@ import {
   setViewportTarget,
 } from "./face-auto-center"
 import { drawPanoramaInferenceSample, drawSampleBoxes, drawViewportInferenceSample } from "./face-sampling"
-import { scheduleFrame } from "./frame-scheduler"
+import { faceInferencePeriod, scheduleFrame } from "./frame-scheduler"
 import { createProjectionGroup, disposeObject } from "./projection"
 
 export { preloadFaceAutoCenterResources } from "../face-tracking/client"
@@ -37,11 +37,6 @@ const VIEWPORT_TARGET_Y = 1 / 3
 const VIEWPORT_DEAD_ZONE_X = 0.04
 const VIEWPORT_DEAD_ZONE_Y = 0.04
 const PANORAMA_DIRECTION_ANCHOR_WEIGHT = 1.35
-const FACE_TRACK_ACTIVE_INTERVAL_MS = 120
-const FACE_TRACK_STABLE_INTERVAL_MS = 240
-const FACE_RECOVERY_INTERVAL_MS = 80
-const FACE_INFERENCE_HEADROOM = 1.15
-const FACE_INFERENCE_MAX_PERIOD_MS = 360
 const FACE_TARGET_GRACE_MS = 900
 const VIEWPORT_SAMPLE_WIDTH = 320
 const PANORAMA_SAMPLE_WIDTH = 320
@@ -485,21 +480,10 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   renderer.domElement.addEventListener("wheel", onWheel, { passive: false })
 
   const updateInferenceSchedule = (now: number, completedInferenceMs = 0) => {
-    const recoveryPending = faceState.recoveryMode !== undefined
-    const configuredPeriod = (
-      recoveryPending
-        ? FACE_RECOVERY_INTERVAL_MS
-        : faceState.isMoving
-          ? FACE_TRACK_ACTIVE_INTERVAL_MS
-          : FACE_TRACK_STABLE_INTERVAL_MS
-    )
     const sortedInferenceTimes = [...recentInferenceTimes].sort((a, b) => a - b)
     const p95Index = Math.max(0, Math.ceil(sortedInferenceTimes.length * 0.95) - 1)
     const inferenceP95 = sortedInferenceTimes[p95Index] ?? 0
-    const adaptivePeriod = Math.max(
-      configuredPeriod,
-      Math.min(FACE_INFERENCE_MAX_PERIOD_MS, inferenceP95 * FACE_INFERENCE_HEADROOM),
-    )
+    const adaptivePeriod = faceInferencePeriod(options.frameRate, inferenceP95)
     // Keep the adaptive period measured from inference start to inference start.
     faceState.nextDetectionAt = now + Math.max(0, adaptivePeriod - completedInferenceMs)
   }
@@ -780,13 +764,11 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   function render(now: number) {
     if (disposed) return
     frameId = 0
-    if (!frameCapture) {
-      const schedule = scheduleFrame(now, options.frameRate, nextPlaybackFrameAt)
-      nextPlaybackFrameAt = schedule.nextFrameAt
-      if (!schedule.render) {
-        requestRender()
-        return
-      }
+    const schedule = scheduleFrame(now, options.frameRate, nextPlaybackFrameAt)
+    nextPlaybackFrameAt = schedule.nextFrameAt
+    if (!schedule.render) {
+      requestRender()
+      return
     }
     const delta = (now - lastFrameAt) / 1000
     lastFrameAt = now
@@ -834,6 +816,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     update(nextOptions) {
       if (nextOptions.frameRate !== undefined && nextOptions.frameRate !== options.frameRate) {
         nextPlaybackFrameAt = undefined
+        faceState.nextDetectionAt = 0
       }
       const shouldRebuild = nextOptions.preset !== undefined
       const opensDebugPanel = nextOptions.debugPanelOpen === true && !options.debugPanelOpen
