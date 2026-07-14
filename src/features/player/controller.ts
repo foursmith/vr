@@ -386,6 +386,9 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     visit(playlist())
     return videos
   })
+  const hasBrowserPlaylistItems = createMemo(() => playlist().some(
+    node => node.sourceKind === "browser" || playlistFiles.has(node.id),
+  ))
 
   const sceneOptions = () => ({
     preset: PRESETS[presetId()].component,
@@ -648,7 +651,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     scheduleVideoSwitch(playlistId)
   }
 
-  const clearPlaylist = () => {
+  const clearPlaylistNodes = () => {
     const switchInProgress = videoSwitchInProgress
     if (videoSwitchTimer !== undefined) {
       window.clearTimeout(videoSwitchTimer)
@@ -667,6 +670,66 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       draft.expandedFolderIds = []
       draft.selectedId = undefined
     })
+  }
+
+  const resetCurrentVideo = (closePlaylist: boolean) => {
+    persistActiveVideoState()
+    videoLoadGeneration += 1
+    activeVideoKey = undefined
+    pendingResumeTime = undefined
+    autoplayPending = false
+    scene?.resetMedia()
+    video.pause()
+    video.removeAttribute("src")
+    video.load()
+    if (fileUrl) URL.revokeObjectURL(fileUrl)
+    fileUrl = undefined
+    setHasVideo(false)
+    setPlaying(false)
+    setCurrentTime(0)
+    setDuration(0)
+    setFileName(undefined)
+    setSubtitleCues([])
+    setSubtitleFileName(undefined)
+    setAbLoop((draft) => {
+      draft.a = undefined
+      draft.b = undefined
+    })
+    if (closePlaylist) setPlaylistOpen(false)
+  }
+
+  const clearPlaylist = () => {
+    const browserRoots = playlist().filter(node => node.sourceKind === "browser" || playlistFiles.has(node.id))
+    if (!browserRoots.length) return
+    const remainingRoots = playlist().filter(node => node.sourceKind !== "browser" && !playlistFiles.has(node.id))
+    const removedIds = new Set<string>()
+    const collectIds = (nodes: PlaylistStateNode[]) => nodes.forEach((node) => {
+      removedIds.add(node.id)
+      collectIds(node.children ?? [])
+    })
+    collectIds(browserRoots)
+
+    const clearsCurrentVideo = playlistState.selectedId !== undefined && removedIds.has(playlistState.selectedId)
+    if (videoSwitchTimer !== undefined && pendingVideoSwitch?.playlistId && removedIds.has(pendingVideoSwitch.playlistId)) {
+      window.clearTimeout(videoSwitchTimer)
+      videoSwitchTimer = undefined
+      pendingVideoSwitch = undefined
+      autoplayPending = false
+    }
+    playlistImportGeneration += 1
+    removedIds.forEach((id) => {
+      playlistFiles.delete(id)
+      playlistUrls.delete(id)
+      playlistRemoteFolders.delete(id)
+      playlistSubtitles.delete(id)
+      playlistSubtitleUrls.delete(id)
+    })
+    setPlaylistState((draft) => {
+      draft.nodes = draft.nodes.filter(node => !removedIds.has(node.id))
+      draft.expandedFolderIds = draft.expandedFolderIds.filter(id => !removedIds.has(id))
+      if (draft.selectedId && removedIds.has(draft.selectedId)) draft.selectedId = undefined
+    })
+    if (clearsCurrentVideo) resetCurrentVideo(remainingRoots.length === 0)
   }
 
   const playPlaylistNode = (id: string) => {
@@ -1100,7 +1163,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       loadFsvrDlnaDevices(serverState.endpoint),
     ])
     if (appDisposed) return
-    clearPlaylist()
+    clearPlaylistNodes()
     await importPlaylistNodes(nodes, "when-empty")
     setPlaylistOpen(true)
     setServerState((draft) => {
@@ -1139,7 +1202,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       await loadServerPlaylist()
     } catch (error) {
       const message = error instanceof Error ? error.message : "Invalid password"
-      clearPlaylist()
+      clearPlaylistNodes()
       setServerState((draft) => {
         draft.status = "authentication-required"
         draft.error = message
@@ -1192,7 +1255,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
         loadFsvrDlnaDevices(serverState.endpoint),
       ])
       if (appDisposed) return
-      clearPlaylist()
+      clearPlaylistNodes()
       await importPlaylistNodes(nodes, "when-empty")
       setPlaylistOpen(true)
       setServerState((draft) => {
@@ -1503,6 +1566,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       },
       clearPlaylist,
       expandedFolders,
+      hasBrowserPlaylistItems,
       playPlaylistNode,
       playlistVideos,
       setPlaylistOpen,
