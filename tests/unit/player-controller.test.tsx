@@ -580,6 +580,7 @@ describe("player controller", () => {
     await vi.advanceTimersByTimeAsync(0)
     await settle()
     expect(controller.server.state.status).toBe("connected")
+    expect(host.querySelector(".player-controls")).toBeNull()
     const fileInput = host.querySelector<HTMLInputElement>("input[type='file']:not([webkitdirectory])")!
     Object.defineProperty(fileInput, "files", {
       configurable: true,
@@ -589,6 +590,7 @@ describe("player controller", () => {
     controller.frame.handleFile()
     await vi.advanceTimersByTimeAsync(200)
     await settle()
+    expect(host.querySelector(".player-controls")).not.toBeNull()
     expect(controller.playlist.state.nodes.map(node => node.id)).toEqual([
       "source:local",
       "source:dlna-device",
@@ -604,6 +606,7 @@ describe("player controller", () => {
     ])
     expect(controller.playlist.visible()).toBe(true)
     expect(controller.frame.hasVideo()).toBe(false)
+    expect(host.querySelector(".player-controls")).toBeNull()
     expect(video.getAttribute("src")).toBeNull()
     expect(controller.playlist.hasBrowserPlaylistItems()).toBe(false)
     dispose()
