@@ -4,6 +4,7 @@ import type { SubtitleCue } from "../subtitles/parser"
 import type { CameraView, VrSceneController } from "../vr/scene"
 import type { LastPlayback, RepeatMode } from "./playback-state"
 import { createEffect, createMemo, createSignal, createStore, onSettled } from "solid-js"
+import { createMotionPhoto } from "../../lib/motion-photo"
 import { releaseFaceAutoCenterResources } from "../face-tracking/client"
 import {
   applyPlaylistSource,
@@ -53,10 +54,11 @@ export const VIDEO_FRAME_RATE_OPTIONS = [
   { label: "30 fps", value: 30 },
   { label: "60 fps", value: 60 },
 ] as const
-export type AbExportFormat = "webm" | "mp4"
+export type AbExportFormat = "webm" | "mp4" | "motion-photo"
 export const AB_EXPORT_FORMAT_OPTIONS = [
   { label: "WebM", value: "webm" },
   { label: "MP4", value: "mp4" },
+  { label: "Motion Photo", value: "motion-photo" },
 ] as const satisfies readonly { label: string, value: AbExportFormat }[]
 const EXPORT_VIDEO_BIT_RATES = [2_000_000, 4_000_000, 8_000_000, 12_000_000] as const
 
@@ -79,18 +81,38 @@ const AB_EXPORT_MIME_TYPES = {
   ],
 } as const
 
+type AbRecordingFormat = Exclude<AbExportFormat, "motion-photo">
+
+const abRecordingFormat = (format: AbExportFormat): AbRecordingFormat => format === "webm" ? "webm" : "mp4"
+
 const chooseAbExportMimeType = (format: AbExportFormat) =>
   typeof MediaRecorder === "undefined"
     ? undefined
-    : AB_EXPORT_MIME_TYPES[format].find(type => MediaRecorder.isTypeSupported(type))
+    : AB_EXPORT_MIME_TYPES[abRecordingFormat(format)].find(type => MediaRecorder.isTypeSupported(type))
 
 const isAbExportFormatSupported = (format: AbExportFormat) => Boolean(chooseAbExportMimeType(format))
+const abExportFormatLabel = (format: AbExportFormat) => {
+  if (format === "motion-photo") return "Motion Photo"
+  return format.toUpperCase()
+}
 
-const abExportFileName = (sourceName: string, start: number, end: number, extension: AbExportFormat) => {
+const abExportBaseName = (sourceName: string, start: number, end: number) => {
   const stem = sourceName.replace(/\.[^.]+$/, "").replace(/[\\/:*?"<>|]+/g, "-").trim() || "video"
   const time = (value: number) => value.toFixed(1).replace(".", "-")
-  return `${stem}-AB-${time(start)}-${time(end)}.${extension}`
+  return `${stem}-AB-${time(start)}-${time(end)}`
 }
+
+const abExportFileName = (baseName: string, format: AbExportFormat) => {
+  if (format === "motion-photo") return `${baseName}.jpg`
+  return `${baseName}.${format}`
+}
+
+const canvasToJpeg = (canvas: HTMLCanvasElement) => new Promise<Blob>((resolve, reject) => {
+  canvas.toBlob((blob) => {
+    if (blob) resolve(blob)
+    else reject(new Error("The photo cover could not be created."))
+  }, "image/jpeg", 0.92)
+})
 
 const wrapCanvasText = (context: CanvasRenderingContext2D, text: string, maxWidth: number) => text
   .split("\n")
@@ -994,7 +1016,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     if (!isAbExportFormatSupported(format)) {
       setAbExport((draft) => {
         draft.status = "error"
-        draft.message = `${format.toUpperCase()} export is not supported by this browser.`
+        draft.message = `${abExportFormatLabel(format)} export is not supported by this browser.`
       })
       return
     }
@@ -1016,7 +1038,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     setAbExport((draft) => {
       draft.status = "recording"
       draft.progress = 0
-      draft.message = `Exporting ${format.toUpperCase()}…`
+      draft.message = `Exporting ${abExportFormatLabel(format)}…`
       draft.format = format
     })
 
@@ -1096,6 +1118,11 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
         frameCaptureInstalled = true
         captureCanvas = exportCanvas
       }
+      let motionPhotoCover: Blob | undefined
+      if (format === "motion-photo") {
+        await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()))
+        motionPhotoCover = await canvasToJpeg(captureCanvas)
+      }
       const chunks: Blob[] = []
       const viewStream = captureCanvas.captureStream(exportFrameRate)
       const capturableVideo = video as CapturableVideoElement
@@ -1166,9 +1193,16 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       removeCaptureListeners()
       removeCaptureListeners = undefined
       if (timedOut) throw new Error("Export timed out before reaching point B.")
-      const blob = new Blob(chunks, { type: recorder.mimeType || `video/${format}` })
-      if (!blob.size) throw new Error("The exported clip was empty.")
-      const name = abExportFileName(fileName() ?? "video", start, end, format)
+      const recordingFormat = abRecordingFormat(format)
+      const videoBlob = new Blob(chunks, { type: recorder.mimeType || `video/${recordingFormat}` })
+      if (!videoBlob.size) throw new Error("The exported clip was empty.")
+      const baseName = abExportBaseName(fileName() ?? "video", start, end)
+      let blob = videoBlob
+      if (format === "motion-photo") {
+        if (!motionPhotoCover) throw new Error("The Motion Photo cover could not be created.")
+        blob = await createMotionPhoto(motionPhotoCover, videoBlob)
+      }
+      const name = abExportFileName(baseName, format)
       const url = URL.createObjectURL(blob)
       const link = document.createElement("a")
       link.href = url

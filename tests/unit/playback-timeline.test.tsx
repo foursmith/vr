@@ -59,6 +59,7 @@ describe("playback timeline", () => {
       },
       playback: {
         abExport: { status: "idle", progress: 0, message: undefined },
+        abExportFormatSupported: vi.fn(() => true),
         abLoop: { a: 10, b: 71 },
         clearAbLoop: vi.fn(),
         currentTime: vi.fn(() => 12),
@@ -81,6 +82,7 @@ describe("playback timeline", () => {
     const exportButton = host.querySelector<HTMLButtonElement>("button[aria-label='AB clip is longer than 1 minute']")!
     expect(exportButton.disabled).toBe(true)
     expect(exportButton.textContent).toContain("1:00 max")
+    expect(host.querySelectorAll("button[aria-label='AB clip is longer than 1 minute']")).toHaveLength(3)
     exportButton.click()
     expect(exportAbLoop).not.toHaveBeenCalled()
 
