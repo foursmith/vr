@@ -1,6 +1,6 @@
 import type { PlayerController } from "../../features/player/controller"
-import { createSignal, Show, untrack } from "solid-js"
-import { MAX_AB_EXPORT_DURATION_SECONDS } from "../../features/player/controller"
+import { createSignal, For, Show, untrack } from "solid-js"
+import { AB_EXPORT_FORMAT_OPTIONS, MAX_AB_EXPORT_DURATION_SECONDS } from "../../features/player/controller"
 import { formatTime } from "../../lib/format-time"
 import { GlassRange } from "../ui/GlassRange"
 import { Icon } from "../ui/Icon"
@@ -12,6 +12,7 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
     currentTime,
     abLoop,
     abExport,
+    abExportFormatSupported,
     clearAbLoop,
     duration,
     fileName,
@@ -164,17 +165,21 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
                   <Show when={abLoop.b !== undefined}>{formatTime(abLoop.b!)}</Show>
                 </button>
                 <Show when={abLoop.b !== undefined}>
-                  <button
-                    type="button"
-                    aria-label={abTooLong() ? "AB clip is longer than 1 minute" : "Export AB clip"}
-                    title={abExport.message ?? (abTooLong() ? "Only AB clips up to 1 minute can be exported" : "Export AB clip from the current view")}
-                    disabled={abTooLong() || abExport.status === "recording"}
-                    class={`flex h-5 shrink-0 items-center gap-1 rounded-md border-0 px-1.5 font-sans text-[9px] font-semibold transition disabled:cursor-not-allowed ${abTooLong() || abExport.status === "error" ? "bg-red-300/12 text-red-200/80" : abExport.status === "done" ? "bg-emerald-300/14 text-emerald-200" : "bg-white/8 text-white/62 hover:bg-white/14 hover:text-white"}`}
-                    onClick={() => void exportAbLoop()}
-                  >
-                    <Icon name={abExport.status === "done" ? "check" : "download"} class="h-3 w-3" />
-                    <span>{abExport.status === "recording" ? `${abExport.progress}%` : abTooLong() ? "1:00 max" : abExport.status === "done" ? "Saved" : "Export"}</span>
-                  </button>
+                  <For each={AB_EXPORT_FORMAT_OPTIONS.filter(option => abExportFormatSupported(option.value))}>
+                    {option => (
+                      <button
+                        type="button"
+                        aria-label={abTooLong() ? "AB clip is longer than 1 minute" : `Export AB clip as ${option.label}`}
+                        title={abExport.format === option.value && abExport.message ? abExport.message : abTooLong() ? "Only AB clips up to 1 minute can be exported" : `Export AB clip as ${option.label}`}
+                        disabled={abTooLong() || abExport.status === "recording"}
+                        class={`flex h-5 shrink-0 items-center gap-1 rounded-md border-0 px-1.5 font-sans text-[9px] font-semibold transition disabled:cursor-not-allowed ${abTooLong() || (abExport.status === "error" && abExport.format === option.value) ? "bg-red-300/12 text-red-200/80" : abExport.status === "done" && abExport.format === option.value ? "bg-emerald-300/14 text-emerald-200" : "bg-white/8 text-white/62 hover:bg-white/14 hover:text-white"}`}
+                        onClick={() => void exportAbLoop(option.value)}
+                      >
+                        <Icon name={abExport.status === "done" && abExport.format === option.value ? "check" : "download"} class="h-3 w-3" />
+                        <span>{abExport.status === "recording" && abExport.format === option.value ? `${abExport.progress}%` : abTooLong() ? "1:00 max" : option.label}</span>
+                      </button>
+                    )}
+                  </For>
                 </Show>
               </span>
             </Show>

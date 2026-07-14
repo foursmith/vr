@@ -53,6 +53,11 @@ export const VIDEO_FRAME_RATE_OPTIONS = [
   { label: "30 fps", value: 30 },
   { label: "60 fps", value: 60 },
 ] as const
+export type AbExportFormat = "webm" | "mp4"
+export const AB_EXPORT_FORMAT_OPTIONS = [
+  { label: "WebM", value: "webm" },
+  { label: "MP4", value: "mp4" },
+] as const satisfies readonly { label: string, value: AbExportFormat }[]
 const EXPORT_VIDEO_BIT_RATES = [2_000_000, 4_000_000, 8_000_000, 12_000_000] as const
 
 type AbExportStatus = "idle" | "recording" | "done" | "error"
@@ -61,13 +66,27 @@ type CapturableVideoElement = HTMLVideoElement & {
   mozCaptureStream?: () => MediaStream
 }
 
-const chooseAbExportMimeType = () => [
-  "video/webm;codecs=vp9,opus",
-  "video/webm;codecs=vp8,opus",
-  "video/webm",
-].find(type => MediaRecorder.isTypeSupported(type))
+const AB_EXPORT_MIME_TYPES = {
+  webm: [
+    "video/webm;codecs=vp9,opus",
+    "video/webm;codecs=vp8,opus",
+    "video/webm",
+  ],
+  mp4: [
+    "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+    "video/mp4;codecs=avc1,mp4a.40.2",
+    "video/mp4",
+  ],
+} as const
 
-const abExportFileName = (sourceName: string, start: number, end: number, extension: "mp4" | "webm") => {
+const chooseAbExportMimeType = (format: AbExportFormat) =>
+  typeof MediaRecorder === "undefined"
+    ? undefined
+    : AB_EXPORT_MIME_TYPES[format].find(type => MediaRecorder.isTypeSupported(type))
+
+const isAbExportFormatSupported = (format: AbExportFormat) => Boolean(chooseAbExportMimeType(format))
+
+const abExportFileName = (sourceName: string, start: number, end: number, extension: AbExportFormat) => {
   const stem = sourceName.replace(/\.[^.]+$/, "").replace(/[\\/:*?"<>|]+/g, "-").trim() || "video"
   const time = (value: number) => value.toFixed(1).replace(".", "-")
   return `${stem}-AB-${time(start)}-${time(end)}.${extension}`
@@ -253,6 +272,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     status: "idle" as AbExportStatus,
     progress: 0,
     message: undefined as string | undefined,
+    format: "webm" as AbExportFormat,
   })
   const [subtitleCues, setSubtitleCues] = createSignal<SubtitleCue[]>([])
   const [subtitlesEnabled, setSubtitlesEnabled] = createSignal(initialPreferences.subtitlesEnabled)
@@ -949,7 +969,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     })
   }
 
-  const exportAbLoop = async () => {
+  const exportAbLoop = async (format: AbExportFormat = abExport.format) => {
     if (activeAbExport || abLoop.a === undefined || abLoop.b === undefined) return
     const start = abLoop.a
     const end = abLoop.b
@@ -964,10 +984,17 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
 
     const exportScene = scene
     const outputCanvas = exportScene?.getOutputCanvas()
-    if (typeof MediaRecorder === "undefined" || !exportScene || !outputCanvas?.captureStream) {
+    if (!exportScene || !outputCanvas?.captureStream) {
       setAbExport((draft) => {
         draft.status = "error"
         draft.message = "This browser cannot export the current view."
+      })
+      return
+    }
+    if (!isAbExportFormatSupported(format)) {
+      setAbExport((draft) => {
+        draft.status = "error"
+        draft.message = `${format.toUpperCase()} export is not supported by this browser.`
       })
       return
     }
@@ -989,7 +1016,8 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     setAbExport((draft) => {
       draft.status = "recording"
       draft.progress = 0
-      draft.message = "Exporting AB clip…"
+      draft.message = `Exporting ${format.toUpperCase()}…`
+      draft.format = format
     })
 
     try {
@@ -1025,47 +1053,51 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
         })
       }
 
-      const exportCanvas = document.createElement("canvas")
-      const exportContext = exportCanvas.getContext("2d", { alpha: false })
-      if (!exportContext) throw new Error("The current view could not be composed.")
-      const drawExportFrame = (viewCanvas: HTMLCanvasElement) => {
-        if (exportCanvas.width !== viewCanvas.width || exportCanvas.height !== viewCanvas.height) {
-          exportCanvas.width = viewCanvas.width
-          exportCanvas.height = viewCanvas.height
-        }
-        exportContext.drawImage(viewCanvas, 0, 0, exportCanvas.width, exportCanvas.height)
-        if (!subtitlesEnabled()) return
-        const text = activeSubtitleText(subtitleCues(), video.currentTime)
-        if (!text) return
-
-        const cssWidth = Math.max(1, viewCanvas.clientWidth || vrMount.clientWidth || exportCanvas.width)
-        const cssHeight = Math.max(1, viewCanvas.clientHeight || vrMount.clientHeight || exportCanvas.height)
-        const scale = exportCanvas.width / cssWidth
-        const fontSize = Math.min(28, Math.max(16, cssWidth * 0.022)) * scale
-        const lineHeight = fontSize * 1.38
-        const maxTextWidth = Math.min(cssWidth * 0.86, 1152) * scale
-        exportContext.font = `600 ${fontSize}px system-ui, -apple-system, sans-serif`
-        const lines = wrapCanvasText(exportContext, text, maxTextWidth)
-        const blockHeight = lines.length * lineHeight
-        const bottom = exportCanvas.height - cssHeight * 0.14 * (exportCanvas.height / cssHeight)
-        const top = bottom - blockHeight
-        exportContext.textAlign = "center"
-        exportContext.textBaseline = "top"
-        exportContext.lineJoin = "round"
-        exportContext.fillStyle = "#fff"
-        exportContext.strokeStyle = "rgba(0,0,0,0.82)"
-        exportContext.lineWidth = Math.max(2, 3 * scale)
-        lines.forEach((line, index) => {
-          const y = top + index * lineHeight
-          exportContext.strokeText(line, exportCanvas.width / 2, y)
-          exportContext.fillText(line, exportCanvas.width / 2, y)
-        })
-      }
-      drawExportFrame(outputCanvas)
-      exportScene.setFrameCapture(drawExportFrame)
-      frameCaptureInstalled = true
       const exportFrameRate = VIDEO_FRAME_RATE_OPTIONS[renderFrameRateId() - 1]?.value ?? 30
-      const viewStream = exportCanvas.captureStream(exportFrameRate)
+      let captureCanvas = outputCanvas
+      if (subtitlesEnabled()) {
+        const exportCanvas = document.createElement("canvas")
+        const exportContext = exportCanvas.getContext("2d", { alpha: false })
+        if (!exportContext) throw new Error("The current view could not be composed.")
+        const drawExportFrame = (viewCanvas: HTMLCanvasElement) => {
+          if (exportCanvas.width !== viewCanvas.width || exportCanvas.height !== viewCanvas.height) {
+            exportCanvas.width = viewCanvas.width
+            exportCanvas.height = viewCanvas.height
+          }
+          exportContext.drawImage(viewCanvas, 0, 0, exportCanvas.width, exportCanvas.height)
+          const text = activeSubtitleText(subtitleCues(), video.currentTime)
+          if (text) {
+            const cssWidth = Math.max(1, viewCanvas.clientWidth || vrMount.clientWidth || exportCanvas.width)
+            const cssHeight = Math.max(1, viewCanvas.clientHeight || vrMount.clientHeight || exportCanvas.height)
+            const scale = exportCanvas.width / cssWidth
+            const fontSize = Math.min(28, Math.max(16, cssWidth * 0.022)) * scale
+            const lineHeight = fontSize * 1.38
+            const maxTextWidth = Math.min(cssWidth * 0.86, 1152) * scale
+            exportContext.font = `600 ${fontSize}px system-ui, -apple-system, sans-serif`
+            const lines = wrapCanvasText(exportContext, text, maxTextWidth)
+            const blockHeight = lines.length * lineHeight
+            const bottom = exportCanvas.height - cssHeight * 0.14 * (exportCanvas.height / cssHeight)
+            const top = bottom - blockHeight
+            exportContext.textAlign = "center"
+            exportContext.textBaseline = "top"
+            exportContext.lineJoin = "round"
+            exportContext.fillStyle = "#fff"
+            exportContext.strokeStyle = "rgba(0,0,0,0.82)"
+            exportContext.lineWidth = Math.max(2, 3 * scale)
+            lines.forEach((line, index) => {
+              const y = top + index * lineHeight
+              exportContext.strokeText(line, exportCanvas.width / 2, y)
+              exportContext.fillText(line, exportCanvas.width / 2, y)
+            })
+          }
+        }
+        drawExportFrame(outputCanvas)
+        exportScene.setFrameCapture(drawExportFrame)
+        frameCaptureInstalled = true
+        captureCanvas = exportCanvas
+      }
+      const chunks: Blob[] = []
+      const viewStream = captureCanvas.captureStream(exportFrameRate)
       const capturableVideo = video as CapturableVideoElement
       const captureAudio = capturableVideo.captureStream ?? capturableVideo.mozCaptureStream
       const audioStream = captureAudio?.call(capturableVideo)
@@ -1075,13 +1107,12 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
         ...(audioStream?.getAudioTracks() ?? []),
       ])
       if (!stream.getVideoTracks().length) throw new Error("The current view could not be captured.")
-      const mimeType = chooseAbExportMimeType()
+      const mimeType = chooseAbExportMimeType(format)
       recorder = new MediaRecorder(stream, {
         ...(mimeType ? { mimeType } : {}),
         videoBitsPerSecond: EXPORT_VIDEO_BIT_RATES[qualityId()] ?? 4_000_000,
         audioBitsPerSecond: 128_000,
       })
-      const chunks: Blob[] = []
       const recordingComplete = new Promise<void>((resolve, reject) => {
         recorder!.addEventListener("dataavailable", (event: BlobEvent) => {
           if (event.data.size) chunks.push(event.data)
@@ -1135,10 +1166,9 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       removeCaptureListeners()
       removeCaptureListeners = undefined
       if (timedOut) throw new Error("Export timed out before reaching point B.")
-      const blob = new Blob(chunks, { type: recorder.mimeType || "video/webm" })
+      const blob = new Blob(chunks, { type: recorder.mimeType || `video/${format}` })
       if (!blob.size) throw new Error("The exported clip was empty.")
-      const extension = recorder.mimeType.includes("mp4") ? "mp4" : "webm"
-      const name = abExportFileName(fileName() ?? "video", start, end, extension)
+      const name = abExportFileName(fileName() ?? "video", start, end, format)
       const url = URL.createObjectURL(blob)
       const link = document.createElement("a")
       link.href = url
@@ -1161,7 +1191,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       if (timeout !== undefined) window.clearTimeout(timeout)
       if (frameCaptureInstalled) exportScene?.setFrameCapture()
       removeCaptureListeners?.()
-      if (recorder?.state !== "inactive") recorder?.stop()
+      if (recorder && recorder.state !== "inactive") recorder.stop()
       new Set(capturedStreams.flatMap(captured => captured.getTracks())).forEach(track => track.stop())
       capturedStreams = []
       video.playbackRate = previousRate
@@ -1613,6 +1643,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       abLoop,
       abExport,
       clearAbLoop,
+      abExportFormatSupported: isAbExportFormatSupported,
       exportAbLoop,
       handlePlaybackEnded,
       playing,
