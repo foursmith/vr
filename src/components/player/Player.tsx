@@ -1,6 +1,5 @@
 import type { PlayerController } from "../../features/player/controller"
 import { Show, untrack } from "solid-js"
-import { isFsvrHostMode } from "../../features/sources/fsvr-runtime"
 import { PlaylistPanel } from "../playlist/PlaylistPanel"
 import { EmptyState } from "./EmptyState"
 import { PlayerControls } from "./PlayerControls"
@@ -70,7 +69,7 @@ export function Player(props: { controller: PlayerController }) {
       </Show>
 
       <PlaylistPanel controller={controller} />
-      <Show when={isFsvrHostMode || hasVideo()}>
+      <Show when={hasVideo()}>
         <PlayerControls controller={controller} />
       </Show>
     </main>
