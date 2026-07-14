@@ -113,20 +113,20 @@ export function EmptyState(props: {
             <Icon name="github" class="empty-github-icon size-8" />
           </a>
 
-          <span aria-label="TikTok" role="img" tabindex="0" class="empty-feature-dot empty-feature-tiktok">
-            <span aria-hidden="true" class="empty-feature-label">TikTok</span>
+          <span aria-label="No headset" role="img" tabindex="0" class="empty-feature-dot empty-feature-tiktok">
+            <span aria-hidden="true" class="empty-feature-label">No headset</span>
           </span>
-          <span aria-label="Open Source" role="img" tabindex="0" class="empty-feature-dot empty-feature-open-source">
-            <span aria-hidden="true" class="empty-feature-label">Open Source</span>
+          <span aria-label="Open source" role="img" tabindex="0" class="empty-feature-dot empty-feature-open-source">
+            <span aria-hidden="true" class="empty-feature-label">Open source</span>
           </span>
-          <span aria-label="Subtitles" role="img" tabindex="0" class="empty-feature-dot empty-feature-subtitles">
-            <span aria-hidden="true" class="empty-feature-label">Subtitles</span>
+          <span aria-label="Portrait layout" role="img" tabindex="0" class="empty-feature-dot empty-feature-portrait-layout">
+            <span aria-hidden="true" class="empty-feature-label">Portrait layout</span>
           </span>
-          <span aria-label="Follow face" role="img" tabindex="0" class="empty-feature-dot empty-feature-face-tracking">
-            <span aria-hidden="true" class="empty-feature-label">Follow face</span>
+          <span aria-label="Face centering" role="img" tabindex="0" class="empty-feature-dot empty-feature-face-tracking">
+            <span aria-hidden="true" class="empty-feature-label">Face centering</span>
           </span>
-          <span aria-label="2D VR player" role="img" tabindex="0" class="empty-feature-dot empty-feature-vr-player">
-            <span aria-hidden="true" class="empty-feature-label">2D VR player</span>
+          <span aria-label="Auto-framed VR" role="img" tabindex="0" class="empty-feature-dot empty-feature-vr-player">
+            <span aria-hidden="true" class="empty-feature-label">Auto-framed VR</span>
           </span>
           <span aria-label="Foursmith VR" role="img" tabindex="0" class="empty-feature-dot empty-feature-brand">
             <span aria-hidden="true" class="empty-feature-label">Foursmith VR</span>

@@ -4,11 +4,11 @@ export function BrowserCompatibilityNotice() {
       <div aria-hidden="true" class="h-px w-12 bg-gradient-to-r from-transparent via-accent/38 to-transparent" />
       <div class="flex flex-col items-center gap-0.5">
         <p class="text-sm font-normal tracking-[-0.01em] text-[#f5fffc]/88 sm:text-base">
-          <span class="font-serif italic text-[#b8f3ec]/92">Chrome</span>
+          Works best in
           {" "}
-          recommended
+          <span class="font-serif italic text-[#b8f3ec]/92">Chrome</span>
         </p>
-        <p class="max-w-sm text-[10px] font-medium leading-4 tracking-[0.018em] text-white/38 sm:text-[11px]">VR Video playback may fail or stutter in this browser.</p>
+        <p class="max-w-sm text-[10px] font-medium leading-4 tracking-[0.018em] text-white/38 sm:text-[11px]">VR playback may stutter or fail in this browser.</p>
       </div>
     </aside>
   )

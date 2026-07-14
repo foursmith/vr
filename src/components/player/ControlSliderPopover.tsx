@@ -113,7 +113,7 @@ export function ControlSliderPopover(props: { controller: PlayerController, trig
             onAction={() => setPlaybackRateLevel(1)}
           />
           <HorizontalControlRange
-            label="Scale"
+            label="Zoom"
             valueLabel={`${Math.round(zoom() * 100)}%`}
             min={0.8}
             max={2.4}
@@ -121,7 +121,7 @@ export function ControlSliderPopover(props: { controller: PlayerController, trig
             value={zoom()}
             progress={((zoom() - 0.8) / 1.6) * 100}
             onInput={setZoom}
-            actionLabel="Reset scale"
+            actionLabel="Reset zoom"
             actionIcon="rotate-ccw"
             onAction={resetView}
           />

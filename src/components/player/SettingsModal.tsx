@@ -97,15 +97,15 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
         </section>
 
         <SettingToggle
-          title="Fill wide screens"
-          description="Repeat the view side by side when the screen is wide."
+          title="Portrait layout"
+          description="Repeat the view in portrait panels on wide screens."
           icon="columns"
           pressed={state.splitScreen}
           onCheckedChange={setSplitScreen}
         />
         <SettingToggle
-          title="Follow face"
-          description="Move the view automatically to keep a detected face centered."
+          title="Face centering"
+          description="Automatically keep detected faces centered."
           icon="scan-face"
           pressed={state.faceAutoCenter}
           onCheckedChange={setFaceAutoCenter}
