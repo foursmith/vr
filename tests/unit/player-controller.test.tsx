@@ -416,11 +416,12 @@ describe("player controller", () => {
     const recordedOptions: MediaRecorderOptions[] = []
     class FakeMediaRecorder extends EventTarget {
       static isTypeSupported = vi.fn(() => true)
-      mimeType = "video/webm"
+      mimeType: string
       state: RecordingState = "inactive"
 
       constructor(stream: FakeMediaStream, options: MediaRecorderOptions) {
         super()
+        this.mimeType = options.mimeType ?? "video/webm"
         recordedStreams.push(stream)
         recordedOptions.push(options)
       }
@@ -492,7 +493,7 @@ describe("player controller", () => {
     controller.display.setQualityId(3)
     await settle()
 
-    const exporting = controller.playback.exportAbLoop()
+    const exporting = controller.playback.exportAbLoop("mp4")
     await settle()
     video.currentTime = 20
     video.dispatchEvent(new Event("timeupdate"))
@@ -508,8 +509,27 @@ describe("player controller", () => {
     expect(recordedStreams[0].getVideoTracks()).toEqual([viewTrack])
     expect(recordedStreams[0].getAudioTracks()).toEqual([audioTrack])
     expect(recordedStreams[0].getTracks()).not.toContain(sourceVideoTrack)
-    expect(recordedOptions[0]).toMatchObject({ videoBitsPerSecond: 12_000_000, audioBitsPerSecond: 128_000 })
+    expect(recordedOptions[0]).toMatchObject({ mimeType: expect.stringContaining("video/mp4"), videoBitsPerSecond: 12_000_000, audioBitsPerSecond: 128_000 })
     expect(controller.playback.abExport.status).toBe("done")
+    controller.subtitles.toggle()
+    await settle()
+    getContext.mockClear()
+    drawImage.mockClear()
+    captureExport.mockClear()
+    mocks.sceneController.setFrameCapture.mockClear()
+
+    const exportingWithoutSubtitles = controller.playback.exportAbLoop()
+    await settle()
+    video.currentTime = 20
+    video.dispatchEvent(new Event("timeupdate"))
+    await exportingWithoutSubtitles
+    await settle()
+
+    expect(captureExport).toHaveBeenCalledWith(24)
+    expect(captureExport.mock.contexts[0]).toBe(outputCanvas)
+    expect(getContext).not.toHaveBeenCalled()
+    expect(drawImage).not.toHaveBeenCalled()
+    expect(mocks.sceneController.setFrameCapture).not.toHaveBeenCalled()
     dispose()
     getContext.mockRestore()
     delete (HTMLCanvasElement.prototype as HTMLCanvasElement & { captureStream?: () => MediaStream }).captureStream
