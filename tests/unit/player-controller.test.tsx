@@ -15,6 +15,10 @@ const mocks = vi.hoisted(() => ({
     resetMedia: vi.fn(),
     destroy: vi.fn(),
   },
+  download: vi.fn(async (onProgress: (value: { loaded: number, total: number, label: string }) => void) => {
+    onProgress({ loaded: 1, total: 2, label: "Downloading" })
+    onProgress({ loaded: 2, total: 2, label: "Downloaded" })
+  }),
   preload: vi.fn(async (onProgress: (value: { loaded: number, total: number, label: string }) => void) => {
     onProgress({ loaded: 1, total: 2, label: "Halfway" })
     onProgress({ loaded: 2, total: 2, label: "Loaded" })
@@ -26,6 +30,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../../src/features/vr/scene", async importOriginal => ({
   ...await importOriginal<typeof import("../../src/features/vr/scene")>(),
   createVrScene: mocks.createVrScene,
+  downloadFaceTrackingResources: mocks.download,
   preloadFaceAutoCenterResources: mocks.preload,
 }))
 vi.mock("../../src/features/face-tracking/client", () => ({ releaseFaceAutoCenterResources: mocks.releaseResources }))
@@ -91,6 +96,7 @@ beforeEach(() => {
     static createObjectURL = vi.fn(() => "blob:test-video")
     static revokeObjectURL = vi.fn()
   })
+  mocks.download.mockClear()
   mocks.preload.mockClear()
   mocks.releaseResources.mockClear()
   mocks.createVrScene.mockReset().mockReturnValue(mocks.sceneController)
@@ -155,6 +161,7 @@ describe("player controller", () => {
     const { controller, dispose, video } = setupController()
     await controller.playback.startInitialLoad()
     await settle()
+    expect(mocks.download).toHaveBeenCalledOnce()
     expect(mocks.preload).toHaveBeenCalledOnce()
     expect(controller.playback.loadingState).toMatchObject({ resourcesReady: true, progress: 100, label: "Ready" })
     expect(mocks.createVrScene).toHaveBeenCalledOnce()
@@ -559,7 +566,7 @@ describe("player controller", () => {
     await controller.playback.startInitialLoad()
     await settle()
     expect(warning).toHaveBeenCalledWith("initial resource loading failed", expect.objectContaining({ message: "model unavailable" }))
-    expect(controller.playback.loadingState.error).toBe("Resource loading failed")
+    expect(controller.playback.loadingState.error).toBe("Couldn’t get the player ready")
     expect(controller.playback.loadingState.resourcesReady).toBe(false)
     await controller.playback.startInitialLoad()
     await settle()

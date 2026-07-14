@@ -4,6 +4,7 @@ import { MAX_AB_EXPORT_DURATION_SECONDS } from "../../features/player/controller
 import { formatTime } from "../../lib/format-time"
 import { GlassRange } from "../ui/GlassRange"
 import { Icon } from "../ui/Icon"
+import { ProgressTrack } from "../ui/ProgressTrack"
 
 export function PlaybackTimeline(props: { controller: PlayerController }) {
   const controller = untrack(() => props.controller)
@@ -21,6 +22,7 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
     seekTo,
     setAbEnd,
     setAbStart,
+    startInitialLoad,
   } = controller.playback
   const { registerActivity, setControlsHold } = controller.controls
   const [hoverPreview, setHoverPreview] = createSignal<{ left: number, time: number }>()
@@ -55,26 +57,24 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
     <Show
       when={loadingState.resourcesReady}
       fallback={(
-        <div class="grid grid-rows-[1.35rem_1rem] gap-1 max-sm:grid-rows-[2.75rem_1rem]" role="status" aria-live="polite">
-          <div
-            class="relative h-[1.35rem] w-full [--fill:rgba(255,255,255,0.82)] [--track:rgba(255,255,255,0.18)] max-sm:h-11"
+        <div class="grid grid-rows-[1.35rem_1rem] gap-1 max-sm:grid-rows-[2.75rem_1rem]">
+          <ProgressTrack
+            progress={loadingPercent()}
+            class="max-sm:h-11"
             role="progressbar"
-            aria-label="Loading player models"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            aria-valuenow={loadingPercent()}
-            style={`--progress:${loadingPercent()}%`}
-          >
-            <span
-              aria-hidden="true"
-              class="pointer-events-none absolute inset-x-0 top-1/2 h-[0.28rem] -translate-y-1/2 overflow-hidden rounded-full"
-              style={{ background: "var(--track)" }}
-            >
-              <span class="block h-full rounded-full" style={{ width: "var(--progress)", background: "var(--fill)" }}></span>
-            </span>
-          </div>
+            label="Preparing player"
+          />
           <div class="flex h-4 min-w-0 items-center font-mono text-[11px] leading-4 text-white/48">
-            <span class="min-w-0 truncate">{loadingState.error ?? loadingState.label}</span>
+            <span class="min-w-0 truncate" role="status" aria-live="polite">{loadingState.error ?? loadingState.label}</span>
+            <Show when={loadingState.error}>
+              <button
+                type="button"
+                class="ml-2 flex h-5 shrink-0 items-center rounded-md border-0 bg-white/8 px-1.5 font-sans text-[9px] font-semibold text-white/62 transition hover:bg-white/14 hover:text-white"
+                onClick={startInitialLoad}
+              >
+                Retry
+              </button>
+            </Show>
             <span class="ml-auto shrink-0 pl-3 text-right">
               {loadingPercent()}
               %
@@ -179,16 +179,6 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
               </span>
             </Show>
           </div>
-          <Show when={fileName()}>
-            {name => (
-              <span
-                class="pointer-events-none absolute left-1/2 min-w-0 max-w-[40vw] -translate-x-1/2 truncate px-3 text-center font-sans font-medium text-white/70 lg:max-w-lg"
-                title={name()}
-              >
-                {name()}
-              </span>
-            )}
-          </Show>
           <span class="ml-auto shrink-0 text-right">{formatTime(duration())}</span>
           <span class="sr-only" role="status" aria-live="polite">{abExport.message}</span>
         </div>

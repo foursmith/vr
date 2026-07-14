@@ -34,7 +34,57 @@ export default defineConfig(({ command, mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["icon.svg", "pwa-192x192.png", "pwa-512x512.png"],
       workbox: {
+        globIgnores: [
+          "assets/vision_bundle-*.js",
+          "assets/worker-*.js",
+          "mediapipe/tasks-vision/wasm/**",
+        ],
+        globPatterns: ["**/*.{js,wasm,css,html,ico,png,svg,webmanifest}"],
         maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
+        runtimeCaching: [
+          {
+            urlPattern: /\/assets\/(?:vision_bundle|worker)-.*\.js$/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "face-tracking-code",
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+              expiration: {
+                maxEntries: 2,
+                maxAgeSeconds: 365 * 24 * 60 * 60,
+              },
+            },
+          },
+          {
+            urlPattern: /\/mediapipe\/tasks-vision\/wasm\/.*\.(?:js|wasm)$/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "face-tracking-runtime",
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+              expiration: {
+                maxEntries: 2,
+                maxAgeSeconds: 365 * 24 * 60 * 60,
+              },
+            },
+          },
+          {
+            urlPattern: /\/models\/.*\.(?:tflite|task)$/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "face-tracking-models",
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+              expiration: {
+                maxEntries: 3,
+                maxAgeSeconds: 365 * 24 * 60 * 60,
+              },
+            },
+          },
+        ],
       },
       manifest: {
         id: "/",
@@ -43,8 +93,8 @@ export default defineConfig(({ command, mode }) => ({
         description: "Watch VR like TikTok",
         start_url: "/",
         scope: "/",
-        theme_color: "#061a28",
-        background_color: "#061a28",
+        theme_color: "#62cfd8",
+        background_color: "#62cfd8",
         display: "standalone",
         categories: ["video", "photo", "entertainment", "utilities"],
         icons: [
@@ -66,7 +116,7 @@ export default defineConfig(({ command, mode }) => ({
           },
         ],
       },
-      disable: command === "serve" || mode === "fsvr",
+      disable: command === "serve" || mode.startsWith("fsvr"),
     }),
   ],
 }))

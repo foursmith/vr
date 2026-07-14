@@ -1,4 +1,5 @@
 import { LiquidGlass } from "./LiquidGlass"
+import { ProgressTrack } from "./ProgressTrack"
 
 export function GlassRange(props: {
   min: number
@@ -17,19 +18,8 @@ export function GlassRange(props: {
   onPointerUp?: (pointerType: string) => void
   onPointerCancel?: () => void
 }) {
-  const progress = () => Math.min(100, Math.max(0, props.progress))
-
   return (
-    <div
-      class={`relative h-[1.35rem] min-w-0 w-full [--fill:rgba(255,255,255,0.82)] [--track:rgba(255,255,255,0.18)] ${props.class ?? ""}`}
-      style={`--progress:${progress()}%`}
-    >
-      <span
-        aria-hidden="true"
-        class="pointer-events-none absolute inset-x-0 top-1/2 h-[0.28rem] -translate-y-1/2 overflow-hidden rounded-full bg-[var(--track)]"
-      >
-        <span class="block h-full rounded-full bg-[var(--fill)]" style={{ width: "var(--progress)" }}></span>
-      </span>
+    <ProgressTrack progress={props.progress} class={props.class}>
       <input
         type="range"
         min={props.min}
@@ -63,6 +53,6 @@ export function GlassRange(props: {
         >
         </span>
       </LiquidGlass>
-    </div>
+    </ProgressTrack>
   )
 }

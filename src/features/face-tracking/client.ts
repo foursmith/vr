@@ -17,10 +17,47 @@ const SHORT_RANGE_FACE_MODEL_URL = "/models/face_detector/blaze_face_short_range
 const FACE_LANDMARKER_MODEL_URL = "/models/face_landmarker/face_landmarker.task"
 const MIN_FACE_SCORE = 0.5
 
+const FACE_TRACKING_RESOURCES = [
+  { url: VISION_WASM_FILESET.wasmLoaderPath, cacheName: "face-tracking-runtime" },
+  { url: VISION_WASM_FILESET.wasmBinaryPath, cacheName: "face-tracking-runtime" },
+  { url: FULL_RANGE_FACE_MODEL_URL, cacheName: "face-tracking-models" },
+  { url: SHORT_RANGE_FACE_MODEL_URL, cacheName: "face-tracking-models" },
+  { url: FACE_LANDMARKER_MODEL_URL, cacheName: "face-tracking-models" },
+] as const
+
 export interface ResourceLoadProgress {
   loaded: number
   total: number
   label: string
+}
+
+const downloadResource = async (resource: (typeof FACE_TRACKING_RESOURCES)[number]) => {
+  const request = new Request(new URL(resource.url, window.location.origin))
+  if (typeof caches === "undefined") {
+    const response = await fetch(request)
+    if (!response.ok) throw new Error(`Failed to download ${resource.url}: ${response.status}`)
+    await response.arrayBuffer()
+    return
+  }
+
+  const cache = await caches.open(resource.cacheName)
+  if (await cache.match(request)) return
+  const response = await fetch(request)
+  if (!response.ok) throw new Error(`Failed to download ${resource.url}: ${response.status}`)
+  await cache.put(request, response)
+}
+
+export const downloadFaceTrackingResources = async (
+  onProgress: (progress: ResourceLoadProgress) => void,
+) => {
+  const total = FACE_TRACKING_RESOURCES.length
+  onProgress({ loaded: 0, total, label: "Downloading face tracking resources" })
+  let loaded = 0
+  for (const resource of FACE_TRACKING_RESOURCES) {
+    await downloadResource(resource)
+    loaded += 1
+    onProgress({ loaded, total, label: "Downloading face tracking resources" })
+  }
 }
 
 interface PendingInference {
