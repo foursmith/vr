@@ -207,6 +207,33 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   const appendPlaylist = (nodes: PlaylistNode[]) => setPlaylistState((draft) => {
     draft.nodes.push(...serializePlaylistNodes(nodes))
   })
+  const refreshDlnaPlaylist = (nodes: PlaylistNode[]) => {
+    const dlnaNodes = serializePlaylistNodes(nodes.filter(node => node.sourceKind === "dlna"))
+    setPlaylistState((draft) => {
+      const isBrowserRoot = (node: PlaylistStateNode) =>
+        node.sourceKind === "browser" || playlistFiles.has(node.id)
+      const previousDlnaNodes = new Map(
+        draft.nodes
+          .filter(node => node.sourceKind === "dlna")
+          .map(node => [node.id, node]),
+      )
+      dlnaNodes.forEach((node) => {
+        const previous = previousDlnaNodes.get(node.id)
+        if (previous?.children) node.children = previous.children
+      })
+      const nonDlnaNodes = draft.nodes.filter(node => node.sourceKind !== "dlna")
+      const firstBrowserIndex = nonDlnaNodes.findIndex(isBrowserRoot)
+      if (firstBrowserIndex < 0) {
+        draft.nodes = [...nonDlnaNodes, ...dlnaNodes]
+        return
+      }
+      draft.nodes = [
+        ...nonDlnaNodes.slice(0, firstBrowserIndex),
+        ...dlnaNodes,
+        ...nonDlnaNodes.slice(firstBrowserIndex),
+      ]
+    })
+  }
   const setExpandedFolders = (update: ValueUpdate<Set<string>>) => setPlaylistState((draft) => {
     const current = new Set(Array.from(draft.expandedFolderIds))
     draft.expandedFolderIds = Array.from(resolveUpdate(current, update))
@@ -1250,8 +1277,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
         loadFsvrDlnaDevices(serverState.endpoint),
       ])
       if (appDisposed) return
-      clearPlaylistNodes()
-      await importPlaylistNodes(nodes, "when-empty")
+      refreshDlnaPlaylist(nodes)
       setServerState((draft) => {
         draft.dlnaDevices = devices
       })
