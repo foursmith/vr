@@ -22,6 +22,7 @@ export function createControls(options: {
   let touchStart: { id: number, x: number, y: number } | undefined
   let heldReasons: ReadonlySet<ControlsHoldReason> = new Set()
   const uiSurfaces = new Set<HTMLElement>()
+  const activeUiTouchPointers = new Set<number>()
 
   const [activeSlider, setActiveSliderState] = createSignal<SliderControl>()
   const [sliderAnchor, setSliderAnchor] = createSignal<SliderAnchor>({ x: 0, bottom: 72 })
@@ -84,8 +85,32 @@ export function createControls(options: {
     uiSurfaces.add(element)
   }
 
+  const isUiTarget = (target: EventTarget | null) => {
+    if (!(target instanceof Node)) return false
+    for (const surface of uiSurfaces) {
+      if (!surface.isConnected) {
+        uiSurfaces.delete(surface)
+        continue
+      }
+      if (surface.contains(target)) return true
+    }
+    return false
+  }
+
+  const handleUiPointerDown = (event: PointerEvent) => {
+    if (event.pointerType !== "touch" || !isUiTarget(event.target)) return
+    activeUiTouchPointers.add(event.pointerId)
+    setControlsHold("pointer", true)
+  }
+
+  const handleUiPointerUp = (event: PointerEvent) => {
+    if (event.pointerType !== "touch" || !activeUiTouchPointers.delete(event.pointerId)) return
+    if (activeUiTouchPointers.size === 0) setControlsHold("pointer", false)
+  }
+
   const hideControls = () => {
     cancelHideControls()
+    activeUiTouchPointers.clear()
     heldReasons = new Set()
     setHoldReasons(heldReasons)
     setActiveSliderState(undefined)
@@ -172,6 +197,7 @@ export function createControls(options: {
   const dispose = () => {
     cancelHideControls()
     if (mouseMoveFrame) window.cancelAnimationFrame(mouseMoveFrame)
+    activeUiTouchPointers.clear()
     uiSurfaces.clear()
   }
 
@@ -183,6 +209,8 @@ export function createControls(options: {
     handlePlayerPointerMove,
     handlePlayerPointerDown,
     handlePlayerPointerUp,
+    handleUiPointerDown,
+    handleUiPointerUp,
     hideControls,
     registerActivity,
     registerUiSurface,
