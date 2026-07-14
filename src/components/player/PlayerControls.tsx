@@ -63,7 +63,6 @@ export function PlayerControls(props: { controller: PlayerController }) {
           </div>
 
           <div class="flex min-w-0 items-center justify-end gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] max-sm:[&::-webkit-scrollbar]:hidden">
-            <ProjectionSelect value={displayState.projectionId} mount={controller.frame.getPlayer()} onChange={setProjectionId} />
             <Show when={subtitles.hasSubtitle()}>
               <IconButton
                 label={subtitles.enabled() ? "Hide subtitles" : "Show subtitles"}
@@ -72,6 +71,7 @@ export function PlayerControls(props: { controller: PlayerController }) {
                 onClick={subtitles.toggle}
               />
             </Show>
+            <ProjectionSelect value={displayState.projectionId} mount={controller.frame.getPlayer()} onChange={setProjectionId} />
             <div ref={adjustmentsButton} class="shrink-0">
               <IconButton
                 label="Adjust volume, speed, and zoom"

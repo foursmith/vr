@@ -135,7 +135,7 @@ export function Drawer(props: {
       >
         <div
           ref={backdrop}
-          class="drawer-backdrop absolute inset-0 bg-black/58 backdrop-blur-[2px]"
+          class="drawer-backdrop absolute inset-0 bg-black/50"
           onPointerDown={() => props.onOpenChange(false)}
         >
         </div>
