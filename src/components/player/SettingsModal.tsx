@@ -148,7 +148,7 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
                   {appPackage.version}
                 </span>
               </div>
-              <p class="mt-1 text-[11px] leading-snug text-white/48">Watch VR like TikTok — no headset required.</p>
+              <p class="mt-1 text-[11px] leading-snug text-white/48">Watch VR like TikTok</p>
             </div>
           </div>
           <div class="flex items-center gap-2 border-t border-white/7 px-3 py-2.5 text-[10px]">
