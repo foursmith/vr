@@ -2,7 +2,7 @@ import type { PlayerController } from "../../features/player/controller"
 import type { IconName } from "../ui/Icon"
 import { createSignal, For, onSettled, Show, untrack } from "solid-js"
 import appPackage from "../../../package.json"
-import { EXPORT_FRAME_RATE_OPTIONS } from "../../features/player/controller"
+import { VIDEO_FRAME_RATE_OPTIONS } from "../../features/player/controller"
 import { SHORTCUT_DEFINITIONS } from "../../features/player/shortcuts"
 import { Drawer } from "../ui/Drawer"
 import { FsvrLogo } from "../ui/FsvrLogo"
@@ -11,13 +11,13 @@ import { Modal } from "../ui/Modal"
 import { MatrixRange } from "../ui/RangeControls"
 import { Switch } from "../ui/Switch"
 
-const EXPORT_MATRIX_COLORS = ["#58bde2", "#5ed59a", "#efa557", "#9d74f7"]
+const VIDEO_MATRIX_COLORS = ["#58bde2", "#5ed59a", "#efa557", "#9d74f7"]
 const VIDEO_QUALITY_LABELS = ["Low", "Medium", "High", "Ultra"]
 const VIDEO_MATRIX_COLUMNS = VIDEO_QUALITY_LABELS.map((label, index) => ({
   label,
-  color: EXPORT_MATRIX_COLORS[index]!,
+  color: VIDEO_MATRIX_COLORS[index]!,
 }))
-const EXPORT_MATRIX_ROWS = EXPORT_FRAME_RATE_OPTIONS.slice(1)
+const VIDEO_MATRIX_ROWS = VIDEO_FRAME_RATE_OPTIONS
 
 function SettingToggle(props: {
   title: string
@@ -46,35 +46,11 @@ function SettingToggle(props: {
   )
 }
 
-function ExportModeLever(props: { active: boolean, onToggle: (active: boolean) => void }) {
-  return (
-    <div class="video-mode-lever">
-      <span class={props.active ? "video-mode-label export active" : "video-mode-label playback active"}>
-        {props.active ? "Export" : "Playback"}
-      </span>
-      <button
-        type="button"
-        role="switch"
-        aria-label="Control export video settings"
-        aria-checked={props.active ? "true" : "false"}
-        title={props.active ? "Controlling export video" : "Controlling playback video"}
-        class="video-mode-switch"
-        data-export={props.active ? "true" : "false"}
-        onClick={() => props.onToggle(!props.active)}
-      >
-        <span class="video-mode-switch-rail" aria-hidden="true"></span>
-        <span class="video-mode-switch-thumb" aria-hidden="true"></span>
-      </button>
-    </div>
-  )
-}
-
 export function SettingsModal(props: { controller: PlayerController, open: boolean, onOpenChange: (open: boolean) => void }) {
   const controller = untrack(() => props.controller)
-  const { debug, display, frame, playback } = controller
+  const { debug, display, frame } = controller
   const { setFaceAutoCenter, setQualityId, setRenderFrameRateId, setSplitScreen, state } = display
   const [narrowScreen, setNarrowScreen] = createSignal(window.matchMedia("(max-width: 639.9px)").matches)
-  const [controlsExport, setControlsExport] = createSignal(false)
   onSettled(() => {
     const media = window.matchMedia("(max-width: 639.9px)")
     const sync = () => setNarrowScreen(media.matches)
@@ -84,10 +60,9 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
 
   const content = () => (
     <div class="max-h-[calc(100dvh-1rem)] w-full overflow-y-auto pb-[env(safe-area-inset-bottom)] pt-3 overscroll-contain">
-      <div class="flex items-start justify-between px-5 py-3">
+      <div class="flex items-center justify-between px-5 py-3">
         <div>
-          <h2 id="settings-title" class="text-sm font-semibold tracking-tight text-white">Settings</h2>
-          <p id="settings-description" class="mt-1 text-[11px] text-white/46">Choose how the video view behaves.</p>
+          <h2 id="settings-title" class="font-semibold tracking-tight text-white">Settings</h2>
         </div>
         <button
           type="button"
@@ -102,29 +77,22 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
       <div class="grid gap-1.5 px-2.5 pb-2.5">
         <section class="overflow-hidden rounded-2xl bg-white/4" aria-label="Video quality and frame rate">
           <div
-            class="grid gap-3 px-3.5 py-3"
+            class="grid gap-3 p-3"
             role="group"
-            aria-label={controlsExport() ? "Export video settings" : "Playback video settings"}
+            aria-label="Video quality and frame rate"
           >
-            <div class="grid grid-cols-[minmax(0,1fr)_3.875rem] items-stretch gap-3">
-              <MatrixRange
-                columns={VIDEO_MATRIX_COLUMNS}
-                rows={EXPORT_MATRIX_ROWS}
-                column={controlsExport() ? playback.exportQualityId() : state.qualityId}
-                row={Math.max(0, (controlsExport() ? playback.exportFrameRateId() : state.renderFrameRateId) - 1)}
-                label={controlsExport() ? "Export quality and frame rate matrix" : "Playback quality and frame rate matrix"}
-                onChange={(qualityId, frameRateIndex) => {
-                  if (controlsExport()) {
-                    playback.setExportQualityId(qualityId)
-                    playback.setExportFrameRateId(frameRateIndex + 1)
-                  } else {
-                    setQualityId(qualityId)
-                    setRenderFrameRateId(frameRateIndex + 1)
-                  }
-                }}
-              />
-              <ExportModeLever active={controlsExport()} onToggle={setControlsExport} />
-            </div>
+            <MatrixRange
+              columns={VIDEO_MATRIX_COLUMNS}
+              rows={VIDEO_MATRIX_ROWS}
+              column={state.qualityId}
+              row={Math.max(0, state.renderFrameRateId - 1)}
+              label="Video quality and frame rate matrix"
+              cornerLabel="Renderer"
+              onChange={(qualityId, frameRateIndex) => {
+                setQualityId(qualityId)
+                setRenderFrameRateId(frameRateIndex + 1)
+              }}
+            />
           </div>
         </section>
 

@@ -49,8 +49,6 @@ describe("player state persistence", () => {
       faceAutoCenter: false,
       subtitlesEnabled: false,
       repeatMode: "folder",
-      exportFrameRateId: 2,
-      exportQualityId: 1,
     })
   })
 

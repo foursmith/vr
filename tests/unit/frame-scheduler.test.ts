@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { scheduleFrame } from "../../src/features/vr/frame-scheduler"
+import { faceInferencePeriod, scheduleFrame } from "../../src/features/vr/frame-scheduler"
 
 describe("frame scheduler", () => {
   it("holds a stable 24 fps average on a 60 Hz animation clock without drifting to 20 fps", () => {
@@ -20,5 +20,17 @@ describe("frame scheduler", () => {
     expect(afterPause.render).toBe(true)
     expect(afterPause.nextFrameAt).toBeGreaterThan(1000)
     expect(scheduleFrame(1001, 30, afterPause.nextFrameAt).render).toBe(false)
+  })
+
+  it.each([
+    [24, 1000 / 24],
+    [30, 1000 / 30],
+    [60, 1000 / 60],
+  ])("aligns face inference with a %i fps render target", (frameRate, expectedPeriod) => {
+    expect(faceInferencePeriod(frameRate, 0)).toBeCloseTo(expectedPeriod)
+  })
+
+  it("slows face inference when processing cannot keep up with the render target", () => {
+    expect(faceInferencePeriod(60, 40)).toBeCloseTo(46)
   })
 })

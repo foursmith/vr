@@ -301,8 +301,8 @@ describe("player controller", () => {
     await settle()
     video.currentTime = 20
     controller.playback.setAbEnd()
-    controller.playback.setExportFrameRateId(2)
-    controller.playback.setExportQualityId(2)
+    controller.display.setRenderFrameRateId(1)
+    controller.display.setQualityId(3)
     await settle()
 
     const exporting = controller.playback.exportAbLoop()
@@ -312,7 +312,7 @@ describe("player controller", () => {
     await exporting
     await settle()
 
-    expect(captureExport).toHaveBeenCalledWith(30)
+    expect(captureExport).toHaveBeenCalledWith(24)
     expect(drawImage).toHaveBeenCalledWith(outputCanvas, 0, 0, outputCanvas.width, outputCanvas.height)
     expect(fillText).toHaveBeenCalledWith("Rendered subtitle", outputCanvas.width / 2, expect.any(Number))
     expect(mocks.sceneController.setFrameCapture).toHaveBeenCalledWith(expect.any(Function))
@@ -321,7 +321,7 @@ describe("player controller", () => {
     expect(recordedStreams[0].getVideoTracks()).toEqual([viewTrack])
     expect(recordedStreams[0].getAudioTracks()).toEqual([audioTrack])
     expect(recordedStreams[0].getTracks()).not.toContain(sourceVideoTrack)
-    expect(recordedOptions[0]).toMatchObject({ videoBitsPerSecond: 8_000_000, audioBitsPerSecond: 128_000 })
+    expect(recordedOptions[0]).toMatchObject({ videoBitsPerSecond: 12_000_000, audioBitsPerSecond: 128_000 })
     expect(controller.playback.abExport.status).toBe("done")
     dispose()
     getContext.mockRestore()
@@ -334,8 +334,6 @@ describe("player controller", () => {
     controller.playback.setVolumeLevel(0.4)
     controller.playback.setPlaybackRateLevel(1.5)
     controller.playback.setRepeatMode("folder")
-    controller.playback.setExportFrameRateId(3)
-    controller.playback.setExportQualityId(2)
     controller.display.setQualityId(1)
     controller.display.setRenderFrameRateId(1)
     controller.display.setSplitScreen(false)
@@ -346,8 +344,6 @@ describe("player controller", () => {
       volume: 0.4,
       playbackRate: 1.5,
       repeatMode: "folder",
-      exportFrameRateId: 3,
-      exportQualityId: 2,
       qualityId: 1,
       renderFrameRateId: 1,
       splitScreen: false,

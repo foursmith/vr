@@ -47,18 +47,12 @@ const VIDEO_EMPTY_TIMEOUT_MS = 1200
 const VIDEO_STATE_SAVE_INTERVAL_MS = 10_000
 const LAST_PLAYBACK_SAVE_INTERVAL_MS = 1_000
 export const MAX_AB_EXPORT_DURATION_SECONDS = 60
-export const EXPORT_FRAME_RATE_OPTIONS = [
-  { label: "Source", value: 0 },
+export const VIDEO_FRAME_RATE_OPTIONS = [
   { label: "24 fps", value: 24 },
   { label: "30 fps", value: 30 },
   { label: "60 fps", value: 60 },
 ] as const
-export const EXPORT_QUALITY_OPTIONS = [
-  { label: "Compact", videoBitsPerSecond: 2_000_000 },
-  { label: "Balanced", videoBitsPerSecond: 4_000_000 },
-  { label: "Sharp", videoBitsPerSecond: 8_000_000 },
-  { label: "Ultra", videoBitsPerSecond: 12_000_000 },
-] as const
+const EXPORT_VIDEO_BIT_RATES = [2_000_000, 4_000_000, 8_000_000, 12_000_000] as const
 
 type AbExportStatus = "idle" | "recording" | "done" | "error"
 type CapturableVideoElement = HTMLVideoElement & {
@@ -231,8 +225,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   const [volume, setVolume] = createSignal(initialPreferences.volume)
   const [playbackRate, setPlaybackRate] = createSignal(initialPreferences.playbackRate)
   const [repeatMode, setRepeatMode] = createSignal<RepeatMode>(initialPreferences.repeatMode)
-  const [exportFrameRateId, setExportFrameRateIdSignal] = createSignal(initialPreferences.exportFrameRateId)
-  const [exportQualityId, setExportQualityIdSignal] = createSignal(initialPreferences.exportQualityId)
   const [abLoop, setAbLoop] = createStore({ a: undefined as number | undefined, b: undefined as number | undefined })
   const [abExport, setAbExport] = createStore({
     status: "idle" as AbExportStatus,
@@ -386,8 +378,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   })
 
   const loadingPercent = createMemo(() => Math.round(Math.min(100, Math.max(0, loadingProgress()))))
-  const setExportFrameRateId = (id: number) => setExportFrameRateIdSignal(Math.min(EXPORT_FRAME_RATE_OPTIONS.length - 1, Math.max(1, Math.round(id))))
-  const setExportQualityId = (id: number) => setExportQualityIdSignal(Math.min(EXPORT_QUALITY_OPTIONS.length - 1, Math.max(0, Math.round(id))))
   const playlistVideos = createMemo(() => {
     const videos: PlaylistStateNode[] = []
     const visit = (nodes: PlaylistStateNode[]) => {
@@ -400,7 +390,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   const sceneOptions = () => ({
     preset: PRESETS[presetId()].component,
     quality: QUALITY_OPTIONS[qualityId()].component,
-    frameRate: EXPORT_FRAME_RATE_OPTIONS[renderFrameRateId()]?.value ?? 30,
+    frameRate: VIDEO_FRAME_RATE_OPTIONS[renderFrameRateId() - 1]?.value ?? 30,
     hidden: false,
     splitScreen: splitScreen(),
     faceAutoCenter: faceAutoCenter(),
@@ -988,8 +978,8 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       drawExportFrame(outputCanvas)
       exportScene.setFrameCapture(drawExportFrame)
       frameCaptureInstalled = true
-      const exportFrameRate = EXPORT_FRAME_RATE_OPTIONS[exportFrameRateId()]?.value ?? 0
-      const viewStream = exportFrameRate ? exportCanvas.captureStream(exportFrameRate) : exportCanvas.captureStream()
+      const exportFrameRate = VIDEO_FRAME_RATE_OPTIONS[renderFrameRateId() - 1]?.value ?? 30
+      const viewStream = exportCanvas.captureStream(exportFrameRate)
       const capturableVideo = video as CapturableVideoElement
       const captureAudio = capturableVideo.captureStream ?? capturableVideo.mozCaptureStream
       const audioStream = captureAudio?.call(capturableVideo)
@@ -1002,7 +992,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       const mimeType = chooseAbExportMimeType()
       recorder = new MediaRecorder(stream, {
         ...(mimeType ? { mimeType } : {}),
-        videoBitsPerSecond: EXPORT_QUALITY_OPTIONS[exportQualityId()]?.videoBitsPerSecond ?? 4_000_000,
+        videoBitsPerSecond: EXPORT_VIDEO_BIT_RATES[qualityId()] ?? 4_000_000,
         audioBitsPerSecond: 128_000,
       })
       const chunks: Blob[] = []
@@ -1444,8 +1434,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       faceAutoCenter: faceAutoCenter(),
       subtitlesEnabled: subtitlesEnabled(),
       repeatMode: repeatMode(),
-      exportFrameRateId: exportFrameRateId(),
-      exportQualityId: exportQualityId(),
     }),
     preferences => saveGlobalPreferences(preferences),
   )
@@ -1535,8 +1523,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       abExport,
       clearAbLoop,
       exportAbLoop,
-      exportFrameRateId,
-      exportQualityId,
       handlePlaybackEnded,
       playing,
       playbackRate,
@@ -1549,8 +1535,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       setRepeatMode,
       setAbEnd,
       setAbStart,
-      setExportFrameRateId,
-      setExportQualityId,
       setVolumeLevel,
       startInitialLoad,
       syncTime,
