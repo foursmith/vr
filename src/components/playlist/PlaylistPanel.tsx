@@ -15,6 +15,7 @@ export function PlaylistPanel(props: { controller: PlayerController }) {
     chooseFolder,
     clearPlaylist,
     expandedFolders,
+    hasBrowserPlaylistItems,
     playPlaylistNode,
     setPlaylistOpen,
     state,
@@ -66,7 +67,8 @@ export function PlaylistPanel(props: { controller: PlayerController }) {
               label="Clear playlist"
               icon="trash"
               iconClass="h-3.5 w-3.5"
-              class={`!h-8 !w-8 ${state.nodes.length ? "" : "pointer-events-none opacity-25"}`}
+              class={`!h-8 !w-8 ${hasBrowserPlaylistItems() ? "" : "pointer-events-none opacity-25"}`}
+              disabled={!hasBrowserPlaylistItems()}
               onClick={clearPlaylist}
             />
             <IconButton label="Close playlist" icon="x" iconClass="h-3.5 w-3.5" class="!h-8 !w-8" onClick={() => setPlaylistOpen(false)} />

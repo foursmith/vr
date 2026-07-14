@@ -165,6 +165,36 @@ describe("player controller", () => {
     expect(video.pause).toHaveBeenCalled()
   })
 
+  it("stops playback and restores the empty state when clearing the playlist", async () => {
+    const { controller, dispose, host, video } = setupController()
+    const fileInput = host.querySelector<HTMLInputElement>("input[type='file']:not([webkitdirectory])")!
+    Object.defineProperty(fileInput, "files", {
+      configurable: true,
+      value: [new File(["video"], "movie.mp4", { type: "video/mp4" })],
+    })
+
+    controller.frame.handleFile()
+    await vi.advanceTimersByTimeAsync(200)
+    await settle()
+
+    expect(controller.frame.hasVideo()).toBe(true)
+    expect(video.getAttribute("src")).toBe("blob:test-video")
+
+    controller.playlist.clearPlaylist()
+    await settle()
+
+    expect(controller.playlist.state.nodes).toEqual([])
+    expect(controller.playlist.state.open).toBe(false)
+    expect(controller.frame.hasVideo()).toBe(false)
+    expect(controller.playback.playing()).toBe(false)
+    expect(video.pause).toHaveBeenCalled()
+    expect(video.getAttribute("src")).toBeNull()
+    expect(video.load).toHaveBeenCalled()
+    expect(host.textContent).toContain("Choose files")
+    expect(host.querySelector(".player-controls")).toBeNull()
+    dispose()
+  })
+
   it("clamps seeking and volume and updates display settings", async () => {
     const { controller, dispose, video } = setupController()
     await settle()
@@ -431,6 +461,54 @@ describe("player controller", () => {
     dispose()
   })
 
+  it("clears browser imports without removing server sources", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input))
+      if (url.pathname === "/api/v1/status") return Response.json({ name: "fsvr" })
+      if (url.pathname === "/api/v1/auth") return Response.json({ authenticated: true })
+      if (url.pathname === "/api/v1/sources") {
+        return Response.json([
+          { id: "local", name: "Movies", kind: "local" },
+          { id: "dlna-device", name: "Media Server", kind: "dlna" },
+        ])
+      }
+      return Response.json({ error: "not found" }, { status: 404 })
+    }))
+
+    const { controller, dispose, host, video } = setupController({ connectFsvr: true })
+    for (let index = 0; index < 8; index += 1) await settle()
+    await vi.advanceTimersByTimeAsync(0)
+    await settle()
+    expect(controller.server.state.status).toBe("connected")
+    const fileInput = host.querySelector<HTMLInputElement>("input[type='file']:not([webkitdirectory])")!
+    Object.defineProperty(fileInput, "files", {
+      configurable: true,
+      value: [new File(["video"], "imported.mp4", { type: "video/mp4" })],
+    })
+
+    controller.frame.handleFile()
+    await vi.advanceTimersByTimeAsync(200)
+    await settle()
+    expect(controller.playlist.state.nodes.map(node => node.id)).toEqual([
+      "source:local",
+      "source:dlna-device",
+      expect.stringMatching(/^playlist-/),
+    ])
+
+    controller.playlist.clearPlaylist()
+    await settle()
+
+    expect(controller.playlist.state.nodes.map(node => node.id)).toEqual([
+      "source:local",
+      "source:dlna-device",
+    ])
+    expect(controller.playlist.state.open).toBe(true)
+    expect(controller.frame.hasVideo()).toBe(false)
+    expect(video.getAttribute("src")).toBeNull()
+    expect(controller.playlist.hasBrowserPlaylistItems()).toBe(false)
+    dispose()
+  })
+
   it("does not persist playback data for DLNA videos", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input))
@@ -465,6 +543,10 @@ describe("player controller", () => {
     await settle()
 
     const mediaUrl = `${window.location.origin}/api/v1/media/dlna-device/video-entry`
+    expect(video.getAttribute("src")).toBe(mediaUrl)
+    controller.playlist.clearPlaylist()
+    await settle()
+    expect(controller.playlist.state.nodes.map(node => node.id)).toEqual(["source:dlna-device"])
     expect(video.getAttribute("src")).toBe(mediaUrl)
     expect(localStorage.getItem("foursmith-vr:last-playback")).toBeNull()
     vi.useRealTimers()
