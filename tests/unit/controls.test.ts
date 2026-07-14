@@ -33,7 +33,7 @@ describe("player controls", () => {
     dispose()
   })
 
-  it("positions, shows, schedules and cancels slider popovers", () => {
+  it("positions and toggles the adjustment panel on click", () => {
     vi.useFakeTimers()
     let dispose!: () => void
     const controls = createRoot((rootDispose) => {
@@ -45,18 +45,13 @@ describe("player controls", () => {
     vi.spyOn(panel, "getBoundingClientRect").mockReturnValue({ left: 100, right: 500, top: 400, bottom: 700, width: 400, height: 300, x: 100, y: 400, toJSON: () => ({}) })
     vi.spyOn(button, "getBoundingClientRect").mockReturnValue({ left: 180, right: 220, top: 620, bottom: 660, width: 40, height: 40, x: 180, y: 620, toJSON: () => ({}) })
     controls.setControlsPanel(panel)
-    controls.showSlider("volume", button)
+    controls.toggleSlider("adjustments", button)
     flush()
-    expect(controls.activeSlider()).toBe("volume")
+    expect(controls.activeSlider()).toBe("adjustments")
     expect(controls.controlsVisible()).toBe(true)
     expect(controls.sliderAnchor()).toEqual({ x: 100, bottom: 90 })
 
-    controls.scheduleHideSlider(10)
-    controls.cancelHideSlider()
-    vi.advanceTimersByTime(10)
-    expect(controls.activeSlider()).toBe("volume")
-    controls.scheduleHideSlider(10)
-    vi.advanceTimersByTime(10)
+    controls.toggleSlider("adjustments", button)
     flush()
     expect(controls.activeSlider()).toBeUndefined()
     controls.dispose()

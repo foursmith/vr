@@ -195,6 +195,103 @@ describe("player controller", () => {
     dispose()
   })
 
+  it("groups volume, speed, and scale into one horizontal slider panel", async () => {
+    const { controller, dispose, host } = setupController()
+    const fileInput = host.querySelector<HTMLInputElement>("input[type='file']:not([webkitdirectory])")!
+    Object.defineProperty(fileInput, "files", {
+      configurable: true,
+      value: [new File(["video"], "movie.mp4", { type: "video/mp4" })],
+    })
+    controller.frame.handleFile()
+    await vi.advanceTimersByTimeAsync(200)
+    await settle()
+
+    const adjustmentButton = host.querySelector<HTMLButtonElement>("button[aria-label='Adjust volume, speed, and scale']")!
+    adjustmentButton.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }))
+    await settle()
+    expect(host.querySelector("section[aria-label='Playback adjustments']")).toBeNull()
+
+    adjustmentButton.click()
+    await settle()
+
+    const panel = host.querySelector<HTMLElement>("section[aria-label='Playback adjustments']")!
+    expect(panel).not.toBeNull()
+    expect([...panel.querySelectorAll("input[type='range']")].map(input => input.getAttribute("aria-label"))).toEqual([
+      "Volume",
+      "Speed",
+      "Scale",
+    ])
+
+    const speed = panel.querySelector<HTMLInputElement>("input[aria-label='Speed']")!
+    speed.value = "1.5"
+    speed.dispatchEvent(new Event("input", { bubbles: true }))
+    await settle()
+    expect(controller.playback.playbackRate()).toBe(1.5)
+
+    panel.querySelector<HTMLButtonElement>("button[aria-label='Reset speed']")!.click()
+    await settle()
+    expect(controller.playback.playbackRate()).toBe(1)
+
+    controller.playback.setVolumeLevel(0.4)
+    await settle()
+    panel.querySelector<HTMLButtonElement>("button[aria-label='Mute']")!.click()
+    await settle()
+    expect(controller.playback.volume()).toBe(0)
+    expect(panel.querySelector("button[aria-label='Unmute']")).not.toBeNull()
+    panel.querySelector<HTMLButtonElement>("button[aria-label='Unmute']")!.click()
+    await settle()
+    expect(controller.playback.volume()).toBe(0.4)
+
+    controller.display.setZoom(1.4)
+    await settle()
+    panel.querySelector<HTMLButtonElement>("button[aria-label='Reset scale']")!.click()
+    await settle()
+    expect(controller.display.zoom()).toBe(1)
+
+    const settingsButton = host.querySelector<HTMLButtonElement>("button[aria-label='Settings']")!
+    speed.focus()
+    settingsButton.focus()
+    await settle()
+    expect(host.querySelector("section[aria-label='Playback adjustments']")).toBeNull()
+
+    const repeatButton = host.querySelector<HTMLButtonElement>("button[aria-label^='Playback mode:']")!
+    expect(repeatButton.closest("aside[aria-label='Playlist']")).not.toBeNull()
+    expect(repeatButton.querySelector("svg[data-icon='play-once']")).not.toBeNull()
+    repeatButton.click()
+    await settle()
+    expect(controller.playback.repeatMode()).toBe("playlist")
+    expect(repeatButton.getAttribute("aria-label")).toBe("Playback mode: Playlist")
+    expect(host.querySelector("[role='radiogroup'][aria-label='Playback mode']")).toBeNull()
+    repeatButton.click()
+    await settle()
+    expect(controller.playback.repeatMode()).toBe("folder")
+    expect(repeatButton.querySelector("svg[data-icon='folder-repeat']")).not.toBeNull()
+    repeatButton.click()
+    await settle()
+    expect(controller.playback.repeatMode()).toBe("file")
+    repeatButton.click()
+    await settle()
+    expect(controller.playback.repeatMode()).toBe("off")
+
+    const projectionButton = host.querySelector<HTMLButtonElement>("button[aria-label='Projection']")!
+    const initialProjectionIcon = projectionButton.querySelector("svg")!.innerHTML
+    projectionButton.click()
+    await settle()
+    const projectionList = host.querySelector<HTMLElement>("[role='listbox'][aria-label='Projection']")!
+    expect(projectionList).not.toBeNull()
+    projectionList.querySelector<HTMLButtonElement>("button[data-index='3']")!.click()
+    await settle()
+    expect(projectionButton.title).toBe("Projection: Flat 2D")
+    expect(projectionButton.querySelector("svg")!.innerHTML).not.toBe(initialProjectionIcon)
+
+    projectionButton.click()
+    await settle()
+    settingsButton.focus()
+    await settle()
+    expect(host.querySelector("[role='listbox'][aria-label='Projection']")).toBeNull()
+    dispose()
+  })
+
   it("clamps seeking and volume and updates display settings", async () => {
     const { controller, dispose, video } = setupController()
     await settle()

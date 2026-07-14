@@ -1,6 +1,6 @@
 import { createMemo, createSignal } from "solid-js"
 
-export type SliderControl = "volume" | "scale"
+export type SliderControl = "adjustments"
 export type ControlsHoldReason = "focus" | "pointer" | "scrubbing" | "popover" | "settings" | "loading"
 interface SliderAnchor { x: number, bottom: number }
 
@@ -16,7 +16,6 @@ export function createControls(options: {
 }) {
   let controlsPanel!: HTMLDivElement
   let hideControlsTimer: number | undefined
-  let hideSliderTimer: number | undefined
   let mouseMoveFrame = 0
   let pendingMousePosition = { x: 0, y: 0 }
   let lastMousePosition: { x: number, y: number } | undefined
@@ -85,15 +84,8 @@ export function createControls(options: {
     uiSurfaces.add(element)
   }
 
-  const cancelHideSlider = () => {
-    if (hideSliderTimer === undefined) return
-    window.clearTimeout(hideSliderTimer)
-    hideSliderTimer = undefined
-  }
-
   const hideControls = () => {
     cancelHideControls()
-    cancelHideSlider()
     heldReasons = new Set()
     setHoldReasons(heldReasons)
     setActiveSliderState(undefined)
@@ -162,16 +154,11 @@ export function createControls(options: {
     setControlsHold("popover", false)
   }
 
-  const scheduleHideSlider = (delay = 180) => {
-    cancelHideSlider()
-    hideSliderTimer = window.setTimeout(() => {
+  const toggleSlider = (control: SliderControl, button: HTMLElement) => {
+    if (activeSlider() === control) {
       closeSlider()
-      hideSliderTimer = undefined
-    }, delay)
-  }
-
-  const showSlider = (control: SliderControl, button: HTMLElement) => {
-    cancelHideSlider()
+      return
+    }
     const panelRect = controlsPanel.getBoundingClientRect()
     const buttonRect = button.getBoundingClientRect()
     setSliderAnchor({
@@ -184,14 +171,13 @@ export function createControls(options: {
 
   const dispose = () => {
     cancelHideControls()
-    cancelHideSlider()
     if (mouseMoveFrame) window.cancelAnimationFrame(mouseMoveFrame)
     uiSurfaces.clear()
   }
 
   return {
     activeSlider,
-    cancelHideSlider,
+    closeSlider,
     controlsVisible,
     dispose,
     handlePlayerPointerMove,
@@ -202,11 +188,10 @@ export function createControls(options: {
     registerUiSurface,
     resyncPointerHold,
     scheduleHideControls,
-    scheduleHideSlider,
     setControlsHold,
     setControlsPanel: (element: HTMLDivElement) => (controlsPanel = element),
     showControls,
-    showSlider,
+    toggleSlider,
     sliderAnchor,
     startInitialIdleCountdown,
   }

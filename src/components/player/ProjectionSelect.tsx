@@ -1,6 +1,7 @@
 import { Portal } from "@solidjs/web"
 import { createSignal, For, onSettled } from "solid-js"
 import { PRESETS } from "../../features/vr/scene"
+import { IconButton } from "../ui/IconButton"
 import { LiquidGlass } from "../ui/LiquidGlass"
 import { ProjectionIcon } from "../ui/ProjectionIcon"
 
@@ -11,7 +12,7 @@ export function ProjectionSelect(props: {
 }) {
   const [open, setOpen] = createSignal(false)
   const [focusedIndex, setFocusedIndex] = createSignal(0)
-  const [menuPosition, setMenuPosition] = createSignal({ left: 0, bottom: 0 })
+  const [menuPosition, setMenuPosition] = createSignal({ x: 0, bottom: 0 })
   let root: HTMLDivElement | undefined
   let list: HTMLDivElement | undefined
 
@@ -20,7 +21,7 @@ export function ProjectionSelect(props: {
   const updateMenuPosition = () => {
     const bounds = root?.getBoundingClientRect()
     if (!bounds) return
-    setMenuPosition({ left: bounds.left, bottom: window.innerHeight - bounds.top + 10 })
+    setMenuPosition({ x: bounds.left + bounds.width / 2, bottom: window.innerHeight - bounds.top + 10 })
   }
   const openMenu = () => {
     const selectedIndex = props.value
@@ -48,23 +49,28 @@ export function ProjectionSelect(props: {
     const target = event.target as Node
     if (!root?.contains(target) && !list?.contains(target)) close()
   }
+  const onFocusIn = (event: FocusEvent) => {
+    const target = event.target as Node
+    if (!root?.contains(target) && !list?.contains(target)) close()
+  }
   onSettled(() => {
     document.addEventListener("pointerdown", onPointerDown)
+    document.addEventListener("focusin", onFocusIn)
     window.addEventListener("resize", updateMenuPosition)
     return () => {
       document.removeEventListener("pointerdown", onPointerDown)
+      document.removeEventListener("focusin", onFocusIn)
       window.removeEventListener("resize", updateMenuPosition)
     }
   })
 
   return (
-    <div ref={root} class="relative h-full min-w-0 flex-1">
-      <button
-        type="button"
-        class="flex h-full w-full min-w-0 items-center gap-2 rounded-full border-0 bg-transparent px-3 py-0 text-left text-xs font-medium text-white outline-none"
-        aria-label="Projection"
-        aria-haspopup="listbox"
-        aria-expanded={open() ? "true" : "false"}
+    <div ref={root} class="relative shrink-0">
+      <IconButton
+        label="Projection"
+        customIcon={<ProjectionIcon preset={currentPreset().component} class="h-4.5 w-4.5" />}
+        hasPopup="listbox"
+        expanded={open()}
         title={`Projection: ${currentPreset().label}`}
         onClick={toggle}
         onKeyDown={(event) => {
@@ -76,17 +82,16 @@ export function ProjectionSelect(props: {
             close()
           }
         }}
-      >
-        <ProjectionIcon preset={currentPreset().component} class="h-4.5 w-4.5 shrink-0 text-white/82" />
-        <span class="min-w-0 flex-1 truncate">{currentPreset().label}</span>
-        <span aria-hidden="true" class={`i-ph-caret-down h-3.5 w-3.5 shrink-0 text-white/62 transition-transform ${open() ? "rotate-180" : ""}`}></span>
-      </button>
+      />
 
       <Portal mount={props.mount}>
         {open() && (
           <LiquidGlass
             class="!fixed z-50 h-72 w-52 rounded-2xl text-white"
-            style={{ left: `${menuPosition().left}px`, bottom: `${menuPosition().bottom}px` }}
+            style={{
+              left: `clamp(0.75rem, calc(${menuPosition().x}px - 6.5rem), calc(100vw - 13.75rem))`,
+              bottom: `${menuPosition().bottom}px`,
+            }}
             cornerRadius={16}
             elasticity={0.08}
             castShadow
@@ -119,7 +124,7 @@ export function ProjectionSelect(props: {
                     role="option"
                     aria-selected={index() === props.value ? "true" : "false"}
                     data-index={index()}
-                    class={`flex min-h-0 w-full items-center gap-3 rounded-2xl border-0 px-2.5 text-left text-xs font-medium outline-none ${
+                    class={`flex min-h-0 w-full items-center gap-3 rounded-xl border-0 px-2.5 text-left text-xs font-medium outline-none ${
                       index() === props.value
                         ? "bg-white/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.1)]"
                         : "bg-transparent text-white/68 hover:!bg-white/7 hover:text-white focus-visible:!bg-white/10 focus-visible:text-white"
