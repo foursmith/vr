@@ -1,7 +1,6 @@
 import type { PlayerController } from "../../features/player/controller"
 import { For, Show, untrack } from "solid-js"
 import { PlaylistTreeNode } from "../playlist/PlaylistTreeNode"
-import { Icon } from "../ui/Icon"
 import { IconButton } from "../ui/IconButton"
 import { LiquidGlass } from "../ui/LiquidGlass"
 import { MediaPickerButtons } from "../ui/MediaPickerButtons"
@@ -38,7 +37,7 @@ export function PlaylistPanel(props: { controller: PlayerController }) {
   return (
     <div
       ref={registerUiSurface}
-      class={`pointer-events-auto absolute left-3 top-3 z-30 max-h-[calc(100dvh-14.75rem)] w-[min(15rem,calc(100vw-1.5rem))] transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:left-6 sm:top-6 sm:max-h-[calc(100dvh-13.5rem)] sm:w-72 ${
+      class={`pointer-events-auto absolute left-3 top-3 z-30 max-h-[calc(100dvh-14.75rem)] w-[min(18rem,calc(100vw-1.5rem))] transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:left-6 sm:top-6 sm:max-h-[calc(100dvh-13.5rem)] sm:w-72 ${
         visible() ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-[calc(100%+1.5rem)] opacity-0"
       }`}
       aria-hidden={visible() ? "false" : "true"}
@@ -62,10 +61,8 @@ export function PlaylistPanel(props: { controller: PlayerController }) {
           aria-label="Playlist"
         >
           <header class="flex h-14 shrink-0 items-center gap-2 px-3">
-            <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/8 text-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
-              <Icon name="playlist" class="h-4.5 w-4.5" />
-            </span>
-            <h2 class="min-w-0 flex-1 text-sm font-semibold tracking-tight text-white/94">Playlist</h2>
+            <IconButton label="Close playlist" icon="x" iconClass="h-3.5 w-3.5" class="!h-8 !w-8" onClick={() => setPlaylistOpen(false)} />
+            <div class="min-w-0 flex-1 text-sm font-semibold tracking-tight text-white/94">Playlist</div>
             <IconButton
               label={`Playback mode: ${currentRepeatMode().label}`}
               icon={currentRepeatMode().icon}
@@ -91,7 +88,6 @@ export function PlaylistPanel(props: { controller: PlayerController }) {
               disabled={!hasBrowserPlaylistItems()}
               onClick={clearPlaylist}
             />
-            <IconButton label="Close playlist" icon="x" iconClass="h-3.5 w-3.5" class="!h-8 !w-8" onClick={() => setPlaylistOpen(false)} />
           </header>
 
           <Show when={serverState.error}>
