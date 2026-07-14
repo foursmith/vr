@@ -319,19 +319,20 @@ describe("player controller", () => {
 
     const repeatButton = host.querySelector<HTMLButtonElement>("button[aria-label^='Playback mode:']")!
     expect(repeatButton.closest("aside[aria-label='Playlist']")).not.toBeNull()
+    expect(repeatButton.querySelector(".i-ph-repeat-once")).not.toBeNull()
+    repeatButton.click()
+    await settle()
+    expect(controller.playback.repeatMode()).toBe("off")
+    expect(repeatButton.getAttribute("aria-label")).toBe("Playback mode: Play once")
+    expect(host.querySelector("[role='radiogroup'][aria-label='Playback mode']")).toBeNull()
     expect(repeatButton.querySelector(".i-ph-skip-forward")).not.toBeNull()
     repeatButton.click()
     await settle()
     expect(controller.playback.repeatMode()).toBe("folder")
-    expect(repeatButton.getAttribute("aria-label")).toBe("Playback mode: Folder")
-    expect(host.querySelector("[role='radiogroup'][aria-label='Playback mode']")).toBeNull()
     expect(repeatButton.querySelector(".i-ph-arrows-clockwise")).not.toBeNull()
     repeatButton.click()
     await settle()
     expect(controller.playback.repeatMode()).toBe("file")
-    repeatButton.click()
-    await settle()
-    expect(controller.playback.repeatMode()).toBe("off")
 
     const projectionButton = host.querySelector<HTMLButtonElement>("button[aria-label='Projection']")!
     const initialProjectionIcon = projectionButton.querySelector("svg")!.innerHTML
