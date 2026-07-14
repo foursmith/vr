@@ -1,10 +1,10 @@
 import { Mesh, Texture } from "three"
 import { describe, expect, it, vi } from "vitest"
-import { PRESETS, projectionPixelRatio, QUALITY_OPTIONS } from "../../src/features/vr/config"
+import { PROJECTION_OPTIONS, projectionPixelRatio, QUALITY_OPTIONS } from "../../src/features/vr/config"
 import { createProjectionGroup, disposeObject } from "../../src/features/vr/projection"
 
 describe("vR projections", () => {
-  it.each(PRESETS)("creates the $label projection", ({ component }) => {
+  it.each(PROJECTION_OPTIONS)("creates the $label projection", ({ component }) => {
     const video = { videoWidth: 1920, videoHeight: 1080 } as HTMLVideoElement
     const group = createProjectionGroup(video, new Texture() as never, component, "performance")
     expect(group.children.length).toBeGreaterThan(0)

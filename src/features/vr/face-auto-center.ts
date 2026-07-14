@@ -1,6 +1,6 @@
 import type { PerspectiveCamera } from "three"
 import type { NormalizedFace } from "../face-tracking/protocol"
-import type { ProjectionPreset } from "./config"
+import type { ProjectionMode } from "./config"
 import { MathUtils } from "three"
 
 const VIEWPORT_TARGET_X = 0.5
@@ -32,10 +32,10 @@ export interface FaceAutoCenterState {
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 const shortestAngle = (degrees: number) => ((degrees + 540) % 360) - 180
-const isHalfProjection = (preset: ProjectionPreset) =>
-  preset === "sbs_180_eqr" || preset === "sbs_180_fe" || preset === "m_180_eqr" || preset === "m_180_fe"
-const getProjectionYawSpan = (preset: ProjectionPreset) => (isHalfProjection(preset) ? 180 : 360)
-export const getProjectionYawLimit = (preset: ProjectionPreset) => (isHalfProjection(preset) ? 86 : undefined)
+const isHalfProjection = (projection: ProjectionMode) =>
+  projection === "sbs_180_eqr" || projection === "sbs_180_fe" || projection === "m_180_eqr" || projection === "m_180_fe"
+const getProjectionYawSpan = (projection: ProjectionMode) => (isHalfProjection(projection) ? 180 : 360)
+export const getProjectionYawLimit = (projection: ProjectionMode) => (isHalfProjection(projection) ? 86 : undefined)
 const getViewportPitchOffset = (camera: PerspectiveCamera, y: number) => {
   const tanHalfVertical = Math.tan(MathUtils.degToRad(camera.fov) / 2) / camera.zoom
   return MathUtils.radToDeg(Math.atan((1 - y * 2) * tanHalfVertical))
@@ -146,13 +146,13 @@ export const setPanoramaTarget = (
   state: FaceAutoCenterState,
   face: FaceBox | undefined,
   time: number,
-  preset: ProjectionPreset,
+  projection: ProjectionMode,
   camera: PerspectiveCamera,
 ) => {
   if (!face) return false
   const center = getFaceCenter(face)
-  const yawLimit = getProjectionYawLimit(preset)
-  const yaw = (VIEWPORT_TARGET_X - center.x) * getProjectionYawSpan(preset)
+  const yawLimit = getProjectionYawLimit(projection)
+  const yaw = (VIEWPORT_TARGET_X - center.x) * getProjectionYawSpan(projection)
   smoothTarget(state, {
     x: center.x - VIEWPORT_TARGET_X,
     y: center.y - VIEWPORT_TARGET_Y,

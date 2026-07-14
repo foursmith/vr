@@ -41,7 +41,7 @@ describe("face sampling", () => {
     ["sbs_180_eqr", 960 * (20 / 180), 960 * (140 / 180), 1080],
     ["tb_360_eqr", 1920 * (110 / 360), 1920 * (140 / 360), 540],
     ["flat_2d", 1920 * (110 / 360), 1920 * (140 / 360), 1080],
-  ] as const)("uses the correct source crop for %s", (preset, sourceX, sourceWidth, sourceHeight) => {
+  ] as const)("uses the correct source crop for %s", (projection, sourceX, sourceWidth, sourceHeight) => {
     const context = { drawImage: vi.fn() } as unknown as CanvasRenderingContext2D
     const canvas = { width: 0, height: 0 } as HTMLCanvasElement
     const video = { videoWidth: 1920, videoHeight: 1080, readyState: HTMLMediaElement.HAVE_CURRENT_DATA } as HTMLVideoElement
@@ -50,7 +50,7 @@ describe("face sampling", () => {
       context,
       video,
       320,
-      preset,
+      projection,
       { yaw: 0, pitch: 0, zoom: 1, pausedUntil: 0 },
       new PerspectiveCamera(80, 16 / 9),
     )

@@ -1,4 +1,4 @@
-export const PRESETS = [
+export const PROJECTION_OPTIONS = [
   { label: "SBS 180 EQR", component: "sbs_180_eqr" },
   { label: "SBS 180 FE", component: "sbs_180_fe" },
   { label: "TB 360 EQR", component: "tb_360_eqr" },
@@ -18,7 +18,7 @@ export const QUALITY_OPTIONS = [
 export const DEFAULT_FOV = 80
 export const DEFAULT_ZOOM = 1
 
-export type ProjectionPreset = (typeof PRESETS)[number]["component"]
+export type ProjectionMode = (typeof PROJECTION_OPTIONS)[number]["component"]
 export type ProjectionQuality = (typeof QUALITY_OPTIONS)[number]["component"]
 
 export const projectionPixelRatio = (quality: ProjectionQuality, devicePixelRatio: number) => {

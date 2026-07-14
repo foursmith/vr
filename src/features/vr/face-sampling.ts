@@ -1,5 +1,5 @@
 import type { PerspectiveCamera } from "three"
-import type { CameraView, ProjectionPreset } from "./config"
+import type { CameraView, ProjectionMode } from "./config"
 import type { FaceAutoCenterState, PanoramaSample } from "./face-auto-center"
 import { MathUtils } from "three"
 
@@ -12,10 +12,10 @@ interface SourceCrop { x: number, y: number, width: number, height: number }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 const shortestAngle = (degrees: number) => ((degrees + 540) % 360) - 180
-const isHalfProjection = (preset: ProjectionPreset) =>
-  preset === "sbs_180_eqr" || preset === "sbs_180_fe" || preset === "m_180_eqr" || preset === "m_180_fe"
-const getProjectionYawSpan = (preset: ProjectionPreset) => (isHalfProjection(preset) ? 180 : 360)
-const getProjectionYawLimit = (preset: ProjectionPreset) => (isHalfProjection(preset) ? 86 : undefined)
+const isHalfProjection = (projection: ProjectionMode) =>
+  projection === "sbs_180_eqr" || projection === "sbs_180_fe" || projection === "m_180_eqr" || projection === "m_180_fe"
+const getProjectionYawSpan = (projection: ProjectionMode) => (isHalfProjection(projection) ? 180 : 360)
+const getProjectionYawLimit = (projection: ProjectionMode) => (isHalfProjection(projection) ? 86 : undefined)
 const getViewportPitchOffset = (camera: PerspectiveCamera, y: number) => {
   const tanHalfVertical = Math.tan(MathUtils.degToRad(camera.fov) / 2) / camera.zoom
   return MathUtils.radToDeg(Math.atan((1 - y * 2) * tanHalfVertical))
@@ -26,8 +26,8 @@ const resizeCanvas = (canvas: HTMLCanvasElement, width: number, height: number) 
   if (canvas.height !== height) canvas.height = height
 }
 
-const getSourceCrop = (video: HTMLVideoElement, preset: ProjectionPreset): SourceCrop => {
-  switch (preset) {
+const getSourceCrop = (video: HTMLVideoElement, projection: ProjectionMode): SourceCrop => {
+  switch (projection) {
     case "sbs_180_eqr":
     case "sbs_180_fe":
       return { x: 0, y: 0, width: video.videoWidth / 2, height: video.videoHeight }
@@ -45,11 +45,11 @@ const drawPanoramaSample = (
   width: number,
   height: number,
   view: CameraView,
-  preset: ProjectionPreset,
+  projection: ProjectionMode,
   camera: PerspectiveCamera,
 ): PanoramaSample => {
-  const yawSpan = getProjectionYawSpan(preset)
-  const yawLimit = getProjectionYawLimit(preset)
+  const yawSpan = getProjectionYawSpan(projection)
+  const yawLimit = getProjectionYawLimit(projection)
   const yaw = yawLimit === undefined ? shortestAngle(view.yaw) : clamp(shortestAngle(view.yaw), -yawLimit, yawLimit)
   const center = {
     x: yawSpan === 360 ? ((0.5 - yaw / yawSpan) % 1 + 1) % 1 : clamp(VIEWPORT_TARGET_X - yaw / yawSpan, 0, 1),
@@ -121,13 +121,13 @@ export const drawPanoramaInferenceSample = (
   context: CanvasRenderingContext2D,
   video: HTMLVideoElement,
   sampleWidth: number,
-  preset: ProjectionPreset,
+  projection: ProjectionMode,
   view: CameraView,
   camera: PerspectiveCamera,
 ) => {
   if (!video.videoWidth || !video.videoHeight || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return undefined
-  const crop = getSourceCrop(video, preset)
-  const yawSpan = getProjectionYawSpan(preset)
+  const crop = getSourceCrop(video, projection)
+  const yawSpan = getProjectionYawSpan(projection)
   const aspect = (crop.width * (Math.min(yawSpan, PANORAMA_SEARCH_DEGREES) / yawSpan)) / crop.height
   let width = Math.max(160, Math.round(sampleWidth))
   let height = Math.max(120, Math.round(width / Math.max(aspect, 0.25)))
@@ -137,7 +137,7 @@ export const drawPanoramaInferenceSample = (
     height = PANORAMA_SAMPLE_MAX_HEIGHT
   }
   resizeCanvas(canvas, width, height)
-  return drawPanoramaSample(context, video, crop, width, height, view, preset, camera)
+  return drawPanoramaSample(context, video, crop, width, height, view, projection, camera)
 }
 
 export const drawSampleBoxes = (

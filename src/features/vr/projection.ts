@@ -6,7 +6,7 @@ import type {
   Texture,
   VideoTexture,
 } from "three"
-import type { ProjectionPreset, ProjectionQuality } from "./config"
+import type { ProjectionMode, ProjectionQuality } from "./config"
 import {
   BackSide,
 
@@ -65,13 +65,13 @@ const createMask = () => {
 export const createProjectionGroup = (
   video: HTMLVideoElement,
   texture: VideoTexture,
-  preset: ProjectionPreset,
+  projection: ProjectionMode,
   _quality: ProjectionQuality,
 ) => {
   const group = new Group()
   const segments = PROJECTION_SEGMENTS
 
-  switch (preset) {
+  switch (projection) {
     case "sbs_180_eqr": {
       const geometry = new SphereGeometry(100, segments.eqrHalfWidth, segments.eqrHeight, Math.PI, Math.PI, 0, Math.PI)
       setUvCrop(geometry, { x: -0.5, y: 1 }, { x: 0.5, y: 0 })

@@ -1,5 +1,5 @@
 import type { FaceInferenceMode, FaceInferenceResult } from "../face-tracking/protocol"
-import type { CameraView, ProjectionPreset, ProjectionQuality } from "./config"
+import type { CameraView, ProjectionMode, ProjectionQuality } from "./config"
 import type { DetectionMode, FaceAutoCenterState, PanoramaSample } from "./face-auto-center"
 import { Color, MathUtils, PerspectiveCamera, Scene, SRGBColorSpace, VideoTexture, WebGLRenderer } from "three"
 import { getFaceTrackerClient } from "../face-tracking/client"
@@ -23,8 +23,8 @@ import { faceInferencePeriod, scheduleFrame } from "./frame-scheduler"
 import { createProjectionGroup, disposeObject } from "./projection"
 
 export { preloadFaceAutoCenterResources } from "../face-tracking/client"
-export { DEFAULT_FOV, DEFAULT_ZOOM, PRESETS, QUALITY_OPTIONS } from "./config"
-export type { CameraView, ProjectionPreset, ProjectionQuality } from "./config"
+export { DEFAULT_FOV, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS } from "./config"
+export type { CameraView, ProjectionMode, ProjectionQuality } from "./config"
 
 export interface MutableRefObject<T> { current: T }
 
@@ -83,7 +83,7 @@ export interface VrSceneOptions {
   hintElement: HTMLElement
   fpsElement: HTMLElement
   video: HTMLVideoElement | null
-  preset: ProjectionPreset
+  projection: ProjectionMode
   quality: ProjectionQuality
   frameRate: number
   hidden: boolean
@@ -95,7 +95,7 @@ export interface VrSceneOptions {
 }
 
 export interface VrSceneController {
-  update: (nextOptions: Partial<Pick<VrSceneOptions, "preset" | "quality" | "frameRate" | "hidden" | "splitScreen" | "faceAutoCenter" | "debugPanelOpen">>) => void
+  update: (nextOptions: Partial<Pick<VrSceneOptions, "projection" | "quality" | "frameRate" | "hidden" | "splitScreen" | "faceAutoCenter" | "debugPanelOpen">>) => void
   getOutputCanvas: () => HTMLCanvasElement
   setFrameCapture: (capture?: (canvas: HTMLCanvasElement) => void) => void
   resetMedia: () => void
@@ -161,7 +161,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   const texture = new VideoTexture(video)
   texture.colorSpace = SRGBColorSpace
   texture.needsUpdate = true
-  let projection = createProjectionGroup(video, texture, options.preset, options.quality)
+  let projection = createProjectionGroup(video, texture, options.projection, options.quality)
   scene.add(projection)
 
   const faceState: FaceAutoCenterState = {
@@ -301,7 +301,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   const rebuildProjection = () => {
     scene.remove(projection)
     disposeObject(projection)
-    projection = createProjectionGroup(video, texture, options.preset, options.quality)
+    projection = createProjectionGroup(video, texture, options.projection, options.quality)
     scene.add(projection)
   }
 
@@ -507,7 +507,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     result: FaceInferenceResult,
     detectionMode: DetectionMode,
     panoramaSample: PanoramaSample | undefined,
-    preset: ProjectionPreset,
+    projection: ProjectionMode,
   ) => {
     const time = result.timestamp
     const completedAt = performance.now()
@@ -536,7 +536,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         weight: PANORAMA_DIRECTION_ANCHOR_WEIGHT,
         wrapX: panoramaSample.wraps,
       }, sampleFace => mapSampleFaceToPanorama(sampleFace, panoramaSample))
-      foundFace = setPanoramaTarget(faceState, face, time, preset, camera)
+      foundFace = setPanoramaTarget(faceState, face, time, projection, camera)
       faceState.recoveryMode = undefined
     } else {
       faceState.detectionMode = "viewport"
@@ -561,7 +561,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     let inputWidth = 0
     let inputHeight = 0
     let completedInferenceMs = 0
-    const preset = options.preset
+    const projection = options.projection
 
     try {
       if (faceState.recoveryMode === "panorama") {
@@ -572,7 +572,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
           sampleContext,
           video,
           PANORAMA_SAMPLE_WIDTH,
-          preset,
+          projection,
           options.viewRef.current,
           camera,
         )
@@ -621,7 +621,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       .then((result) => {
         completedInferenceMs = result.inferenceMs
         if (disposed || generation !== inferenceGeneration || video.paused || !options.faceAutoCenter || options.hidden) return
-        applyInferenceResult(result, detectionMode, panoramaSample, preset)
+        applyInferenceResult(result, detectionMode, panoramaSample, projection)
       })
       .catch((error) => {
         if (disposed || generation !== inferenceGeneration) return
@@ -696,7 +696,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       faceState.yawVelocity = updateVelocity(faceState.yawVelocity, 0)
       faceState.pitchVelocity = updateVelocity(faceState.pitchVelocity, 0)
       faceState.isMoving = faceState.yawVelocity !== 0 || faceState.pitchVelocity !== 0
-      const yawLimit = getProjectionYawLimit(options.preset)
+      const yawLimit = getProjectionYawLimit(options.projection)
       const yawStep = faceState.yawVelocity * frameDelta
       options.viewRef.current.yaw
         = yawLimit === undefined
@@ -751,7 +751,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     faceState.pitchVelocity = updateVelocity(faceState.pitchVelocity, desiredPitchVelocity)
     const yawStep = faceState.yawVelocity * frameDelta
     const pitchStep = faceState.pitchVelocity * frameDelta
-    const yawLimit = getProjectionYawLimit(options.preset)
+    const yawLimit = getProjectionYawLimit(options.projection)
 
     faceState.isMoving = faceState.yawVelocity !== 0 || faceState.pitchVelocity !== 0
     options.viewRef.current.yaw
@@ -818,10 +818,10 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         nextPlaybackFrameAt = undefined
         faceState.nextDetectionAt = 0
       }
-      const shouldRebuild = nextOptions.preset !== undefined
+      const shouldRebuild = nextOptions.projection !== undefined
       const opensDebugPanel = nextOptions.debugPanelOpen === true && !options.debugPanelOpen
       const invalidatesInference
-        = nextOptions.preset !== undefined
+        = nextOptions.projection !== undefined
           || nextOptions.hidden !== undefined
           || nextOptions.faceAutoCenter !== undefined
       if (invalidatesInference) inferenceGeneration += 1
@@ -850,7 +850,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       if (options.hidden) {
         stopScheduledRender()
       } else {
-        if (nextOptions.faceAutoCenter === true || nextOptions.preset !== undefined) {
+        if (nextOptions.faceAutoCenter === true || nextOptions.projection !== undefined) {
           faceState.nextDetectionAt = 0
         }
         requestRender()

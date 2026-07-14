@@ -1,4 +1,4 @@
-import { PRESETS } from "../vr/config"
+import { PROJECTION_OPTIONS } from "../vr/config"
 
 export const SHORTCUT_DEFINITIONS = [
   { label: "Play / pause", key: "Space" },
@@ -15,8 +15,8 @@ export const SHORTCUT_DEFINITIONS = [
   { label: "Zoom in", key: "] / +" },
   { label: "Previous quality", key: "," },
   { label: "Next quality", key: "." },
-  ...PRESETS.map((preset, index) => ({
-    label: `Projection: ${preset.label}`,
+  ...PROJECTION_OPTIONS.map((projection, index) => ({
+    label: `Projection: ${projection.label}`,
     key: String(index + 1),
   })),
 ] as const

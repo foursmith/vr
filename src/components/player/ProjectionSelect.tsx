@@ -1,6 +1,6 @@
 import { Portal } from "@solidjs/web"
 import { createSignal, For } from "solid-js"
-import { PRESETS } from "../../features/vr/scene"
+import { PROJECTION_OPTIONS } from "../../features/vr/scene"
 import { createPopover } from "../ui/createPopover"
 import { IconButton } from "../ui/IconButton"
 import { LiquidGlass } from "../ui/LiquidGlass"
@@ -17,7 +17,7 @@ export function ProjectionSelect(props: {
   let root: HTMLDivElement | undefined
   let list: HTMLDivElement | undefined
 
-  const currentPreset = () => PRESETS[props.value] ?? PRESETS[0]
+  const currentProjection = () => PROJECTION_OPTIONS[props.value] ?? PROJECTION_OPTIONS[0]
   const close = () => setOpen(false)
   const updateMenuPosition = () => {
     const bounds = root?.getBoundingClientRect()
@@ -41,7 +41,7 @@ export function ProjectionSelect(props: {
     close()
   }
   const moveFocus = (delta: number) => {
-    const next = (focusedIndex() + delta + PRESETS.length) % PRESETS.length
+    const next = (focusedIndex() + delta + PROJECTION_OPTIONS.length) % PROJECTION_OPTIONS.length
     setFocusedIndex(next)
     list?.querySelector<HTMLButtonElement>(`[data-index="${next}"]`)?.focus()
   }
@@ -58,10 +58,10 @@ export function ProjectionSelect(props: {
     <div ref={root} class="relative shrink-0">
       <IconButton
         label="Projection"
-        customIcon={<ProjectionIcon preset={currentPreset().component} class="h-4.5 w-4.5" />}
+        customIcon={<ProjectionIcon projection={currentProjection().component} class="h-4.5 w-4.5" />}
         hasPopup="listbox"
         expanded={open()}
-        title={`Projection: ${currentPreset().label}`}
+        title={`Projection: ${currentProjection().label}`}
         onClick={toggle}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -97,7 +97,7 @@ export function ProjectionSelect(props: {
                   moveFocus(event.key === "ArrowDown" ? 1 : -1)
                 } else if (event.key === "Home" || event.key === "End") {
                   event.preventDefault()
-                  const next = event.key === "Home" ? 0 : PRESETS.length - 1
+                  const next = event.key === "Home" ? 0 : PROJECTION_OPTIONS.length - 1
                   setFocusedIndex(next)
                   list?.querySelector<HTMLButtonElement>(`[data-index="${next}"]`)?.focus()
                 } else if (event.key === "Escape") {
@@ -107,8 +107,8 @@ export function ProjectionSelect(props: {
                 }
               }}
             >
-              <For each={PRESETS}>
-                {(preset, index) => (
+              <For each={PROJECTION_OPTIONS}>
+                {(projection, index) => (
                   <button
                     type="button"
                     role="option"
@@ -122,8 +122,8 @@ export function ProjectionSelect(props: {
                     onFocus={() => setFocusedIndex(index())}
                     onClick={() => select(index())}
                   >
-                    <ProjectionIcon preset={preset.component} class="h-4.5 w-4.5 shrink-0" />
-                    <span class="flex-1">{preset.label}</span>
+                    <ProjectionIcon projection={projection.component} class="h-4.5 w-4.5 shrink-0" />
+                    <span class="flex-1">{projection.label}</span>
                     {index() === props.value && <span aria-hidden="true" class="i-ph-check h-4 w-4 text-white/72"></span>}
                   </button>
                 )}

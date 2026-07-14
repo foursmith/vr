@@ -1,13 +1,13 @@
-import type { PRESETS } from "../../features/vr/scene"
+import type { PROJECTION_OPTIONS } from "../../features/vr/scene"
 
-type ProjectionPreset = (typeof PRESETS)[number]["component"]
+type ProjectionMode = (typeof PROJECTION_OPTIONS)[number]["component"]
 
-export function ProjectionIcon(props: { preset: ProjectionPreset, class?: string }) {
-  const isSbs = () => props.preset.startsWith("sbs_")
-  const isTb = () => props.preset.startsWith("tb_")
-  const isFisheye = () => props.preset.endsWith("_fe")
-  const isFlat = () => props.preset === "flat_2d"
-  const is360 = () => props.preset.includes("_360_")
+export function ProjectionIcon(props: { projection: ProjectionMode, class?: string }) {
+  const isSbs = () => props.projection.startsWith("sbs_")
+  const isTb = () => props.projection.startsWith("tb_")
+  const isFisheye = () => props.projection.endsWith("_fe")
+  const isFlat = () => props.projection === "flat_2d"
+  const is360 = () => props.projection.includes("_360_")
 
   return (
     <svg

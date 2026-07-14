@@ -28,7 +28,7 @@ export function PlayerControls(props: { controller: PlayerController }) {
   } = playback
   const {
     fullscreen,
-    setPresetId,
+    setProjectionId,
     state: displayState,
     toggleFullscreen,
   } = display
@@ -65,7 +65,7 @@ export function PlayerControls(props: { controller: PlayerController }) {
           </div>
 
           <div class="flex min-w-0 items-center justify-end gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] max-sm:[&::-webkit-scrollbar]:hidden">
-            <ProjectionSelect value={displayState.presetId} mount={controller.frame.getPlayer()} onChange={setPresetId} />
+            <ProjectionSelect value={displayState.projectionId} mount={controller.frame.getPlayer()} onChange={setProjectionId} />
             <Show when={loadingState.error}>
               <button
                 type="button"
