@@ -21,6 +21,7 @@ import { activeSubtitleText, parseSubtitle } from "../subtitles/parser"
 import {
   createVrScene,
   DEFAULT_ZOOM,
+  downloadFaceTrackingResources,
   preloadFaceAutoCenterResources,
   PROJECTION_OPTIONS,
   QUALITY_OPTIONS,
@@ -1349,18 +1350,24 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     loadingPromise = (async () => {
       setResourcesReady(false)
       setLoadingError(undefined)
-      setLoadingLabel("Preparing player")
+      setLoadingLabel("Downloading face tracking resources")
       setLoadingProgress(4)
 
       try {
-        await preloadFaceAutoCenterResources(({ loaded, total, label }) => {
+        await downloadFaceTrackingResources(({ loaded, total }) => {
           if (appDisposed) return
-          setLoadingLabel(label)
-          setLoadingProgress(8 + (loaded / total) * 82)
+          setLoadingProgress(4 + (loaded / total) * 56)
         })
         if (appDisposed) return
 
-        setLoadingLabel("Starting renderer")
+        setLoadingLabel("Loading face tracking")
+        await preloadFaceAutoCenterResources(({ loaded, total }) => {
+          if (appDisposed) return
+          setLoadingProgress(60 + (loaded / total) * 32)
+        })
+        if (appDisposed) return
+
+        setLoadingLabel("Starting VR player")
         setLoadingProgress(96)
         scene = createVrScene({
           root: vrRoot,
@@ -1385,8 +1392,8 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       } catch (error) {
         if (appDisposed) return
         console.warn("initial resource loading failed", error)
-        setLoadingError("Resource loading failed")
-        setLoadingLabel("Unable to load resources")
+        setLoadingError("Couldn’t get the player ready")
+        setLoadingLabel("Try again")
       }
     })().finally(() => {
       loadingPromise = undefined

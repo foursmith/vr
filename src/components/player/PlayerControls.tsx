@@ -20,10 +20,8 @@ export function PlayerControls(props: { controller: PlayerController }) {
   } = controls
   const {
     canPlayNext,
-    loadingState,
     playNext,
     playing,
-    startInitialLoad,
     togglePlay,
   } = playback
   const {
@@ -66,15 +64,6 @@ export function PlayerControls(props: { controller: PlayerController }) {
 
           <div class="flex min-w-0 items-center justify-end gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] max-sm:[&::-webkit-scrollbar]:hidden">
             <ProjectionSelect value={displayState.projectionId} mount={controller.frame.getPlayer()} onChange={setProjectionId} />
-            <Show when={loadingState.error}>
-              <button
-                type="button"
-                class="h-8 shrink-0 rounded-full border border-white/14 bg-white/10 px-3 text-xs font-semibold text-white/82 transition hover:bg-white/18 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70"
-                onClick={startInitialLoad}
-              >
-                Retry
-              </button>
-            </Show>
             <Show when={subtitles.hasSubtitle()}>
               <IconButton
                 label={subtitles.enabled() ? "Hide subtitles" : "Show subtitles"}

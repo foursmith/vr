@@ -1,6 +1,6 @@
 import type { FaceWorkerResponse } from "../../src/features/face-tracking/protocol"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { FaceTrackerClient } from "../../src/features/face-tracking/client"
+import { downloadFaceTrackingResources, FaceTrackerClient } from "../../src/features/face-tracking/client"
 
 class FakeWorker {
   static instances: FakeWorker[] = []
@@ -28,6 +28,25 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe("faceTrackerClient worker backend", () => {
+  it("downloads and caches face tracking resources before initialization", async () => {
+    const cache = {
+      match: vi.fn(async () => undefined),
+      put: vi.fn(async () => {}),
+    }
+    const open = vi.fn(async () => cache)
+    const fetch = vi.fn(async () => new Response("resource"))
+    const progress = vi.fn()
+    vi.stubGlobal("caches", { open })
+    vi.stubGlobal("fetch", fetch)
+
+    await downloadFaceTrackingResources(progress)
+
+    expect(fetch).toHaveBeenCalledTimes(5)
+    expect(cache.put).toHaveBeenCalledTimes(5)
+    expect(progress).toHaveBeenNthCalledWith(1, { loaded: 0, total: 5, label: "Downloading face tracking resources" })
+    expect(progress).toHaveBeenLastCalledWith({ loaded: 5, total: 5, label: "Downloading face tracking resources" })
+  })
+
   it("initializes once, forwards progress and resolves inference results", async () => {
     const client = new FaceTrackerClient()
     const progress = vi.fn()

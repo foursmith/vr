@@ -22,7 +22,7 @@ import { drawPanoramaInferenceSample, drawSampleBoxes, drawViewportInferenceSamp
 import { faceInferencePeriod, scheduleFrame } from "./frame-scheduler"
 import { createProjectionGroup, disposeObject } from "./projection"
 
-export { preloadFaceAutoCenterResources } from "../face-tracking/client"
+export { downloadFaceTrackingResources, preloadFaceAutoCenterResources } from "../face-tracking/client"
 export { DEFAULT_FOV, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS } from "./config"
 export type { CameraView, ProjectionMode, ProjectionQuality } from "./config"
 
