@@ -158,7 +158,7 @@ describe("player controller", () => {
     expect(mocks.preload).toHaveBeenCalledOnce()
     expect(controller.playback.loadingState).toMatchObject({ resourcesReady: true, progress: 100, label: "Ready" })
     expect(mocks.createVrScene).toHaveBeenCalledOnce()
-    expect(mocks.createVrScene).toHaveBeenCalledWith(expect.objectContaining({ quality: "sharp", frameRate: 30 }))
+    expect(mocks.createVrScene).toHaveBeenCalledWith(expect.objectContaining({ quality: "sharp", frameRate: 60 }))
     dispose()
     expect(mocks.sceneController.destroy).toHaveBeenCalledOnce()
     expect(mocks.releaseResources).toHaveBeenCalledOnce()

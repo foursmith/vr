@@ -11,6 +11,8 @@ describe("player display state", () => {
       dispose = rootDispose
       return createDisplay({ getPlayer: () => document.body, resourcesReady: () => ready, viewRef })
     })
+    expect(display.qualityId()).toBe(2)
+    expect(display.renderFrameRateId()).toBe(3)
     display.controller.setZoom(3)
     expect(display.controller.zoom()).toBe(1)
     ready = true

@@ -25,7 +25,7 @@ export const DEFAULT_GLOBAL_PREFERENCES: GlobalPreferences = {
   volume: 1,
   playbackRate: 1,
   qualityId: 2,
-  renderFrameRateId: 2,
+  renderFrameRateId: 3,
   splitScreen: true,
   faceAutoCenter: true,
   subtitlesEnabled: true,
