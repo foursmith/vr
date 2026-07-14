@@ -153,8 +153,10 @@ const createRoutes = (options: MediaServerOptions) => {
     "/api/v1/dlna/discover": {
       POST: authenticated(options.password, async () => {
         const discovered = await options.discoverDlna?.() ?? []
-        discovered.forEach(source => options.sources.set(source.id, source))
-        return json(discovered.map(sourceSummary))
+        discovered.forEach((source) => {
+          if (!options.sources.has(source.id)) options.sources.set(source.id, source)
+        })
+        return json(discovered.map(source => sourceSummary(options.sources.get(source.id) ?? source)))
       }),
     },
     "/api/v1/sources/:sourceId/entries": {

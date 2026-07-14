@@ -670,6 +670,107 @@ describe("player controller", () => {
     dispose()
   })
 
+  it("preserves browser-imported videos while scanning for DLNA devices", async () => {
+    let dlnaDiscovered = false
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      if (url.pathname === "/api/v1/status") return Response.json({ name: "fsvr" })
+      if (url.pathname === "/api/v1/auth") return Response.json({ authenticated: true })
+      if (url.pathname === "/api/v1/dlna/discover" && init?.method === "POST") {
+        dlnaDiscovered = true
+        return Response.json([{ id: "dlna-device", name: "Media Server", kind: "dlna" }])
+      }
+      if (url.pathname === "/api/v1/sources") {
+        return Response.json([
+          { id: "local", name: "Movies", kind: "local" },
+          ...(dlnaDiscovered ? [{ id: "dlna-device", name: "Media Server", kind: "dlna" }] : []),
+        ])
+      }
+      return Response.json({ error: "not found" }, { status: 404 })
+    }))
+
+    const { controller, dispose, host, video } = setupController({ connectFsvr: true })
+    for (let index = 0; index < 8; index += 1) await settle()
+    await vi.advanceTimersByTimeAsync(0)
+    await settle()
+
+    const fileInput = host.querySelector<HTMLInputElement>("input[type='file']:not([webkitdirectory])")!
+    Object.defineProperty(fileInput, "files", {
+      configurable: true,
+      value: [new File(["video"], "imported.mp4", { type: "video/mp4" })],
+    })
+    controller.frame.handleFile()
+    await vi.advanceTimersByTimeAsync(200)
+    await settle()
+    const importedId = controller.playlist.state.selectedId
+
+    await controller.server.scanDlna()
+    await settle()
+
+    expect(controller.playlist.state.nodes.map(node => node.id)).toEqual([
+      "source:local",
+      "source:dlna-device",
+      expect.stringMatching(/^playlist-/),
+    ])
+    expect(controller.playlist.state.selectedId).toBe(importedId)
+    expect(controller.playlist.hasBrowserPlaylistItems()).toBe(true)
+    expect(controller.frame.hasVideo()).toBe(true)
+    expect(video.getAttribute("src")).toBe("blob:test-video")
+    dispose()
+  })
+
+  it("adds DLNA sources without resetting loaded local and DLNA folders", async () => {
+    let dlnaDiscovered = false
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      if (url.pathname === "/api/v1/status") return Response.json({ name: "fsvr" })
+      if (url.pathname === "/api/v1/auth") return Response.json({ authenticated: true })
+      if (url.pathname === "/api/v1/dlna/discover" && init?.method === "POST") {
+        dlnaDiscovered = true
+        return Response.json([{ id: "dlna-new", name: "New DLNA", kind: "dlna" }])
+      }
+      if (url.pathname === "/api/v1/sources") {
+        return Response.json([
+          { id: "local", name: "Movies", kind: "local" },
+          { id: "dlna-existing", name: "Existing DLNA", kind: "dlna" },
+          ...(dlnaDiscovered ? [{ id: "dlna-new", name: "New DLNA", kind: "dlna" }] : []),
+        ])
+      }
+      if (url.pathname === "/api/v1/sources/local/entries") {
+        return Response.json([{ id: "local-video", name: "Local movie", kind: "video" }])
+      }
+      if (url.pathname === "/api/v1/sources/dlna-existing/entries") {
+        return Response.json([{ id: "dlna-video", name: "DLNA movie", kind: "video" }])
+      }
+      return Response.json({ error: "not found" }, { status: 404 })
+    }))
+
+    const { controller, dispose, video } = setupController({ connectFsvr: true })
+    for (let index = 0; index < 8; index += 1) await settle()
+    await vi.advanceTimersByTimeAsync(0)
+    await settle()
+    controller.playlist.togglePlaylistFolder("source:local")
+    controller.playlist.togglePlaylistFolder("source:dlna-existing")
+    for (let index = 0; index < 4; index += 1) await settle()
+    controller.playlist.playPlaylistNode("dlna-existing:dlna-video")
+    await vi.advanceTimersByTimeAsync(200)
+    await settle()
+
+    await controller.server.scanDlna()
+    await settle()
+
+    expect(controller.playlist.state.nodes.map(node => node.id)).toEqual([
+      "source:local",
+      "source:dlna-existing",
+      "source:dlna-new",
+    ])
+    expect(controller.playlist.state.nodes[0]?.children?.map(node => node.id)).toEqual(["local:local-video"])
+    expect(controller.playlist.state.nodes[1]?.children?.map(node => node.id)).toEqual(["dlna-existing:dlna-video"])
+    expect(controller.playlist.state.selectedId).toBe("dlna-existing:dlna-video")
+    expect(video.getAttribute("src")).toBe(`${window.location.origin}/api/v1/media/dlna-existing/dlna-video`)
+    dispose()
+  })
+
   it("does not persist playback data for DLNA videos", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input))

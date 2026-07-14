@@ -30,6 +30,37 @@ describe("fsvr media server", () => {
     expect((await fetch(`${base}/api/v1/sources/local/entries`)).status).toBe(200)
   })
 
+  test("keeps an existing DLNA source alive when rediscovering the same device", async () => {
+    const existingSource: MediaSource = {
+      id: "dlna-test",
+      name: "Existing DLNA",
+      kind: "dlna",
+      list: async () => [{ id: "cached-video", name: "Cached video", kind: "video" }],
+      resolve: async () => ({ kind: "url", url: "http://192.0.2.1/cached.mp4" }),
+    }
+    const replacementSource: MediaSource = {
+      id: "dlna-test",
+      name: "Rediscovered DLNA",
+      kind: "dlna",
+      list: async () => [],
+      resolve: async () => {
+        throw new Error("rediscovered source has no cached resources")
+      },
+    }
+    const server = createMediaServer({
+      hostname: "127.0.0.1",
+      port: 0,
+      sources: new Map([[existingSource.id, existingSource]]),
+      discoverDlna: async () => [replacementSource],
+    })
+    servers.push(server)
+    const base = `http://${server.hostname}:${server.port}`
+
+    expect((await fetch(`${base}/api/v1/dlna/discover`, { method: "POST" })).status).toBe(200)
+    const entries = await fetch(`${base}/api/v1/sources/dlna-test/entries`).then(response => response.json())
+    expect(entries).toEqual([{ id: "cached-video", name: "Cached video", kind: "video" }])
+  })
+
   test("lists media and serves authenticated byte ranges", async () => {
     const root = await mkdtemp(join(tmpdir(), "fsvr-"))
     await mkdir(join(root, "Movies"))
