@@ -5,11 +5,10 @@
     <source media="(prefers-reduced-motion: reduce)" srcset="doc/banner.jpg">
     <img src="doc/banner.webp" alt="Foursmith VR" width="960">
   </picture>
+  <p><strong><em>Watch VR like TikTok</em></strong></p>
+  <p><em>This might be the most enjoyable way to experience VR — no headset required, and no worries if you suffer from motion sickness. Sit back and enjoy!</em></p>
+  <p><a href="https://vr.foursmith.com/"><strong>Open Foursmith VR →</strong></a></p>
 </div>
-
-___Watch VR like TikTok___
-
-> This might be the most enjoyable way to experience VR — no headset required, and no worries if you suffer from motion sickness. Sit back and enjoy!
 
 ## Features
 
@@ -25,7 +24,7 @@ ___Watch VR like TikTok___
 > [!Important]
 > Most 8K VR videos may not play properly or smoothly in Safari or Firefox. All browsers on iOS are Safari under the hood.
 
-Open [Foursmith VR](https://vr.foursmith.com/) in Chrome, Edge, or another Chromium-based desktop browser.
+For the best experience, use Chrome, Edge, or another Chromium-based desktop browser.
 
 ### Keyboard Shortcuts
 
