@@ -181,13 +181,11 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     nodes: [] as PlaylistStateNode[],
     expandedFolderIds: [] as string[],
     selectedId: undefined as string | undefined,
-    open: false,
   })
   const playlist = () => playlistState.nodes
   const canImportLocalMedia = () => !connectFsvr || serverState.status === "connected"
   const expandedFolders = createMemo(() => new Set(playlistState.expandedFolderIds))
   const selectedPlaylistId = () => playlistState.selectedId
-  const playlistOpen = () => playlistState.open
   const serializePlaylistNodes = (nodes: PlaylistNode[]): PlaylistStateNode[] => nodes.map((node) => {
     if (node.file) playlistFiles.set(node.id, node.file)
     if (node.mediaUrl) playlistUrls.set(node.id, node.mediaUrl)
@@ -214,9 +212,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   })
   const setSelectedPlaylistId = (selectedId: string | undefined) => setPlaylistState((draft) => {
     draft.selectedId = selectedId
-  })
-  const setPlaylistOpen = (update: ValueUpdate<boolean>) => setPlaylistState((draft) => {
-    draft.open = resolveUpdate(draft.open, update)
   })
   const [hasVideo, setHasVideo] = createSignal(false)
   const [playing, setPlaying] = createSignal(false)
@@ -300,7 +295,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     sliderAnchor,
     startInitialIdleCountdown,
   } = controlsModule
-  const playlistVisible = createMemo(() => playlistOpen() && controlsVisible())
+  const playlistVisible = createMemo(() => playlist().length > 0 && controlsVisible())
   const syncPointerHoldAfterLayout = () => {
     window.requestAnimationFrame(() => {
       resyncPointerHold()
@@ -311,9 +306,9 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     syncPointerHoldAfterLayout()
   }
   createEffect(
-    () => ({ controlsVisible: controlsVisible(), playlistOpen: playlistOpen() }),
-    (state) => {
-      if (state.controlsVisible) syncPointerHoldAfterLayout()
+    () => playlistVisible(),
+    (visible) => {
+      if (visible) syncPointerHoldAfterLayout()
     },
   )
   let loadingPromise: Promise<void> | undefined
@@ -672,7 +667,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     })
   }
 
-  const resetCurrentVideo = (closePlaylist: boolean) => {
+  const resetCurrentVideo = () => {
     persistActiveVideoState()
     videoLoadGeneration += 1
     activeVideoKey = undefined
@@ -695,13 +690,11 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       draft.a = undefined
       draft.b = undefined
     })
-    if (closePlaylist) setPlaylistOpen(false)
   }
 
   const clearPlaylist = () => {
     const browserRoots = playlist().filter(node => node.sourceKind === "browser" || playlistFiles.has(node.id))
     if (!browserRoots.length) return
-    const remainingRoots = playlist().filter(node => node.sourceKind !== "browser" && !playlistFiles.has(node.id))
     const removedIds = new Set<string>()
     const collectIds = (nodes: PlaylistStateNode[]) => nodes.forEach((node) => {
       removedIds.add(node.id)
@@ -729,7 +722,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       draft.expandedFolderIds = draft.expandedFolderIds.filter(id => !removedIds.has(id))
       if (draft.selectedId && removedIds.has(draft.selectedId)) draft.selectedId = undefined
     })
-    if (clearsCurrentVideo) resetCurrentVideo(remainingRoots.length === 0)
+    if (clearsCurrentVideo) resetCurrentVideo()
   }
 
   const playPlaylistNode = (id: string) => {
@@ -771,10 +764,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       return next
     })
 
-    if (countPlaylistVideos(nodes) > 1) {
-      setPlaylistOpen(true)
-      showControls()
-    }
+    if (countPlaylistVideos(nodes) > 1) showControls()
 
     const shouldLoadImportedVideo = Boolean(preferredVideo) || (!playing() && (firstVideo?.file || firstVideo?.mediaUrl)
       && (playback === "always" || (playback === "when-empty" && !hasVideo())))
@@ -1165,7 +1155,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     if (appDisposed) return
     clearPlaylistNodes()
     await importPlaylistNodes(nodes, "when-empty")
-    setPlaylistOpen(true)
     setServerState((draft) => {
       draft.status = "connected"
       draft.error = undefined
@@ -1257,7 +1246,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       if (appDisposed) return
       clearPlaylistNodes()
       await importPlaylistNodes(nodes, "when-empty")
-      setPlaylistOpen(true)
       setServerState((draft) => {
         draft.dlnaDevices = devices
       })
@@ -1571,7 +1559,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       hasBrowserPlaylistItems,
       playPlaylistNode,
       playlistVideos,
-      setPlaylistOpen,
       state: playlistState,
       togglePlaylistFolder,
       visible: playlistVisible,
