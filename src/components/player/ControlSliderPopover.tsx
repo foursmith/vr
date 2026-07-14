@@ -1,6 +1,7 @@
 import type { PlayerController } from "../../features/player/controller"
 import type { IconName } from "../ui/Icon"
-import { onSettled, Show, untrack } from "solid-js"
+import { Show, untrack } from "solid-js"
+import { createPopover } from "../ui/createPopover"
 import { GlassRange } from "../ui/GlassRange"
 import { Icon } from "../ui/Icon"
 import { LiquidGlass } from "../ui/LiquidGlass"
@@ -52,27 +53,20 @@ function HorizontalControlRange(props: {
 
 export function ControlSliderPopover(props: { controller: PlayerController, trigger: () => HTMLElement | undefined }) {
   const { controls, display, playback } = untrack(() => props.controller)
-  const { activeSlider, closeSlider, sliderAnchor } = controls
+  const { activeSlider, closeSlider, sliderAnchor, updateSliderAnchor } = controls
   const { resetView, setZoom, zoom } = display
   const { playbackRate, setPlaybackRateLevel, setVolumeLevel, toggleMute, volume } = playback
   const formattedRate = () => `${Number(playbackRate().toFixed(2))}×`
   let panel: HTMLElement | undefined
-  const isOutside = (target: EventTarget | null) => target instanceof Node
-    && !props.trigger()?.contains(target)
-    && !panel?.contains(target)
-  onSettled(() => {
-    const closeOnPointerDown = (event: PointerEvent) => {
-      if (activeSlider() && isOutside(event.target)) closeSlider()
-    }
-    const closeOnFocusIn = (event: FocusEvent) => {
-      if (activeSlider() && isOutside(event.target)) closeSlider()
-    }
-    document.addEventListener("pointerdown", closeOnPointerDown)
-    document.addEventListener("focusin", closeOnFocusIn)
-    return () => {
-      document.removeEventListener("pointerdown", closeOnPointerDown)
-      document.removeEventListener("focusin", closeOnFocusIn)
-    }
+  createPopover({
+    open: () => Boolean(activeSlider()),
+    trigger: () => props.trigger(),
+    panel: () => panel,
+    close: closeSlider,
+    updatePosition: () => {
+      const trigger = props.trigger()
+      if (trigger) updateSliderAnchor(trigger)
+    },
   })
   return (
     <Show when={activeSlider()}>
