@@ -3,7 +3,13 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
+  "author": {
+    "url": "https://github.com/ourongxing/",
+    "email": "orongxing@gmail.com",
+    "name": "ourongxing"
+  },
   "license": "MPL-2.0",
+  "homepage": "https://github.com/foursmith/vr",
   "bin": {
     "fsvr": "./src/cli.ts"
   },
