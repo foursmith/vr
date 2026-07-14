@@ -10,7 +10,7 @@ export function PlayerControls(props: { controller: PlayerController }) {
   const controller = untrack(() => props.controller)
   const [settingsOpen, setSettingsOpen] = createSignal(false)
   let adjustmentsButton!: HTMLDivElement
-  const { controls, display, playback, playlist, subtitles } = controller
+  const { controls, display, playback, subtitles } = controller
   const {
     controlsVisible,
     registerUiSurface,
@@ -18,7 +18,6 @@ export function PlayerControls(props: { controller: PlayerController }) {
     setControlsHold,
     toggleSlider,
   } = controls
-  const { setPlaylistOpen, state: playlistState } = playlist
   const {
     loadingState,
     playing,
@@ -52,12 +51,6 @@ export function PlayerControls(props: { controller: PlayerController }) {
         <ControlSliderPopover controller={controller} trigger={() => adjustmentsButton} />
         <div class="grid gap-3 max-sm:grid-cols-[auto_minmax(0,1fr)] max-sm:items-center max-sm:gap-x-2 max-sm:gap-y-2 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
           <div class="flex min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] max-sm:col-start-1 max-sm:row-start-1 max-sm:[&::-webkit-scrollbar]:hidden">
-            <IconButton
-              label="Playlist"
-              icon="playlist"
-              pressed={playlistState.open}
-              onClick={() => setPlaylistOpen(current => !current)}
-            />
             <ProjectionSelect value={displayState.presetId} mount={controller.frame.getPlayer()} onChange={setPresetId} />
             <Show when={loadingState.error}>
               <button
@@ -82,13 +75,12 @@ export function PlayerControls(props: { controller: PlayerController }) {
             <IconButton label="Seek forward" icon="fast-forward" onClick={() => seekBy(10)} />
           </div>
 
-          <div class="flex min-w-0 items-center justify-end gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] max-sm:col-start-2 max-sm:row-start-1 max-sm:w-full max-sm:[&::-webkit-scrollbar]:hidden sm:flex-nowrap lg:justify-end">
+          <div class="flex min-w-0 items-center justify-end gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] max-sm:col-start-2 max-sm:row-start-1 max-sm:w-full max-sm:flex-wrap max-sm:overflow-visible sm:flex-nowrap lg:justify-end">
             <Show when={subtitles.hasSubtitle()}>
               <IconButton
                 label={subtitles.enabled() ? "Hide subtitles" : "Show subtitles"}
                 icon="subtitles"
                 pressed={subtitles.enabled()}
-                class="max-sm:hidden"
                 onClick={subtitles.toggle}
               />
             </Show>

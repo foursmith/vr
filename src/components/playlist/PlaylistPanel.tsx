@@ -1,6 +1,7 @@
 import type { PlayerController } from "../../features/player/controller"
 import { For, Show, untrack } from "solid-js"
 import { PlaylistTreeNode } from "../playlist/PlaylistTreeNode"
+import { Icon } from "../ui/Icon"
 import { IconButton } from "../ui/IconButton"
 import { LiquidGlass } from "../ui/LiquidGlass"
 import { MediaPickerButtons } from "../ui/MediaPickerButtons"
@@ -24,7 +25,6 @@ export function PlaylistPanel(props: { controller: PlayerController }) {
     expandedFolders,
     hasBrowserPlaylistItems,
     playPlaylistNode,
-    setPlaylistOpen,
     state,
     togglePlaylistFolder,
     visible,
@@ -61,7 +61,16 @@ export function PlaylistPanel(props: { controller: PlayerController }) {
           aria-label="Playlist"
         >
           <header class="flex h-14 shrink-0 items-center gap-2 px-3">
-            <IconButton label="Close playlist" icon="x" iconClass="h-3.5 w-3.5" class="!h-8 !w-8" onClick={() => setPlaylistOpen(false)} />
+            <LiquidGlass
+              class="pointer-events-none h-8 w-8 shrink-0 rounded-full text-white/92"
+              cornerRadius={999}
+              elasticity={0.18}
+              castShadow={false}
+            >
+              <span aria-hidden="true" class="grid h-full w-full place-items-center rounded-full">
+                <Icon name="playlist" />
+              </span>
+            </LiquidGlass>
             <div class="min-w-0 flex-1 text-sm font-semibold tracking-tight text-white/94">Playlist</div>
             <IconButton
               label={`Playback mode: ${currentRepeatMode().label}`}

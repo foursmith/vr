@@ -179,12 +179,15 @@ describe("player controller", () => {
 
     expect(controller.frame.hasVideo()).toBe(true)
     expect(video.getAttribute("src")).toBe("blob:test-video")
+    expect(controller.playlist.visible()).toBe(true)
+    expect(host.querySelector("button[aria-label='Playlist']")).toBeNull()
+    expect(host.querySelector("button[aria-label='Close playlist']")).toBeNull()
 
     controller.playlist.clearPlaylist()
     await settle()
 
     expect(controller.playlist.state.nodes).toEqual([])
-    expect(controller.playlist.state.open).toBe(false)
+    expect(controller.playlist.visible()).toBe(false)
     expect(controller.frame.hasVideo()).toBe(false)
     expect(controller.playback.playing()).toBe(false)
     expect(video.pause).toHaveBeenCalled()
@@ -599,7 +602,7 @@ describe("player controller", () => {
       "source:local",
       "source:dlna-device",
     ])
-    expect(controller.playlist.state.open).toBe(true)
+    expect(controller.playlist.visible()).toBe(true)
     expect(controller.frame.hasVideo()).toBe(false)
     expect(video.getAttribute("src")).toBeNull()
     expect(controller.playlist.hasBrowserPlaylistItems()).toBe(false)
