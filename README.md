@@ -44,55 +44,13 @@ Open [Foursmith VR](https://vr.foursmith.com/) in Chrome, Edge, or another Chrom
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/foursmith/vr)
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ffoursmith%2Fvr&root-directory=.)
 
-## Development
-
-```sh
-bun install
-bun run dev
-```
-
-```sh
-bun run typecheck
-bun run build
-```
-
 ## Local media server
 
-The Web app remains available as a standalone static deployment for browser-selected files. The optional `fsvr` executable embeds the same Web UI and adds local media directories plus DLNA discovery.
+Docker is the recommended way to run the local media server. It serves the complete Web UI, exposes local media directories, and supports DLNA discovery.
 
-```sh
-bun install
-bun run dev:cli -- ~/Movies
-```
+### Docker Compose
 
-In this development mode, the Web UI runs on Vite at `http://127.0.0.1:4090` with hot module replacement, while CLI API and media requests are proxied to the local server on port `4191`. The development script passes `--disable-password`, so authentication is disabled. Changes to CLI server source files are applied with Bun's hot reloading. Pass `--open` to open the Web UI once after startup.
-
-Pass `--password <password>` to keep a stable password across restarts, or `--disable-password` to disable authentication. Otherwise, `fsvr` generates and prints a random password. The CLI opens `/api/v1/auth?fsvr_password=<password>` for sign-in; after validation, the server stores it in an HttpOnly authentication cookie and redirects to the Web UI.
-
-`fsvr` serves its integrated Web UI at `http://127.0.0.1:4090` without opening a browser by default. Pass `--open` to open it after startup. To make the complete Web UI and API available to other devices on the LAN, pass `--host`; the CLI will then listen on `0.0.0.0` and print the available LAN addresses.
-
-DLNA media servers are not scanned during startup by default. Pass `--dlna-scan` to discover them before opening the Web UI; manual scanning remains available in the Web UI.
-
-Build the standalone executable, including Web assets, WASM, and face-tracking models:
-
-```sh
-bun run build:cli
-./cli/dist/fsvr ~/Movies
-```
-
-The Web UI embedded in `fsvr` is built without the PWA manifest or service worker. The standalone official Web build keeps PWA support.
-
-### Docker
-
-Run the media server from the published GHCR image, mounting the media directory read-only:
-
-```sh
-docker run --rm -p 4090:4090 -v "$HOME/Movies:/media:ro" ghcr.io/foursmith/vr:latest
-```
-
-The generated access password is printed in the container logs. Add `--disable-password` after the image name to disable authentication, or `--password <password>` to set a stable password.
-
-For Docker Compose, copy the environment example and set `FSVR_MEDIA_DIR` to a local directory or mounted disk:
+Copy the environment example, set `FSVR_MEDIA_DIR` to the directory or mounted disk containing your media, and start the service:
 
 ```sh
 cp .env.example .env
@@ -100,9 +58,75 @@ docker compose up -d
 docker compose logs fsvr
 ```
 
-Use `docker compose up -d --build` to build the image from the current source. On macOS, an external disk path typically looks like `/Volumes/Media/Movies`; on Linux, it might be `/mnt/media`.
+Open `http://localhost:4090` and use the password printed by `docker compose logs fsvr`. The media directory is mounted read-only. On macOS, an external disk path typically looks like `/Volumes/Media/Movies`; on Linux, it might be `/mnt/media`.
+
+Use `docker compose up -d --build` to build the image from the current source instead of using the published image.
+
+### Docker run
+
+To start the published image directly with `~/Movies`:
+
+```sh
+docker run --rm -p 4090:4090 -v "$HOME/Movies:/media:ro" ghcr.io/foursmith/vr:latest
+```
+
+The generated access password is printed in the container logs. Add `--disable-password` after the image name to disable authentication, or `--password <password>` to set a stable password.
 
 Release tags matching `v*` publish multi-architecture Docker images to `ghcr.io/foursmith/vr` and create a GitHub Release with an automatically generated changelog.
+
+## Development
+
+### Technology stack
+
+| Area | Technology |
+| --- | --- |
+| Web UI | SolidJS 2 beta, TypeScript |
+| Build and PWA | Vite, Vite PWA |
+| VR rendering | Three.js |
+| Face tracking | MediaPipe Tasks Vision |
+| Styling and icons | UnoCSS with `presetWind3()`, Iconify |
+| Local media server | Bun, Citty |
+| Testing | Vitest, Playwright |
+
+### Getting started
+
+Requires [Bun](https://bun.sh/). Install dependencies and start the Web app:
+
+```sh
+bun install
+bun run dev
+```
+
+To develop the Web app and local media server together, pass a media directory:
+
+```sh
+bun run dev:cli -- ~/Movies
+```
+
+Both commands support hot reloading. The media server development command opens `http://127.0.0.1:4090` and disables authentication.
+
+Run checks and production builds:
+
+```sh
+bun run typecheck
+bun run test
+bun run build
+bun run typecheck:cli
+bun run test:cli
+bun run build:cli
+```
+
+## Contributing
+
+Bug reports, feature requests, and pull requests are welcome. Please use [GitHub Issues](https://github.com/foursmith/vr/issues) to discuss bugs or larger changes before implementation.
+
+1. Fork the repository and create a focused branch.
+2. Make your changes and add or update tests where appropriate.
+3. Run `bun run lint`, `bun run typecheck`, and `bun run test`. For CLI changes, also run `bun run typecheck:cli` and `bun run test:cli`.
+4. Use a [Conventional Commit](https://www.conventionalcommits.org/) message, for example `fix(player): correct projection reset`.
+5. Open a pull request describing the change and how it was tested.
+
+When changing the Web UI, follow the project's [SolidJS 2 migration guide](doc/MIGRATION.md) and existing UnoCSS Wind3 conventions.
 
 ## License
 
