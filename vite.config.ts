@@ -99,19 +99,20 @@ export default defineConfig(({ command, mode }) => ({
         categories: ["video", "photo", "entertainment", "utilities"],
         icons: [
           {
+            src: "/icon.svg",
+            type: "image/svg+xml",
+            sizes: "any",
+            purpose: "any",
+          },
+          {
             src: "/pwa-192x192.png",
+            type: "image/png",
             sizes: "192x192",
-            type: "image/png",
           },
           {
             src: "/pwa-512x512.png",
-            sizes: "512x512",
             type: "image/png",
-          },
-          {
-            src: "/pwa-512x512.png",
             sizes: "512x512",
-            type: "image/png",
             purpose: "any maskable",
           },
         ],
