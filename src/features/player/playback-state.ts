@@ -14,7 +14,7 @@ export interface GlobalPreferences {
 export interface LastPlayback {
   key: string
   position: number
-  presetId: number
+  projectionId: number
 }
 
 export interface VideoPlaybackState extends LastPlayback {
@@ -112,21 +112,22 @@ export function videoStateKey(resource: { name: string, file?: File, url?: strin
 }
 
 const validPlayback = (value: unknown): LastPlayback | undefined => {
+  if (!isRecord(value)) return
+  const projectionId = value.projectionId ?? value.presetId
   if (
-    !isRecord(value)
-    || typeof value.key !== "string"
+    typeof value.key !== "string"
     || !value.key
     || typeof value.position !== "number"
     || !Number.isFinite(value.position)
     || value.position < 0
-    || typeof value.presetId !== "number"
-    || !Number.isInteger(value.presetId)
-    || value.presetId < 0
-    || value.presetId > 3
+    || typeof projectionId !== "number"
+    || !Number.isInteger(projectionId)
+    || projectionId < 0
+    || projectionId > 3
   ) {
     return
   }
-  return { key: value.key, position: value.position, presetId: value.presetId }
+  return { key: value.key, position: value.position, projectionId }
 }
 
 export function loadLastPlayback(storage: Storage = localStorage) {

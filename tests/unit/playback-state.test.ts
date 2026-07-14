@@ -78,18 +78,31 @@ describe("player state persistence", () => {
   })
 
   it("saves the last playback position separately from global preferences", () => {
-    const playback = { key: "url:movie.mp4", position: 18.5, presetId: 2 }
+    const playback = { key: "url:movie.mp4", position: 18.5, projectionId: 2 }
     saveLastPlayback(playback)
     expect(loadLastPlayback()).toEqual(playback)
   })
 
+  it("migrates the legacy projection id field", () => {
+    localStorage.setItem("foursmith-vr:last-playback", JSON.stringify({
+      key: "url:movie.mp4",
+      position: 18.5,
+      presetId: 2,
+    }))
+    expect(loadLastPlayback()).toEqual({
+      key: "url:movie.mp4",
+      position: 18.5,
+      projectionId: 2,
+    })
+  })
+
   it.each([
-    { key: "", position: 18.5, presetId: 2 },
-    { key: "url:movie.mp4", presetId: 2 },
-    { key: "url:movie.mp4", position: Number.NaN, presetId: 2 },
-    { key: "url:movie.mp4", position: -1, presetId: 2 },
+    { key: "", position: 18.5, projectionId: 2 },
+    { key: "url:movie.mp4", projectionId: 2 },
+    { key: "url:movie.mp4", position: Number.NaN, projectionId: 2 },
+    { key: "url:movie.mp4", position: -1, projectionId: 2 },
     { key: "url:movie.mp4", position: 18.5 },
-    { key: "url:movie.mp4", position: 18.5, presetId: 4 },
+    { key: "url:movie.mp4", position: 18.5, projectionId: 4 },
   ])("rejects an invalid last playback snapshot", (playback) => {
     localStorage.setItem("foursmith-vr:last-playback", JSON.stringify(playback))
     expect(loadLastPlayback()).toBeUndefined()
@@ -100,7 +113,7 @@ describe("player state persistence", () => {
       key: "url:https://example.com/movie.mp4",
       updatedAt: 42,
       position: 73.5,
-      presetId: 2,
+      projectionId: 2,
     }
     await saveVideoPlaybackState(state)
     expect(await loadVideoPlaybackState(state.key)).toEqual(state)

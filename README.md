@@ -41,7 +41,7 @@ For the best experience, use Chrome, Edge, or another Chromium-based desktop bro
 | R | Reset view and zoom |
 | [ / - | Zoom out |
 | ] / = | Zoom in |
-| 1-7 | Select projection preset |
+| 1-7 | Select projection |
 | , / . | Previous or next quality preset |
 
 ## Deployment

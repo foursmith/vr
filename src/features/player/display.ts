@@ -20,7 +20,7 @@ export function createDisplay(options: {
   }>
 }) {
   const [state, setState] = createStore({
-    presetId: 0,
+    projectionId: 0,
     qualityId: options.initialState?.qualityId ?? 2,
     renderFrameRateId: options.initialState?.renderFrameRateId ?? 3,
     splitScreen: options.initialState?.splitScreen ?? true,
@@ -34,9 +34,9 @@ export function createDisplay(options: {
       draft[key] = resolveUpdate(draft[key], update)
     })
   }
-  const setPresetId = (update: ValueUpdate<number>) => {
-    const next = resolveUpdate(state.presetId, update)
-    setValue("presetId", next)
+  const setProjectionId = (update: ValueUpdate<number>) => {
+    const next = resolveUpdate(state.projectionId, update)
+    setValue("projectionId", next)
     return next
   }
   const setQualityId = (update: ValueUpdate<number>) => setValue("qualityId", update)
@@ -60,8 +60,8 @@ export function createDisplay(options: {
     setZoomSignal(next)
   }
 
-  const restorePreset = (presetId: number) => {
-    setValue("presetId", presetId)
+  const restoreProjection = (projectionId: number) => {
+    setValue("projectionId", projectionId)
   }
 
   const resetTransientView = () => {
@@ -103,7 +103,7 @@ export function createDisplay(options: {
     fullscreen,
     resetView,
     setFaceAutoCenter,
-    setPresetId,
+    setProjectionId,
     setQualityId,
     setRenderFrameRateId,
     setSplitScreen,
@@ -117,12 +117,12 @@ export function createDisplay(options: {
     changeQualityBy,
     controller,
     faceAutoCenter: () => state.faceAutoCenter,
-    presetId: () => state.presetId,
+    projectionId: () => state.projectionId,
     qualityId: () => state.qualityId,
     renderFrameRateId: () => state.renderFrameRateId,
     splitScreen: () => state.splitScreen,
     resetTransientView,
-    restorePreset,
+    restoreProjection,
     syncFullscreen,
     syncZoom,
   }

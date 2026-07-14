@@ -369,9 +369,9 @@ describe("player controller", () => {
     expect(video.playbackRate).toBe(1.5)
     expect(controller.playback.playbackRate()).toBe(1.5)
 
-    controller.display.setPresetId(2)
+    controller.display.setProjectionId(2)
     await settle()
-    expect(controller.display.state.presetId).toBe(2)
+    expect(controller.display.state.projectionId).toBe(2)
 
     mocks.sceneController.update.mockClear()
     controller.display.setQualityId(3)
@@ -573,7 +573,7 @@ describe("player controller", () => {
     localStorage.setItem("foursmith-vr:last-playback", JSON.stringify({
       key: `url:${window.location.origin}${mediaPath}`,
       position: 37,
-      presetId: 2,
+      projectionId: 2,
     }))
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input))
@@ -606,7 +606,7 @@ describe("player controller", () => {
     expect(JSON.parse(localStorage.getItem("foursmith-vr:last-playback")!)).toMatchObject({
       key: "fsvr:local/Zm9sZGVyL21vdmllLm1wNA",
       position: 37,
-      presetId: 2,
+      projectionId: 2,
     })
     dispose()
   })
@@ -691,7 +691,7 @@ describe("player controller", () => {
     await settle()
     video.currentTime = 48
     controller.playback.syncTime()
-    controller.display.setPresetId(2)
+    controller.display.setProjectionId(2)
     controller.playback.handlePlayingChange(false)
     await settle()
 

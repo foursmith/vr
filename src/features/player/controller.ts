@@ -22,7 +22,7 @@ import {
   createVrScene,
   DEFAULT_ZOOM,
   preloadFaceAutoCenterResources,
-  PRESETS,
+  PROJECTION_OPTIONS,
   QUALITY_OPTIONS,
 } from "../vr/scene"
 
@@ -259,18 +259,18 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   const {
     changeQualityBy,
     faceAutoCenter,
-    presetId,
+    projectionId,
     qualityId,
     renderFrameRateId,
     splitScreen,
     resetTransientView,
-    restorePreset,
+    restoreProjection,
     syncFullscreen,
     syncZoom,
   } = displayModule
   const {
     resetView,
-    setPresetId: setDisplayPresetId,
+    setProjectionId: setDisplayProjectionId,
     setZoom,
     toggleFullscreen,
     zoom,
@@ -315,10 +315,10 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   let appDisposed = false
   let activeAbExport = false
 
-  const activePlaybackSnapshot = (nextPresetId = presetId()): LastPlayback | undefined => {
+  const activePlaybackSnapshot = (nextProjectionId = projectionId()): LastPlayback | undefined => {
     const key = activeVideoKey
     if (!key) return
-    return { key, position: video.currentTime || 0, presetId: nextPresetId }
+    return { key, position: video.currentTime || 0, projectionId: nextProjectionId }
   }
 
   const persistVideoHistory = async (playback: LastPlayback) => {
@@ -330,15 +330,15 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   }
 
   const writeLastPlayback = (playback: LastPlayback) => {
-    lastPlayback = { key: playback.key, position: playback.position, presetId: playback.presetId }
+    lastPlayback = { key: playback.key, position: playback.position, projectionId: playback.projectionId }
     saveLastPlayback(lastPlayback)
     lastPlaybackSavedAt = Date.now()
   }
 
-  const persistLastPlayback = (force = false, nextPresetId = presetId()) => {
+  const persistLastPlayback = (force = false, nextProjectionId = projectionId()) => {
     const now = Date.now()
     if (!force && now - lastPlaybackSavedAt < LAST_PLAYBACK_SAVE_INTERVAL_MS) return
-    const playback = activePlaybackSnapshot(nextPresetId)
+    const playback = activePlaybackSnapshot(nextProjectionId)
     if (playback) writeLastPlayback(playback)
   }
 
@@ -351,11 +351,11 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     }, delay)
   }
 
-  const setPresetId = (update: ValueUpdate<number>) => {
-    const nextPresetId = setDisplayPresetId(update)
-    persistLastPlayback(true, nextPresetId)
+  const setProjectionId = (update: ValueUpdate<number>) => {
+    const nextProjectionId = setDisplayProjectionId(update)
+    persistLastPlayback(true, nextProjectionId)
     scheduleActiveVideoStateSave()
-    return nextPresetId
+    return nextProjectionId
   }
 
   const persistActiveVideoState = () => {
@@ -386,7 +386,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   ))
 
   const sceneOptions = () => ({
-    preset: PRESETS[presetId()].component,
+    projection: PROJECTION_OPTIONS[projectionId()].component,
     quality: QUALITY_OPTIONS[qualityId()].component,
     frameRate: VIDEO_FRAME_RATE_OPTIONS[renderFrameRateId() - 1]?.value ?? 30,
     hidden: false,
@@ -566,8 +566,8 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     const playbackKey = !fsvrIdentity || fsvrIdentity.sourceId === "local" ? videoStateKey(resource) : undefined
     activeVideoKey = playbackKey
     const resumePlayback = playbackKey && lastPlayback?.key === playbackKey ? lastPlayback : undefined
-    if (playbackKey) writeLastPlayback(resumePlayback ?? { key: playbackKey, position: 0, presetId: 0 })
-    restorePreset(resumePlayback?.presetId ?? 0)
+    if (playbackKey) writeLastPlayback(resumePlayback ?? { key: playbackKey, position: 0, projectionId: 0 })
+    restoreProjection(resumePlayback?.projectionId ?? 0)
     resetTransientView()
     setAbLoop((draft) => {
       draft.a = undefined
@@ -593,7 +593,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       try {
         const savedState = await loadVideoPlaybackState(playbackKey)
         if (savedState && generation === videoLoadGeneration && !appDisposed) {
-          restorePreset(savedState.presetId)
+          restoreProjection(savedState.projectionId)
           pendingResumeTime = savedState.position
           writeLastPlayback(savedState)
           if (Number.isFinite(video.duration)) syncTime()
@@ -1332,9 +1332,9 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
         changeQualityBy(1)
         break
       default: {
-        const presetNumber = Number(event.key)
-        if (Number.isInteger(presetNumber) && presetNumber >= 1 && presetNumber <= PRESETS.length) {
-          setPresetId(presetNumber - 1)
+        const projectionNumber = Number(event.key)
+        if (Number.isInteger(projectionNumber) && projectionNumber >= 1 && projectionNumber <= PROJECTION_OPTIONS.length) {
+          setProjectionId(projectionNumber - 1)
         } else {
           handled = false
         }
@@ -1612,7 +1612,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     },
     display: {
       ...displayModule.controller,
-      setPresetId,
+      setProjectionId,
     },
     controls: {
       activeSlider,

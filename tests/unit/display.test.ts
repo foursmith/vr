@@ -56,10 +56,10 @@ describe("player display state", () => {
       initialState: { qualityId: 1, renderFrameRateId: 1, splitScreen: false, faceAutoCenter: false },
     })
     expect(display.controller.state).toMatchObject({ qualityId: 1, renderFrameRateId: 1, splitScreen: false, faceAutoCenter: false })
-    display.controller.setPresetId(2)
+    display.controller.setProjectionId(2)
     display.controller.setZoom(1.5)
     flush()
-    expect(display.controller.state.presetId).toBe(2)
+    expect(display.controller.state.projectionId).toBe(2)
     expect(display.controller.zoom()).toBe(1.5)
   })
 })
