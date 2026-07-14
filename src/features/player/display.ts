@@ -22,7 +22,7 @@ export function createDisplay(options: {
   const [state, setState] = createStore({
     presetId: 0,
     qualityId: options.initialState?.qualityId ?? 2,
-    renderFrameRateId: options.initialState?.renderFrameRateId ?? 2,
+    renderFrameRateId: options.initialState?.renderFrameRateId ?? 3,
     splitScreen: options.initialState?.splitScreen ?? true,
     faceAutoCenter: options.initialState?.faceAutoCenter ?? true,
   })
