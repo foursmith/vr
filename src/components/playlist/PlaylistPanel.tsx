@@ -59,7 +59,7 @@ export function PlaylistPanel(props: { controller: PlayerController }) {
           class="flex max-h-[calc(100dvh-14.75rem)] w-full flex-col overflow-hidden rounded-[20px] text-white sm:max-h-[calc(100dvh-13.5rem)]"
           aria-label="Playlist"
         >
-          <header class="flex h-14 shrink-0 items-center gap-2 px-3">
+          <header class="flex shrink-0 items-center gap-2 p-2">
             <LiquidGlass
               class="pointer-events-none h-8 w-8 shrink-0 rounded-full text-white/92"
               cornerRadius={999}
@@ -102,7 +102,7 @@ export function PlaylistPanel(props: { controller: PlayerController }) {
             {message => <p role="alert" class="shrink-0 border-y border-white/7 px-4 py-2 text-[10px] text-red-300/85">{message()}</p>}
           </Show>
 
-          <div class="playlist-scroll min-h-0 flex-1 overflow-y-auto px-2 py-2">
+          <div class="playlist-scroll min-h-0 flex-1 overflow-y-auto px-2">
             <ul role="tree" aria-label="Video folders" class="m-0 list-none p-0">
               <For each={state.nodes}>
                 {node => (
@@ -120,8 +120,8 @@ export function PlaylistPanel(props: { controller: PlayerController }) {
           </div>
 
           <Show when={state.nodes.length}>
-            <footer class="grid shrink-0 place-items-center p-2">
-              <MediaPickerButtons onChooseFiles={chooseFiles} onChooseFolder={chooseFolder} />
+            <footer class="flex shrink-0 items-center justify-center p-2">
+              <MediaPickerButtons fullWidth onChooseFiles={chooseFiles} onChooseFolder={chooseFolder} />
             </footer>
           </Show>
         </aside>

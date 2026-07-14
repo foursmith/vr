@@ -29,6 +29,9 @@ export function PlaylistTreeNode(props: {
   onSelect: (node: PlaylistStateNode) => void
 }) {
   const isExpanded = () => props.expanded.has(props.node.id)
+  const displayName = () => props.node.kind === "video"
+    ? props.node.name.replace(/\.[^.]+$/, "")
+    : props.node.name
   const iconName = () => {
     if (props.node.kind === "folder") return isExpanded() ? "folder-open" as const : "folder" as const
     return "file-video" as const
@@ -71,7 +74,7 @@ export function PlaylistTreeNode(props: {
         >
           <SourceFolderIcon expanded={isExpanded()} source={props.node.sourceKind} />
         </Show>
-        <span class="min-w-0 flex-1 truncate">{props.node.name}</span>
+        <span dir="rtl" class="min-w-0 flex-1 truncate text-left">{displayName()}</span>
         <Show when={props.node.kind === "video" && props.node.hasSubtitle}>
           <span
             aria-label="Subtitle available"

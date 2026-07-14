@@ -1,10 +1,14 @@
 import { Icon } from "./Icon"
 import { LiquidGlass } from "./LiquidGlass"
 
-export function MediaPickerButtons(props: { onChooseFiles: () => void, onChooseFolder: () => void }) {
+export function MediaPickerButtons(props: {
+  onChooseFiles: () => void
+  onChooseFolder: () => void
+  fullWidth?: boolean
+}) {
   return (
     <LiquidGlass
-      class="h-10 w-64 max-w-full rounded-full text-white"
+      class={`h-10 ${props.fullWidth ? "w-full" : "w-64"} max-w-full rounded-full text-white`}
       cornerRadius={999}
       elasticity={0.12}
       castShadow={false}
