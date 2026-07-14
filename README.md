@@ -1,16 +1,15 @@
 # Foursmith VR
 
+<div align="center">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="doc/banner.jpg">
+    <img src="doc/banner.webp" alt="Foursmith VR" width="960">
+  </picture>
+</div>
 
 ___Watch VR like TikTok___
 
 > This might be the most enjoyable way to experience VR — no headset required, and no worries if you suffer from motion sickness. Sit back and enjoy!
-
-## Usage
-
-> [!Important]
-> Most 8K VR videos may not play properly or smoothly in Safari or Firefox. All browsers on iOS are Safari under the hood.
-
-Open [Foursmith VR](https://vr.foursmith.com/) in Chrome, Edge, or another Chromium-based desktop browser.
 
 ## Features
 
@@ -19,9 +18,16 @@ Open [Foursmith VR](https://vr.foursmith.com/) in Chrome, Edge, or another Chrom
 - Keeps faces centered automatically.
 - Works with browsers and browser extensions that provide live speech translation.
 - Supports mouse, keyboard, and on-screen controls.
-- Offers adjustable projection and quality presets.
 
-## Keyboard Shortcuts
+
+## Usage
+
+> [!Important]
+> Most 8K VR videos may not play properly or smoothly in Safari or Firefox. All browsers on iOS are Safari under the hood.
+
+Open [Foursmith VR](https://vr.foursmith.com/) in Chrome, Edge, or another Chromium-based desktop browser.
+
+### Keyboard Shortcuts
 
 | Shortcut | Action |
 | --- | --- |
