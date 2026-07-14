@@ -29,7 +29,7 @@ export const DEFAULT_GLOBAL_PREFERENCES: GlobalPreferences = {
   splitScreen: true,
   faceAutoCenter: true,
   subtitlesEnabled: true,
-  repeatMode: "off",
+  repeatMode: "file",
 }
 
 const GLOBAL_PREFERENCES_KEY = "foursmith-vr:preferences"
