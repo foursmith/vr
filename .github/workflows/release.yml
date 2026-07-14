@@ -37,9 +37,9 @@ jobs:
           release_body="$(gh release view "$GITHUB_REF_NAME" --json body --jq .body)"
           repository_name="${GITHUB_REPOSITORY#*/}"
           package_url="https://github.com/$GITHUB_REPOSITORY/pkgs/container/$repository_name"
-          image="ghcr.io/${GITHUB_REPOSITORY,,}:latest"
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:${GITHUB_REF_NAME#v}"
           footer=$'\n\n<!-- docker-image -->\n### Docker\n\n'
-          footer+="[View the latest Docker image]($package_url)"$'\n\n'
+          footer+="[View this Docker image]($package_url)"$'\n\n'
           footer+="<code>docker pull $image</code>"
 
           if [[ "$release_body" != *"<!-- docker-image -->"* ]]; then
