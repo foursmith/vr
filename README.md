@@ -17,7 +17,7 @@
 - **Make wide screens work for people.** Portrait layout repeats the view in portrait panels, keeping human subjects large and easy to see.
 - **Play the formats you already have.** Open 180°, 360°, side-by-side, top-bottom, fisheye, and flat videos directly in the browser.
 - **Bring your whole library.** Choose local files or folders, run the included media server, and discover videos from DLNA devices.
-- **Save exactly what you see.** Mark an A–B range and export a short clip from the current view, complete with visible subtitles in supported browsers.
+- **Save exactly what you see.** Mark an A–B range and export a WebM, MP4, or single-file Motion Photo from the current view, complete with visible subtitles in supported browsers.
 - **Bring subtitles along.** Matching subtitle files are paired automatically, with support for browser-based live speech translation workflows.
 - **Stay in control.** Use the mouse, keyboard shortcuts, or polished on-screen controls—Foursmith VR is free and open source.
 

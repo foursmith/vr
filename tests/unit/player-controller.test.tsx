@@ -258,7 +258,7 @@ describe("player controller", () => {
     single.dispose()
   })
 
-  it("groups volume, speed, and scale into one horizontal slider panel", async () => {
+  it("groups volume, speed, and zoom into one horizontal slider panel", async () => {
     const { controller, dispose, host } = setupController()
     const fileInput = host.querySelector<HTMLInputElement>("input[type='file']:not([webkitdirectory])")!
     Object.defineProperty(fileInput, "files", {
@@ -269,7 +269,7 @@ describe("player controller", () => {
     await vi.advanceTimersByTimeAsync(200)
     await settle()
 
-    const adjustmentButton = host.querySelector<HTMLButtonElement>("button[aria-label='Adjust volume, speed, and scale']")!
+    const adjustmentButton = host.querySelector<HTMLButtonElement>("button[aria-label='Adjust volume, speed, and zoom']")!
     adjustmentButton.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }))
     await settle()
     expect(host.querySelector("section[aria-label='Playback adjustments']")).toBeNull()
@@ -282,7 +282,7 @@ describe("player controller", () => {
     expect([...panel.querySelectorAll("input[type='range']")].map(input => input.getAttribute("aria-label"))).toEqual([
       "Volume",
       "Speed",
-      "Scale",
+      "Zoom",
     ])
 
     const speed = panel.querySelector<HTMLInputElement>("input[aria-label='Speed']")!
@@ -307,7 +307,7 @@ describe("player controller", () => {
 
     controller.display.setZoom(1.4)
     await settle()
-    panel.querySelector<HTMLButtonElement>("button[aria-label='Reset scale']")!.click()
+    panel.querySelector<HTMLButtonElement>("button[aria-label='Reset zoom']")!.click()
     await settle()
     expect(controller.display.zoom()).toBe(1)
 
@@ -441,7 +441,7 @@ describe("player controller", () => {
     }
     vi.stubGlobal("MediaStream", FakeMediaStream)
     vi.stubGlobal("MediaRecorder", FakeMediaRecorder)
-    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
+    const clickDownload = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
 
     const drawImage = vi.fn()
     const fillText = vi.fn()
@@ -458,6 +458,8 @@ describe("player controller", () => {
       textBaseline: "alphabetic",
     } as unknown as CanvasRenderingContext2D
     const getContext = vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(exportContext)
+    const jpegBytes = new Uint8Array([0xFF, 0xD8, 0xFF, 0xD9])
+    const createJpeg = vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(callback => callback(new Blob([jpegBytes], { type: "image/jpeg" })))
     const captureExport = vi.fn(() => new FakeMediaStream([viewTrack]))
     Object.defineProperty(HTMLCanvasElement.prototype, "captureStream", { configurable: true, value: captureExport })
 
@@ -530,7 +532,30 @@ describe("player controller", () => {
     expect(getContext).not.toHaveBeenCalled()
     expect(drawImage).not.toHaveBeenCalled()
     expect(mocks.sceneController.setFrameCapture).not.toHaveBeenCalled()
+
+    vi.useRealTimers()
+    let renderExportFrame: FrameRequestCallback | undefined
+    vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => {
+      renderExportFrame = callback
+      return 1
+    }))
+    vi.stubGlobal("cancelAnimationFrame", vi.fn())
+    const exportingMotionPhoto = controller.playback.exportAbLoop("motion-photo")
+    renderExportFrame!(0)
+    await settle()
+    await settle()
+    expect(recordedOptions).toHaveLength(3)
+    video.currentTime = 20
+    video.dispatchEvent(new Event("timeupdate"))
+    await exportingMotionPhoto
+    await settle()
+
+    expect(createJpeg).toHaveBeenCalledWith(expect.any(Function), "image/jpeg", 0.92)
+    expect(recordedOptions.at(-1)).toMatchObject({ mimeType: expect.stringContaining("video/mp4") })
+    expect((clickDownload.mock.contexts.at(-1) as HTMLAnchorElement).download).toBe("movie-AB-10-0-20-0.jpg")
+    expect(controller.playback.abExport).toMatchObject({ status: "done", format: "motion-photo" })
     dispose()
+    createJpeg.mockRestore()
     getContext.mockRestore()
     delete (HTMLCanvasElement.prototype as HTMLCanvasElement & { captureStream?: () => MediaStream }).captureStream
   })
