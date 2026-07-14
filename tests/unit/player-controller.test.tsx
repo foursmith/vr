@@ -198,6 +198,59 @@ describe("player controller", () => {
     dispose()
   })
 
+  it("loops the next video control within the playback folder", async () => {
+    const { controller, dispose, host } = setupController()
+    const fileInput = host.querySelector<HTMLInputElement>("input[type='file']:not([webkitdirectory])")!
+    Object.defineProperty(fileInput, "files", {
+      configurable: true,
+      value: [
+        new File(["first"], "first.mp4", { type: "video/mp4" }),
+        new File(["second"], "second.mp4", { type: "video/mp4" }),
+        new File(["third"], "third.mp4", { type: "video/mp4" }),
+      ],
+    })
+
+    controller.frame.handleFile()
+    await vi.advanceTimersByTimeAsync(200)
+    await settle()
+
+    expect([...host.querySelectorAll(".player-controls button")].slice(0, 2).map(button => button.getAttribute("aria-label"))).toEqual([
+      "Play",
+      "Next video",
+    ])
+    host.querySelector<HTMLButtonElement>("button[aria-label='Next video']")!.click()
+    await vi.advanceTimersByTimeAsync(200)
+    await settle()
+
+    host.querySelector<HTMLButtonElement>("button[aria-label='Next video']")!.click()
+    await vi.advanceTimersByTimeAsync(200)
+    await settle()
+
+    expect(host.querySelector("button[aria-label='Previous video']")).toBeNull()
+    expect(host.querySelector("button[aria-label='Next video']")).not.toBeNull()
+    expect(controller.playlist.state.selectedId).toBe(controller.playlist.playlistVideos()[2]?.id)
+    host.querySelector<HTMLButtonElement>("button[aria-label='Next video']")!.click()
+    await vi.advanceTimersByTimeAsync(200)
+    await settle()
+    expect(controller.playlist.state.selectedId).toBe(controller.playlist.playlistVideos()[0]?.id)
+    dispose()
+
+    const single = setupController()
+    const singleFileInput = single.host.querySelector<HTMLInputElement>("input[type='file']:not([webkitdirectory])")!
+    Object.defineProperty(singleFileInput, "files", {
+      configurable: true,
+      value: [new File(["only"], "only.mp4", { type: "video/mp4" })],
+    })
+    single.controller.frame.handleFile()
+    await vi.advanceTimersByTimeAsync(200)
+    await settle()
+
+    expect(single.host.querySelector("button[aria-label='Previous video']")).toBeNull()
+    expect(single.host.querySelector("button[aria-label='Next video']")).toBeNull()
+    expect(single.host.querySelector("button[aria-label='Play']")).not.toBeNull()
+    single.dispose()
+  })
+
   it("groups volume, speed, and scale into one horizontal slider panel", async () => {
     const { controller, dispose, host } = setupController()
     const fileInput = host.querySelector<HTMLInputElement>("input[type='file']:not([webkitdirectory])")!
@@ -259,16 +312,13 @@ describe("player controller", () => {
 
     const repeatButton = host.querySelector<HTMLButtonElement>("button[aria-label^='Playback mode:']")!
     expect(repeatButton.closest("aside[aria-label='Playlist']")).not.toBeNull()
-    expect(repeatButton.querySelector("svg[data-icon='play-once']")).not.toBeNull()
-    repeatButton.click()
-    await settle()
-    expect(controller.playback.repeatMode()).toBe("playlist")
-    expect(repeatButton.getAttribute("aria-label")).toBe("Playback mode: Playlist")
-    expect(host.querySelector("[role='radiogroup'][aria-label='Playback mode']")).toBeNull()
+    expect(repeatButton.querySelector(".i-ph-skip-forward")).not.toBeNull()
     repeatButton.click()
     await settle()
     expect(controller.playback.repeatMode()).toBe("folder")
-    expect(repeatButton.querySelector("svg[data-icon='folder-repeat']")).not.toBeNull()
+    expect(repeatButton.getAttribute("aria-label")).toBe("Playback mode: Folder")
+    expect(host.querySelector("[role='radiogroup'][aria-label='Playback mode']")).toBeNull()
+    expect(repeatButton.querySelector(".i-ph-arrows-clockwise")).not.toBeNull()
     repeatButton.click()
     await settle()
     expect(controller.playback.repeatMode()).toBe("file")

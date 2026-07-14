@@ -58,6 +58,14 @@ describe("player state persistence", () => {
     expect(loadGlobalPreferences()).toEqual(preferences)
   })
 
+  it("migrates the legacy playlist repeat mode to folder repeat", () => {
+    localStorage.setItem("foursmith-vr:preferences", JSON.stringify({
+      ...DEFAULT_GLOBAL_PREFERENCES,
+      repeatMode: "playlist",
+    }))
+    expect(loadGlobalPreferences().repeatMode).toBe("folder")
+  })
+
   it("creates stable state keys for files and URLs", () => {
     const file = new File(["video"], "movie.mp4", { lastModified: 42 })
     expect(videoStateKey({ name: file.name, file })).toBe(`file:movie.mp4:${file.size}:42`)
