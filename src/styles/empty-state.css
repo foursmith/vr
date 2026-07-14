@@ -1,13 +1,15 @@
-.empty-state-bg {
+/* Scene */
+
+.empty-state-surface {
   background: linear-gradient(180deg, #17758c 0%, #07516c 48%, #031b2a 100%);
 }
 
-.empty-state-content {
-  animation: empty-content-flow 36s ease-in-out infinite alternate;
+.empty-state-drift {
+  animation: empty-state-drift-motion 36s ease-in-out infinite alternate;
   will-change: transform;
 }
 
-@keyframes empty-content-flow {
+@keyframes empty-state-drift-motion {
   0% { transform: translate3d(16px, -6px, 0); }
   28% { transform: translate3d(-18px, 1px, 0); }
   55% { transform: translate3d(0, 8px, 0); }
@@ -15,26 +17,16 @@
   100% { transform: translate3d(-6px, -8px, 0); }
 }
 
-.empty-depth-rings {
-  animation: empty-depth-rings-spin 28s linear infinite;
-  filter: drop-shadow(0 0 14px rgba(98, 207, 216, 0.06));
-  transform: translate(-50%, -50%) rotate(-16deg);
-  will-change: transform;
-}
+/* Primary logo */
 
-@keyframes empty-depth-rings-spin {
-  from { transform: translate(-50%, -50%) rotate(-16deg); }
-  to { transform: translate(-50%, -50%) rotate(344deg); }
-}
-
-.empty-logo-fish {
-  animation: empty-logo-fish-hunt 18s cubic-bezier(0.42, 0, 0.24, 1) infinite;
+.empty-hero-logo {
+  animation: empty-hero-logo-motion 18s cubic-bezier(0.42, 0, 0.24, 1) infinite;
   filter: drop-shadow(0 16px 34px rgba(3, 19, 31, 0.38));
   transform-origin: 50% 52%;
   will-change: filter, transform;
 }
 
-@keyframes empty-logo-fish-hunt {
+@keyframes empty-hero-logo-motion {
   0%, 24%, 100% {
     filter: drop-shadow(3px 17px 34px rgba(3, 19, 31, 0.36));
     transform: translate(-50%, -50%) translate3d(1px, 1px, 0) rotate(-0.2deg) scale(0.998);
@@ -61,65 +53,110 @@
   }
 }
 
-@keyframes empty-badge-swim-1 {
-  0%, 100% { transform: translate3d(-5px, 1px, 0) rotate(-0.4deg); }
-  34% { transform: translate3d(12px, -3px, 0) rotate(0.8deg); }
-  68% { transform: translate3d(4px, 2px, 0) rotate(-0.2deg); }
+/* GitHub celebration */
+
+.empty-github-burst .empty-github-icon {
+  animation: empty-github-burst-motion 620ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-@keyframes empty-badge-swim-2 {
-  0%, 100% { transform: translate3d(8px, -2px, 0) rotate(0.5deg); }
-  42% { transform: translate3d(-11px, 3px, 0) rotate(-0.8deg); }
-  76% { transform: translate3d(-2px, -1px, 0) rotate(0.2deg); }
+.empty-github-confetti-layer {
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: fixed;
+  z-index: 9999;
 }
 
-@keyframes empty-badge-swim-3 {
-  0%, 100% { transform: translate3d(-7px, 2px, 0) rotate(-0.5deg); }
-  29% { transform: translate3d(5px, -2px, 0) rotate(0.3deg); }
-  63% { transform: translate3d(14px, 1px, 0) rotate(0.8deg); }
+.empty-github-confetti-particle {
+  animation: empty-github-confetti-burst 720ms cubic-bezier(0.12, 0.72, 0.24, 1) forwards;
+  background: var(--confetti-color);
+  border-radius: 2px;
+  box-shadow: 0 0 7px color-mix(in srgb, var(--confetti-color) 56%, transparent);
+  opacity: 0;
+  position: fixed;
+  transform: translate3d(-50%, -50%, 0) scale(0.35);
+  will-change: opacity, transform;
 }
 
-@keyframes empty-badge-swim-4 {
-  0%, 100% { transform: translate3d(10px, 1px, 0) rotate(0.6deg); }
-  37% { transform: translate3d(-6px, -3px, 0) rotate(-0.4deg); }
-  72% { transform: translate3d(-13px, 2px, 0) rotate(-0.9deg); }
+@keyframes empty-github-burst-motion {
+  0%, 100% { filter: drop-shadow(0 0 0 transparent); transform: scale(1); }
+  36% { filter: drop-shadow(0 0 9px rgba(184, 243, 236, 0.88)); transform: scale(1.28) rotate(-8deg); }
+  68% { filter: drop-shadow(0 0 5px rgba(98, 207, 216, 0.64)); transform: scale(0.94) rotate(5deg); }
 }
 
-@keyframes empty-badge-swim-5 {
-  0%, 100% { transform: translate3d(-8px, 1px, 0) rotate(-0.4deg); }
-  33% { transform: translate3d(7px, -2px, 0) rotate(0.4deg); }
-  69% { transform: translate3d(13px, 2px, 0) rotate(0.7deg); }
+@keyframes empty-github-confetti-burst {
+  0% {
+    opacity: 0;
+    transform: translate3d(-50%, -50%, 0) scale(0.35) rotate(0);
+  }
+  10% { opacity: 1; }
+  56% {
+    opacity: 1;
+    transform: translate3d(calc(-50% + var(--confetti-mid-x)), calc(-50% + var(--confetti-mid-y)), 0) scale(1) rotate(var(--confetti-mid-rotation));
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(calc(-50% + var(--confetti-end-x)), calc(-50% + var(--confetti-end-y)), 0) scale(0.72) rotate(var(--confetti-end-rotation));
+  }
 }
 
-@keyframes empty-badge-swim-6 {
-  0%, 100% { transform: translate3d(5px, -1px, 0) rotate(0.3deg); }
-  38% { transform: translate3d(-9px, 2px, 0) rotate(-0.6deg); }
-  73% { transform: translate3d(-2px, -3px, 0) rotate(0.2deg); }
+/* Feature dots */
+
+@keyframes empty-feature-drift {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  38% { transform: translate3d(var(--drift-x), var(--drift-y), 0); }
+  72% { transform: translate3d(var(--drift-return-x), var(--drift-return-y), 0); }
 }
 
-.empty-orbit-badge {
-  align-items: center;
-  background: linear-gradient(105deg, rgba(7, 78, 101, 0.74), rgba(2, 30, 48, 0.72));
-  border: 1px solid rgba(184, 243, 236, 0.18);
-  border-radius: 60% 48% 48% 60% / 58% 48% 48% 58%;
+.empty-feature-dot {
+  animation: empty-feature-drift var(--drift-duration) cubic-bezier(0.44, 0.03, 0.28, 1) var(--drift-delay, 0s) infinite;
+  background: #b8f3ec;
+  border-radius: 999px;
   box-shadow:
-    inset 0 1px 0 rgba(245, 255, 252, 0.09),
-    0 8px 26px rgba(0, 0, 0, 0.2);
-  color: rgba(245, 255, 252, 0.72);
+    0 0 0 2px rgba(98, 207, 216, 0.1),
+    0 0 10px rgba(98, 207, 216, 0.72);
+  height: 6px;
+  opacity: 0.82;
+  position: absolute;
+  width: 6px;
+  will-change: transform;
+  z-index: 10;
+}
+
+.empty-feature-dot::before {
+  content: '';
+  inset: -8px;
+  position: absolute;
+}
+
+.empty-feature-label {
+  align-items: center;
+  backdrop-filter: blur(8px);
+  background: linear-gradient(110deg, rgba(235, 255, 251, 0.94), rgba(163, 232, 227, 0.88));
+  border: 1px solid rgba(245, 255, 252, 0.68);
+  border-radius: 60% 48% 48% 60% / 58% 48% 48% 58%;
+  bottom: calc(100% + 10px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 8px 22px rgba(2, 30, 48, 0.16),
+    0 0 18px rgba(184, 243, 236, 0.12);
+  color: #075166;
   display: flex;
   font-size: 10px;
   font-weight: 500;
-  gap: 0.52rem;
+  left: 50%;
   letter-spacing: 0.018em;
-  padding: 0.43rem 0.88rem 0.43rem 0.6rem;
+  opacity: 0;
+  padding: 0.35rem 0.65rem;
+  pointer-events: none;
   position: absolute;
-  text-shadow: 0 1px 8px rgba(98, 207, 216, 0.12);
+  transform: translate3d(-50%, 4px, 0);
+  transition: opacity 160ms ease, transform 160ms ease;
   white-space: nowrap;
-  will-change: transform;
 }
 
-.empty-orbit-badge::after {
-  background: linear-gradient(135deg, rgba(98, 207, 216, 0.42), rgba(3, 44, 68, 0.48));
+.empty-feature-label::after {
+  background: linear-gradient(135deg, rgba(218, 250, 245, 0.92), rgba(132, 218, 216, 0.88));
   clip-path: polygon(0 50%, 100% 0, 100% 100%);
   content: '';
   height: 12px;
@@ -130,30 +167,84 @@
   width: 9px;
 }
 
-.empty-orbit-badge i {
-  background: #b8f3ec;
-  border-radius: 999px;
-  box-shadow:
-    0 0 0 2px rgba(98, 207, 216, 0.1),
-    0 0 9px rgba(98, 207, 216, 0.72);
-  height: 4px;
-  opacity: 0.86;
-  width: 4px;
+.empty-feature-dot:hover .empty-feature-label,
+.empty-feature-dot:focus-visible .empty-feature-label {
+  opacity: 1;
+  transform: translate3d(-50%, 0, 0);
 }
 
-.empty-orbit-badge-1 { animation: empty-badge-swim-1 12.8s cubic-bezier(0.45, 0.05, 0.3, 1) infinite; left: 0; top: 1.5rem; }
-.empty-orbit-badge-2 { animation: empty-badge-swim-2 14.7s cubic-bezier(0.4, 0, 0.25, 1) -4.2s infinite; right: 0; top: 4.125rem; }
-.empty-orbit-badge-3 { animation: empty-badge-swim-3 16.1s cubic-bezier(0.5, 0.02, 0.28, 1) -7.6s infinite; bottom: 0; left: 1.75rem; }
-.empty-orbit-badge-4 { animation: empty-badge-swim-4 13.6s cubic-bezier(0.42, 0, 0.3, 1) -2.8s infinite; bottom: 2.375rem; right: 0; }
-.empty-orbit-badge-5 { animation: empty-badge-swim-5 15.4s cubic-bezier(0.46, 0.03, 0.28, 1) -5.1s infinite; left: calc(50% - 4.5rem); top: -0.5rem; }
-.empty-orbit-badge-6 {
-  animation: empty-prey-flee 18s cubic-bezier(0.42, 0, 0.24, 1) infinite;
+.empty-feature-dot:hover,
+.empty-feature-dot:focus-visible {
+  z-index: 30;
+}
+
+.empty-feature-dot:focus-visible {
+  outline: 2px solid rgba(184, 243, 236, 0.72);
+  outline-offset: 4px;
+}
+
+.empty-feature-tiktok {
+  --drift-duration: 12.8s;
+  --drift-x: 17px;
+  --drift-y: -4px;
+  --drift-return-x: 9px;
+  --drift-return-y: 1px;
+  left: 0;
+  top: 1.5rem;
+}
+
+.empty-feature-open-source {
+  --drift-delay: -4.2s;
+  --drift-duration: 14.7s;
+  --drift-x: -19px;
+  --drift-y: 5px;
+  --drift-return-x: -10px;
+  --drift-return-y: 1px;
+  right: 0;
+  top: 4.125rem;
+}
+
+.empty-feature-subtitles {
+  --drift-delay: -7.6s;
+  --drift-duration: 16.1s;
+  --drift-x: 12px;
+  --drift-y: -4px;
+  --drift-return-x: 21px;
+  --drift-return-y: -1px;
+  bottom: 0;
+  left: 1.75rem;
+}
+
+.empty-feature-face-tracking {
+  --drift-delay: -2.8s;
+  --drift-duration: 13.6s;
+  --drift-x: -16px;
+  --drift-y: -4px;
+  --drift-return-x: -23px;
+  --drift-return-y: 1px;
+  bottom: 2.375rem;
+  right: 0;
+}
+
+.empty-feature-vr-player {
+  --drift-delay: -5.1s;
+  --drift-duration: 15.4s;
+  --drift-x: 15px;
+  --drift-y: -3px;
+  --drift-return-x: 21px;
+  --drift-return-y: 1px;
+  left: calc(50% - 4.5rem);
+  top: -0.5rem;
+}
+
+.empty-feature-brand {
+  animation: empty-brand-dot-escape 18s cubic-bezier(0.42, 0, 0.24, 1) infinite;
   left: -0.125rem;
   top: 7rem;
   transform-origin: right center;
 }
 
-@keyframes empty-prey-flee {
+@keyframes empty-brand-dot-escape {
   0%, 24% { filter: blur(0); opacity: 1; transform: translate3d(3px, -1px, 0) rotate(0.2deg) scale(1); }
   48% { opacity: 1; transform: translate3d(-2px, 2px, 0) rotate(-0.3deg); }
   55% { opacity: 1; transform: translate3d(-5px, 1px, 0) rotate(-0.6deg); }
@@ -165,33 +256,14 @@
 }
 
 @media (min-width: 640px) {
-  .empty-orbit-badge-1 { left: 0.375rem; }
-  .empty-orbit-badge-2 { right: -0.25rem; top: 4.75rem; }
-  .empty-orbit-badge-3 { left: 2.5rem; }
-  .empty-orbit-badge-4 { right: 0.25rem; }
-  .empty-orbit-badge-6 { left: -0.375rem; top: 8.125rem; }
+  .empty-feature-tiktok { left: 0.375rem; }
+  .empty-feature-open-source { right: -0.25rem; top: 4.75rem; }
+  .empty-feature-subtitles { left: 2.5rem; }
+  .empty-feature-face-tracking { right: 0.25rem; }
+  .empty-feature-brand { left: -0.375rem; top: 8.125rem; }
 }
 
-.empty-github-badge {
-  padding: 0.23rem 0.45rem 0.23rem 0.28rem;
-  text-decoration: none;
-}
-
-.empty-github-badge img {
-  height: 16px;
-  opacity: 0.82;
-  width: auto;
-}
-
-.empty-github-badge:focus-visible {
-  outline: 2px solid rgba(184, 243, 236, 0.72);
-  outline-offset: 3px;
-}
-
-.empty-auth-form {
-  border-radius: 999px;
-  position: relative;
-}
+/* Authentication */
 
 .empty-auth-form::after {
   border: 1px solid rgba(248, 113, 113, 0.72);
@@ -228,13 +300,17 @@
   100% { opacity: 0; }
 }
 
+/* Motion preferences */
+
 @media (prefers-reduced-motion: reduce) {
-  .empty-logo-fish,
-  .empty-orbit-badge-6 {
+  .empty-state-drift,
+  .empty-hero-logo,
+  .empty-feature-dot,
+  .empty-github-burst .empty-github-icon {
     animation: none;
   }
 
-  .empty-logo-fish {
+  .empty-hero-logo {
     transform: translate(-50%, -50%);
   }
 }

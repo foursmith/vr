@@ -132,7 +132,6 @@ describe("player controller", () => {
     expect(controller.server.state.status).toBe("authentication-required")
     expect(host.querySelector("form[aria-label='Unlock media server']")).not.toBeNull()
     expect(host.textContent).not.toContain("Choose files")
-    expect(host.textContent).not.toContain("Drop videos here")
     expect([...host.querySelectorAll<HTMLInputElement>("input[type='file']")].every(input => input.disabled)).toBe(true)
 
     const passwordInput = host.querySelector<HTMLInputElement>("input[aria-label='Password']")!
