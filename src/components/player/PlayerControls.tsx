@@ -74,7 +74,7 @@ export function PlayerControls(props: { controller: PlayerController }) {
             </Show>
             <div ref={adjustmentsButton} class="shrink-0">
               <IconButton
-                label="Adjust volume, speed, and scale"
+                label="Adjust volume, speed, and zoom"
                 icon="sliders"
                 onClick={() => toggleSlider("adjustments", adjustmentsButton)}
               />

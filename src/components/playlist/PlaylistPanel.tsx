@@ -7,9 +7,9 @@ import { LiquidGlass } from "../ui/LiquidGlass"
 import { MediaPickerButtons } from "../ui/MediaPickerButtons"
 
 const REPEAT_MODES = [
-  { value: "off", label: "Once", icon: "play-once" },
-  { value: "folder", label: "Folder", icon: "folder-repeat" },
-  { value: "file", label: "File", icon: "repeat-once" },
+  { value: "off", label: "Play once", icon: "play-once" },
+  { value: "folder", label: "Repeat folder", icon: "folder-repeat" },
+  { value: "file", label: "Repeat video", icon: "repeat-once" },
 ] as const
 
 export function PlaylistPanel(props: { controller: PlayerController }) {

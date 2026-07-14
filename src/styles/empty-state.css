@@ -204,7 +204,7 @@
   top: 4.125rem;
 }
 
-.empty-feature-subtitles {
+.empty-feature-portrait-layout {
   --drift-delay: -7.6s;
   --drift-duration: 16.1s;
   --drift-x: 12px;
@@ -258,7 +258,7 @@
 @media (min-width: 640px) {
   .empty-feature-tiktok { left: 0.375rem; }
   .empty-feature-open-source { right: -0.25rem; top: 4.75rem; }
-  .empty-feature-subtitles { left: 2.5rem; }
+  .empty-feature-portrait-layout { left: 2.5rem; }
   .empty-feature-face-tracking { right: 0.25rem; }
   .empty-feature-brand { left: -0.375rem; top: 8.125rem; }
 }
