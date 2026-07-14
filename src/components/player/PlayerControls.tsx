@@ -19,9 +19,10 @@ export function PlayerControls(props: { controller: PlayerController }) {
     toggleSlider,
   } = controls
   const {
+    canPlayNext,
     loadingState,
+    playNext,
     playing,
-    seekBy,
     startInitialLoad,
     togglePlay,
   } = playback
@@ -49,8 +50,21 @@ export function PlayerControls(props: { controller: PlayerController }) {
         }}
       >
         <ControlSliderPopover controller={controller} trigger={() => adjustmentsButton} />
-        <div class="grid gap-3 max-sm:grid-cols-[auto_minmax(0,1fr)] max-sm:items-center max-sm:gap-x-2 max-sm:gap-y-2 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-center">
-          <div class="flex min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] max-sm:col-start-1 max-sm:row-start-1 max-sm:[&::-webkit-scrollbar]:hidden">
+        <div class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 max-sm:gap-2">
+          <div class="flex items-center gap-3 justify-self-start max-sm:gap-2">
+            <IconButton
+              label={playing() ? "Pause" : "Play"}
+              icon={playing() ? "pause" : "play"}
+              iconClass={playing() ? "h-6.5 w-6.5" : "h-6.5 w-6.5 translate-x-0.5"}
+              class="!h-12 !w-12 text-white/94 max-sm:!h-14 max-sm:!w-14"
+              onClick={togglePlay}
+            />
+            <Show when={canPlayNext()}>
+              <IconButton label="Next video" icon="skip-forward" onClick={playNext} />
+            </Show>
+          </div>
+
+          <div class="flex min-w-0 items-center justify-end gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] max-sm:[&::-webkit-scrollbar]:hidden">
             <ProjectionSelect value={displayState.presetId} mount={controller.frame.getPlayer()} onChange={setPresetId} />
             <Show when={loadingState.error}>
               <button
@@ -61,21 +75,6 @@ export function PlayerControls(props: { controller: PlayerController }) {
                 Retry
               </button>
             </Show>
-          </div>
-
-          <div class="flex items-center justify-center gap-3 justify-self-center max-sm:col-span-2 max-sm:row-start-2 max-sm:gap-5">
-            <IconButton label="Seek backward" icon="rewind" onClick={() => seekBy(-10)} />
-            <IconButton
-              label={playing() ? "Pause" : "Play"}
-              icon={playing() ? "pause" : "play"}
-              iconClass={playing() ? "h-6.5 w-6.5" : "h-6.5 w-6.5 translate-x-0.5"}
-              class="!h-12 !w-12 text-white/94 max-sm:!h-14 max-sm:!w-14"
-              onClick={togglePlay}
-            />
-            <IconButton label="Seek forward" icon="fast-forward" onClick={() => seekBy(10)} />
-          </div>
-
-          <div class="flex min-w-0 items-center justify-end gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] max-sm:col-start-2 max-sm:row-start-1 max-sm:w-full max-sm:flex-wrap max-sm:overflow-visible sm:flex-nowrap lg:justify-end">
             <Show when={subtitles.hasSubtitle()}>
               <IconButton
                 label={subtitles.enabled() ? "Hide subtitles" : "Show subtitles"}

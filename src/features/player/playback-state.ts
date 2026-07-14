@@ -1,4 +1,4 @@
-export type RepeatMode = "off" | "playlist" | "folder" | "file"
+export type RepeatMode = "off" | "folder" | "file"
 
 export interface GlobalPreferences {
   volume: number
@@ -51,7 +51,10 @@ const numberInRange = (value: unknown, fallback: number, min: number, max: numbe
 const booleanOr = (value: unknown, fallback: boolean) => typeof value === "boolean" ? value : fallback
 
 const isRepeatMode = (value: unknown): value is RepeatMode =>
-  value === "off" || value === "playlist" || value === "folder" || value === "file"
+  value === "off" || value === "folder" || value === "file"
+
+const repeatModeFromStorage = (value: unknown): RepeatMode =>
+  value === "playlist" ? "folder" : isRepeatMode(value) ? value : DEFAULT_GLOBAL_PREFERENCES.repeatMode
 
 export function loadGlobalPreferences(storage: Storage = localStorage): GlobalPreferences {
   try {
@@ -67,7 +70,7 @@ export function loadGlobalPreferences(storage: Storage = localStorage): GlobalPr
       splitScreen: booleanOr(parsed.splitScreen, DEFAULT_GLOBAL_PREFERENCES.splitScreen),
       faceAutoCenter: booleanOr(parsed.faceAutoCenter, DEFAULT_GLOBAL_PREFERENCES.faceAutoCenter),
       subtitlesEnabled: booleanOr(parsed.subtitlesEnabled, DEFAULT_GLOBAL_PREFERENCES.subtitlesEnabled),
-      repeatMode: isRepeatMode(parsed.repeatMode) ? parsed.repeatMode : DEFAULT_GLOBAL_PREFERENCES.repeatMode,
+      repeatMode: repeatModeFromStorage(parsed.repeatMode),
     }
   } catch (error) {
     console.warn("global preferences could not be loaded", error)

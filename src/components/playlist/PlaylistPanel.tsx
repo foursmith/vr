@@ -8,7 +8,6 @@ import { MediaPickerButtons } from "../ui/MediaPickerButtons"
 
 const REPEAT_MODES = [
   { value: "off", label: "Once", icon: "play-once" },
-  { value: "playlist", label: "Playlist", icon: "playlist-repeat" },
   { value: "folder", label: "Folder", icon: "folder-repeat" },
   { value: "file", label: "File", icon: "repeat-once" },
 ] as const

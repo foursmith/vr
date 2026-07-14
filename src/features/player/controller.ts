@@ -862,19 +862,24 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     void video.play()
   }
 
+  const playbackFolderVideos = createMemo(() => videosInPlaybackFolder(playlist(), selectedPlaylistId()))
+  const canPlayNext = createMemo(() => playbackFolderVideos().length > 1)
+
+  const playNext = () => {
+    const videos = playbackFolderVideos()
+    const currentIndex = videos.findIndex(node => node.id === selectedPlaylistId())
+    if (currentIndex < 0) return
+    const next = videos[currentIndex + 1] ?? videos[0]
+    if (next) playPlaylistNode(next.id)
+  }
+
   const handlePlaybackEnded = () => {
     if (repeatMode() === "file" || (abLoop.a !== undefined && abLoop.b !== undefined)) {
       replayCurrentVideo()
       return
     }
     if (repeatMode() === "off") return
-    const videos = repeatMode() === "folder"
-      ? videosInPlaybackFolder(playlist(), selectedPlaylistId())
-      : playlistVideos()
-    const currentIndex = videos.findIndex(node => node.id === selectedPlaylistId())
-    if (currentIndex < 0) return
-    const next = videos[currentIndex + 1] ?? (repeatMode() === "playlist" || repeatMode() === "folder" ? videos[0] : undefined)
-    if (next) playPlaylistNode(next.id)
+    playNext()
   }
 
   const setAbStart = () => {
@@ -1579,6 +1584,8 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       handlePlaybackEnded,
       playing,
       playbackRate,
+      canPlayNext,
+      playNext,
       repeatMode,
       progress,
       seekBy,
