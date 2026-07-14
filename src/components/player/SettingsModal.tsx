@@ -139,9 +139,7 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
 
         <section class="overflow-hidden rounded-2xl bg-white/4" aria-labelledby="about-title">
           <div class="grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-3 px-3 py-3">
-            <span class="grid h-10 w-10 place-items-center rounded-xl bg-white/8 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
-              <FsvrLogo class="h-8 w-8" />
-            </span>
+            <FsvrLogo class="h-10 w-10" />
             <div class="min-w-0">
               <div class="flex items-center gap-2">
                 <h3 id="about-title" class="text-xs font-semibold text-white/94">Foursmith VR</h3>

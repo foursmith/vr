@@ -9,6 +9,43 @@ import { OceanBackground } from "./OceanBackground"
 
 type ServerStatus = "disconnected" | "connecting" | "authentication-required" | "connected" | "error"
 
+const GITHUB_URL = "https://github.com/foursmith/vr"
+const CONFETTI_COLORS = ["#b8f3ec", "#62cfd8", "#f5fffc", "#7dd3fc", "#fda4af"]
+
+function launchGithubConfetti(origin: DOMRect) {
+  const layer = document.createElement("div")
+  layer.className = "empty-github-confetti-layer"
+  layer.setAttribute("aria-hidden", "true")
+
+  const centerX = origin.left + origin.width / 2
+  const centerY = origin.top + origin.height / 2
+
+  for (let index = 0; index < 24; index += 1) {
+    const angle = (Math.PI * 2 * index) / 24 + (Math.random() - 0.5) * 0.24
+    const distance = 52 + Math.random() * 58
+    const midDistance = distance * 0.58
+    const particle = document.createElement("i")
+
+    particle.className = "empty-github-confetti-particle"
+    particle.style.left = `${centerX}px`
+    particle.style.top = `${centerY}px`
+    particle.style.width = `${4 + Math.random() * 3}px`
+    particle.style.height = `${5 + Math.random() * 6}px`
+    particle.style.animationDelay = `${Math.random() * 45}ms`
+    particle.style.setProperty("--confetti-color", CONFETTI_COLORS[index % CONFETTI_COLORS.length])
+    particle.style.setProperty("--confetti-mid-x", `${Math.cos(angle) * midDistance}px`)
+    particle.style.setProperty("--confetti-mid-y", `${Math.sin(angle) * midDistance - 22}px`)
+    particle.style.setProperty("--confetti-end-x", `${Math.cos(angle) * distance}px`)
+    particle.style.setProperty("--confetti-end-y", `${Math.sin(angle) * distance + 42}px`)
+    particle.style.setProperty("--confetti-mid-rotation", `${180 + Math.random() * 180}deg`)
+    particle.style.setProperty("--confetti-end-rotation", `${540 + Math.random() * 360}deg`)
+    layer.append(particle)
+  }
+
+  document.body.append(layer)
+  window.setTimeout(() => layer.remove(), 900)
+}
+
 export function EmptyState(props: {
   serverStatus: ServerStatus
   serverError?: string
@@ -18,6 +55,7 @@ export function EmptyState(props: {
 }) {
   const [password, setPassword] = createSignal("")
   let passwordInput: HTMLInputElement | undefined
+  let githubNavigationPending = false
 
   const submitPassword = async (event: SubmitEvent) => {
     event.preventDefault()
@@ -32,90 +70,81 @@ export function EmptyState(props: {
     }
   }
 
+  const celebrateGithub = (event: MouseEvent & { currentTarget: HTMLAnchorElement }) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || githubNavigationPending) return
+
+    event.preventDefault()
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      window.open(GITHUB_URL, "_blank", "noopener,noreferrer")
+      return
+    }
+
+    githubNavigationPending = true
+    const link = event.currentTarget
+    link.classList.add("empty-github-burst")
+    launchGithubConfetti(link.getBoundingClientRect())
+    window.setTimeout(() => {
+      link.classList.remove("empty-github-burst")
+      window.open(GITHUB_URL, "_blank", "noopener,noreferrer")
+      githubNavigationPending = false
+    }, 760)
+  }
+
   return (
-    <section class="empty-state-bg absolute inset-0 z-10 flex items-center justify-center overflow-hidden px-5 py-8 text-center text-white sm:px-10 sm:py-12">
+    <section class="empty-state-surface absolute inset-0 z-10 flex items-center justify-center overflow-hidden px-5 py-8 text-center text-white sm:px-10 sm:py-12">
       <OceanBackground />
-      <div class="empty-state-content relative z-10 flex flex-col items-center gap-3 sm:gap-4">
+      <div class="empty-state-drift relative z-10 flex flex-col items-center gap-3 sm:gap-4">
         <div class="relative h-60 w-88 sm:h-68 sm:w-100">
-          <svg aria-hidden="true" viewBox="0 0 240 240" class="empty-depth-rings absolute left-1/2 top-1/2 h-58 w-58 overflow-visible sm:h-68 sm:w-68">
-            <defs>
-              <linearGradient id="depth-ring-inner" x1="52" y1="42" x2="186" y2="194" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="#f5fffc" stop-opacity="0.12" />
-                <stop offset="0.42" stop-color="currentColor" stop-opacity="0.62" class="text-accent" />
-                <stop offset="1" stop-color="#62cfd8" stop-opacity="0.16" />
-              </linearGradient>
-              <linearGradient id="depth-ring-outer" x1="32" y1="24" x2="208" y2="216" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="currentColor" stop-opacity="0.04" class="text-accent" />
-                <stop offset="0.56" stop-color="#62cfd8" stop-opacity="0.24" />
-                <stop offset="1" stop-color="#62cfd8" stop-opacity="0.02" />
-              </linearGradient>
-            </defs>
-            <circle cx="120" cy="120" r="72" fill="none" stroke="url(#depth-ring-inner)" stroke-width="1.35" stroke-linecap="round" stroke-dasharray="4 6" opacity="0.92" transform="rotate(5 120 120)" />
-            <circle cx="120" cy="120" r="86" fill="none" stroke="url(#depth-ring-outer)" stroke-width="1" stroke-linecap="round" stroke-dasharray="3 8" opacity="0.76" transform="rotate(18 120 120)" />
-            <circle cx="120" cy="120" r="100" fill="none" stroke="url(#depth-ring-outer)" stroke-width="0.72" stroke-linecap="round" stroke-dasharray="2 11" opacity="0.56" transform="rotate(32 120 120)" />
-            <circle cx="120" cy="120" r="114" fill="none" stroke="url(#depth-ring-outer)" stroke-width="0.48" stroke-linecap="round" stroke-dasharray="1.5 14" opacity="0.36" transform="rotate(48 120 120)" />
-          </svg>
-          <div class="empty-logo-fish absolute left-1/2 top-1/2 z-20 h-40 w-40 sm:h-48 sm:w-48">
+          <div class="empty-hero-logo absolute left-1/2 top-1/2 z-20 size-40 sm:size-48">
             <FsvrLogo
               title="Foursmith VR"
               class="h-full w-full"
             />
           </div>
 
-          <div class="absolute inset-0 z-10">
-            <span class="empty-orbit-badge empty-orbit-badge-1">
-              <i aria-hidden="true"></i>
-              Tiktok
-            </span>
-            <a
-              href="https://github.com/foursmith/vr"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="View foursmith/vr on GitHub"
-              class="empty-orbit-badge empty-github-badge empty-orbit-badge-2"
-            >
-              <img
-                src="https://img.shields.io/github/stars/foursmith/vr?style=flat-square&logo=github&logoColor=f5fffc&label=Open%20Source&color=08758f&labelColor=04354e"
-                alt="GitHub stars"
-                class="rounded-full"
-              />
-            </a>
-            <span class="empty-orbit-badge empty-orbit-badge-6">
-              <i aria-hidden="true"></i>
-              Foursmith VR
-            </span>
-            <span class="empty-orbit-badge empty-orbit-badge-5">
-              <i aria-hidden="true"></i>
-              2D VR player
-            </span>
-            <span class="empty-orbit-badge empty-orbit-badge-4">
-              <i aria-hidden="true"></i>
-              Follow face
-            </span>
-            <span class="empty-orbit-badge empty-orbit-badge-3">
-              <i aria-hidden="true"></i>
-              Subtitles
-            </span>
-          </div>
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="View foursmith/vr on GitHub"
+            class="absolute left-[calc(50%+4rem)] top-1/2 z-15 flex size-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full p-1 text-[#dafaf5]/58 transition-colors hover:text-[#f5fffc]/94 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b8f3ec]/72 focus-visible:text-[#f5fffc]/94 sm:left-[calc(50%+5rem)]"
+            onClick={celebrateGithub}
+          >
+            <Icon name="github" class="empty-github-icon size-8" />
+          </a>
+
+          <span aria-label="TikTok" role="img" tabindex="0" class="empty-feature-dot empty-feature-tiktok">
+            <span aria-hidden="true" class="empty-feature-label">TikTok</span>
+          </span>
+          <span aria-label="Open Source" role="img" tabindex="0" class="empty-feature-dot empty-feature-open-source">
+            <span aria-hidden="true" class="empty-feature-label">Open Source</span>
+          </span>
+          <span aria-label="Subtitles" role="img" tabindex="0" class="empty-feature-dot empty-feature-subtitles">
+            <span aria-hidden="true" class="empty-feature-label">Subtitles</span>
+          </span>
+          <span aria-label="Follow face" role="img" tabindex="0" class="empty-feature-dot empty-feature-face-tracking">
+            <span aria-hidden="true" class="empty-feature-label">Follow face</span>
+          </span>
+          <span aria-label="2D VR player" role="img" tabindex="0" class="empty-feature-dot empty-feature-vr-player">
+            <span aria-hidden="true" class="empty-feature-label">2D VR player</span>
+          </span>
+          <span aria-label="Foursmith VR" role="img" tabindex="0" class="empty-feature-dot empty-feature-brand">
+            <span aria-hidden="true" class="empty-feature-label">Foursmith VR</span>
+          </span>
         </div>
 
         <div class="flex flex-col items-center gap-8">
           <div class="flex flex-col items-center gap-5 sm:gap-6">
-            <h1 class="flex items-center gap-2.5 text-[10px] font-medium tracking-[0.18em] sm:text-[11px] sm:tracking-[0.21em]">
-              <span class="italic text-[#f5fffc]/42">Watch VR like TikTok</span>
-            </h1>
+            <h1 class="text-[10px] font-medium italic tracking-[0.18em] text-[#f5fffc]/42 sm:text-[11px] sm:tracking-[0.21em]">Watch VR like TikTok</h1>
             <Show
               when={props.serverStatus === "authentication-required" || props.serverStatus === "connecting"}
               fallback={(
-                <div class="flex flex-col items-center">
-                  <MediaPickerButtons onChooseFiles={props.onChooseFiles} onChooseFolder={props.onChooseFolder} />
-                  <span class="text-[10px] font-medium leading-2 tracking-[0.018em] text-white/38 sm:text-[11px]">Drop videos here</span>
-                </div>
+                <MediaPickerButtons onChooseFiles={props.onChooseFiles} onChooseFolder={props.onChooseFolder} />
               )}
             >
               <div class="flex w-72 max-w-full flex-col items-center gap-2.5">
                 <form
-                  class="empty-auth-form w-full"
+                  class="empty-auth-form relative w-full rounded-full"
                   data-invalid={props.serverError ? "true" : "false"}
                   aria-label="Unlock media server"
                   onSubmit={submitPassword}
