@@ -15,6 +15,8 @@ export function Player(props: { controller: PlayerController }) {
     handleFile,
     handleFolder,
     handlePlayerPointerMove,
+    handleUiPointerDown,
+    handleUiPointerUp,
     handleVideoDrop,
     hasVideo,
     openVideoFile,
@@ -27,7 +29,10 @@ export function Player(props: { controller: PlayerController }) {
       ref={setPlayer}
       id="player"
       class={`relative h-dvh overflow-hidden bg-black text-white ${controls.controlsVisible() ? "" : "cursor-none"}`}
+      onPointerDown={handleUiPointerDown}
       onPointerMove={handlePlayerPointerMove}
+      onPointerUp={handleUiPointerUp}
+      onPointerCancel={handleUiPointerUp}
       onDragEnter={(event) => {
         if (!Array.from(event.dataTransfer?.types ?? []).includes("Files")) return
         event.preventDefault()

@@ -183,4 +183,33 @@ describe("player controls", () => {
     if (originalElementFromPoint) Object.defineProperty(document, "elementFromPoint", originalElementFromPoint)
     else delete (document as { elementFromPoint?: typeof document.elementFromPoint }).elementFromPoint
   })
+
+  it("pins controls while a touch pointer is held on a registered UI surface", () => {
+    vi.useFakeTimers()
+    const surface = document.createElement("div")
+    const button = document.createElement("button")
+    surface.append(button)
+    document.body.append(surface)
+    let dispose!: () => void
+    const controls = createRoot((rootDispose) => {
+      dispose = rootDispose
+      return createControls({ hasVideo: () => true, resourcesReady: () => true })
+    })
+    controls.registerUiSurface(surface)
+
+    controls.handleUiPointerDown({ pointerType: "touch", pointerId: 1, target: button } as unknown as PointerEvent)
+    controls.scheduleHideControls(10)
+    vi.advanceTimersByTime(10)
+    flush()
+    expect(controls.controlsVisible()).toBe(true)
+
+    controls.handleUiPointerUp({ pointerType: "touch", pointerId: 1 } as PointerEvent)
+    vi.advanceTimersByTime(2500)
+    flush()
+    expect(controls.controlsVisible()).toBe(false)
+
+    controls.dispose()
+    dispose()
+    surface.remove()
+  })
 })
