@@ -1,0 +1,14 @@
+.git
+.github
+.wrangler
+coverage
+design
+dist
+cli/dist
+node_modules
+playwright-report
+test-results
+tests
+*.log
+*.local
+.env*

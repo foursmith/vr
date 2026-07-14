@@ -3,7 +3,13 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
+  "author": {
+    "url": "https://github.com/ourongxing/",
+    "email": "orongxing@gmail.com",
+    "name": "ourongxing"
+  },
   "license": "MPL-2.0",
+  "homepage": "https://github.com/foursmith/vr",
   "workspaces": {
     "packages": [
       "cli"
@@ -28,6 +34,7 @@
     "build:cli": "bun run --filter fsvr build",
     "typecheck:cli": "bun run --filter fsvr typecheck",
     "test:cli": "bun run --filter fsvr test",
+    "release": "bumpp",
     "deploy": "bun run build && wrangler deploy"
   },
   "dependencies": {
@@ -44,6 +51,7 @@
     "@typescript/native-preview": "catalog:",
     "@unocss/reset": "^66.7.5",
     "@vitest/coverage-v8": "^4.1.10",
+    "bumpp": "^11.1.0",
     "eslint": "^10.6.0",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^29.1.1",

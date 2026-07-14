@@ -1,0 +1,47 @@
+name: Release changelog
+
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: release-${{ github.ref }}
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Create GitHub Release and changelog
+        run: npx changelogithub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add Docker image link
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          release_body="$(gh release view "$GITHUB_REF_NAME" --json body --jq .body)"
+          repository_name="${GITHUB_REPOSITORY#*/}"
+          package_url="https://github.com/$GITHUB_REPOSITORY/pkgs/container/$repository_name"
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:latest"
+          footer=$'\n\n<!-- docker-image -->\n### Docker\n\n'
+          footer+="[View the latest Docker image]($package_url)"$'\n\n'
+          footer+="<code>docker pull $image</code>"
+
+          if [[ "$release_body" != *"<!-- docker-image -->"* ]]; then
+            gh release edit "$GITHUB_REF_NAME" --notes "${release_body}${footer}"
+          fi

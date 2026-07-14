@@ -82,6 +82,28 @@ bun run build:cli
 
 The Web UI embedded in `fsvr` is built without the PWA manifest or service worker. The standalone official Web build keeps PWA support.
 
+### Docker
+
+Run the media server from the published GHCR image, mounting the media directory read-only:
+
+```sh
+docker run --rm -p 4090:4090 -v "$HOME/Movies:/media:ro" ghcr.io/foursmith/vr:latest
+```
+
+The generated access password is printed in the container logs. Add `--disable-password` after the image name to disable authentication, or `--password <password>` to set a stable password.
+
+For Docker Compose, copy the environment example and set `FSVR_MEDIA_DIR` to a local directory or mounted disk:
+
+```sh
+cp .env.example .env
+docker compose up -d
+docker compose logs fsvr
+```
+
+Use `docker compose up -d --build` to build the image from the current source. On macOS, an external disk path typically looks like `/Volumes/Media/Movies`; on Linux, it might be `/mnt/media`.
+
+Release tags matching `v*` publish multi-architecture Docker images to `ghcr.io/foursmith/vr` and create a GitHub Release with an automatically generated changelog.
+
 ## License
 
 Foursmith VR is licensed under the [Mozilla Public License 2.0](LICENSE).

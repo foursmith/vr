@@ -1,0 +1,13 @@
+services:
+  fsvr:
+    image: ghcr.io/foursmith/vr:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${FSVR_PORT:-4090}:4090"
+    volumes:
+      - "${FSVR_MEDIA_DIR:-./media}:/media:ro"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
