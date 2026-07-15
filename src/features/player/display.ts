@@ -26,8 +26,8 @@ export function createDisplay(options: {
     qualityId: options.initialState?.qualityId ?? 2,
     renderFrameRateId: options.initialState?.renderFrameRateId ?? 3,
     splitScreen: options.initialState?.splitScreen ?? true,
-    faceAutoCenter: options.initialState?.faceAutoCenter ?? false,
-    faceCenteringMode: options.initialState?.faceCenteringMode ?? "system",
+    faceAutoCenter: options.initialState?.faceAutoCenter ?? true,
+    faceCenteringMode: options.initialState?.faceCenteringMode ?? "mediapipe",
   })
   const [zoom, setZoomSignal] = createSignal(DEFAULT_ZOOM)
   const [fullscreen, setFullscreen] = createSignal(false)

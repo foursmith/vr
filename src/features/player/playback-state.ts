@@ -31,8 +31,8 @@ export const DEFAULT_GLOBAL_PREFERENCES: GlobalPreferences = {
   qualityId: 2,
   renderFrameRateId: 3,
   splitScreen: true,
-  faceAutoCenter: false,
-  faceCenteringMode: "system",
+  faceAutoCenter: true,
+  faceCenteringMode: "mediapipe",
   subtitlesEnabled: true,
   repeatMode: "file",
 }
@@ -81,12 +81,7 @@ export function loadGlobalPreferences(storage: Storage = localStorage): GlobalPr
       qualityId: Math.round(numberInRange(parsed.qualityId, DEFAULT_GLOBAL_PREFERENCES.qualityId, 0, 3)),
       renderFrameRateId: Math.round(numberInRange(parsed.renderFrameRateId, DEFAULT_GLOBAL_PREFERENCES.renderFrameRateId, 1, 3)),
       splitScreen: booleanOr(parsed.splitScreen, DEFAULT_GLOBAL_PREFERENCES.splitScreen),
-      // Before detector modes existed, face centering defaulted to enabled. Treat
-      // those legacy snapshots as disabled so an upgrade does not eagerly restore
-      // the old memory-heavy behavior without an explicit user choice.
-      faceAutoCenter: hasFaceCenteringMode
-        ? booleanOr(parsed.faceAutoCenter, DEFAULT_GLOBAL_PREFERENCES.faceAutoCenter)
-        : false,
+      faceAutoCenter: booleanOr(parsed.faceAutoCenter, DEFAULT_GLOBAL_PREFERENCES.faceAutoCenter),
       faceCenteringMode,
       subtitlesEnabled: booleanOr(parsed.subtitlesEnabled, DEFAULT_GLOBAL_PREFERENCES.subtitlesEnabled),
       repeatMode: repeatModeFromStorage(parsed.repeatMode),
