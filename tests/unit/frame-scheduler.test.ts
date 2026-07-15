@@ -22,6 +22,17 @@ describe("frame scheduler", () => {
     expect(scheduleFrame(1001, 30, afterPause.nextFrameAt).render).toBe(false)
   })
 
+  it("renders interactions at animation-frame cadence without carrying the playback deadline", () => {
+    const playback = scheduleFrame(0, 24)
+    const interaction = scheduleFrame(10, 24, playback.nextFrameAt, "interaction")
+
+    expect(interaction).toEqual({ render: true })
+    expect(scheduleFrame(11, 24, interaction.nextFrameAt)).toEqual({
+      render: true,
+      nextFrameAt: 11 + 1000 / 24,
+    })
+  })
+
   it.each([
     [24, 1000 / 24],
     [30, 1000 / 30],

@@ -1,7 +1,9 @@
 export interface FrameSchedule {
   render: boolean
-  nextFrameAt: number
+  nextFrameAt?: number
 }
+
+export type FrameScheduleMode = "interaction" | "playback"
 
 // Keep doc/FACE_SCANNING.md synchronized with inference activity and threshold changes.
 
@@ -48,7 +50,14 @@ export const faceInferencePeriod = (
   )
 }
 
-export function scheduleFrame(now: number, frameRate: number, nextFrameAt?: number): FrameSchedule {
+export function scheduleFrame(
+  now: number,
+  frameRate: number,
+  nextFrameAt?: number,
+  mode: FrameScheduleMode = "playback",
+): FrameSchedule {
+  if (mode === "interaction") return { render: true }
+
   const interval = 1000 / Math.max(1, frameRate)
   if (nextFrameAt === undefined || !Number.isFinite(nextFrameAt)) {
     return { render: true, nextFrameAt: now + interval }

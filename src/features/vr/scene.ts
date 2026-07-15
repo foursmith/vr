@@ -899,7 +899,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   function render(now: number) {
     if (disposed) return
     frameId = 0
-    const schedule = scheduleFrame(now, options.frameRate, nextPlaybackFrameAt)
+    const scheduleMode = dragging.active || faceState.isMoving ? "interaction" : "playback"
+    const schedule = scheduleFrame(now, options.frameRate, nextPlaybackFrameAt, scheduleMode)
     nextPlaybackFrameAt = schedule.nextFrameAt
     if (!schedule.render) {
       requestRender()

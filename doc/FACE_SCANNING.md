@@ -137,6 +137,10 @@ period = max(targetPeriod, processingFloor)
 
 Activity headroom is 1.15 for stable, 1.10 for active, 1.08 for searching, and 1.03 for recovery.
 
+## Render cadence isolation
+
+The configured playback render rate limits ordinary video presentation, but it does not limit camera interaction. While the user is dragging the view or face centering is moving the camera, rendering follows the display animation-frame cadence. Returning to ordinary playback starts a fresh playback deadline so an old deadline cannot delay the first settled frame.
+
 ## Debug metrics
 
 The debug panel exposes the inputs needed for tuning:
