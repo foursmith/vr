@@ -55,8 +55,6 @@ export interface FaceCenteringError {
   needsMovement: boolean
 }
 export interface FaceMovementHint {
-  left: number
-  top: number
   text: string
   horizontal?: { direction: "left" | "right", value: string }
   vertical?: { direction: "up" | "down", value: string }
@@ -283,8 +281,6 @@ export const getFaceMovementHint = (error: FaceCenteringError): FaceMovementHint
   if (error.forwardOffset) labels.push(`${error.forward > 0 ? "nearer" : "farther"} ${Math.abs(error.forward).toFixed(1)}`)
   if (!labels.length && !error.forwardOffset) return undefined
   return {
-    left: error.yawOffset ? (error.yaw > 0 ? 88 : 12) : 50,
-    top: error.pitchOffset ? (error.pitch > 0 ? 14 : 86) : 50,
     text: labels.join(" · "),
     horizontal: error.yawOffset
       ? { direction: error.yaw > 0 ? "right" : "left", value: `${Math.round(Math.abs(error.yaw))}°` }

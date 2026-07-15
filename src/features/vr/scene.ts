@@ -131,6 +131,31 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   let disposed = false
   let frameId = 0
   let videoFrameCallbackId = 0
+  let videoSourceFrameRate = 0
+  let previousVideoMediaTime: number | undefined
+  let previousPresentedFrames: number | undefined
+  const recentVideoFrameRates: number[] = []
+  const resetVideoFrameRate = () => {
+    videoSourceFrameRate = 0
+    previousVideoMediaTime = undefined
+    previousPresentedFrames = undefined
+    recentVideoFrameRates.length = 0
+  }
+  const sampleVideoFrameRate = (metadata: VideoFrameCallbackMetadata) => {
+    if (previousVideoMediaTime !== undefined && previousPresentedFrames !== undefined) {
+      const mediaDelta = metadata.mediaTime - previousVideoMediaTime
+      const frameDelta = metadata.presentedFrames - previousPresentedFrames
+      const frameRate = frameDelta / mediaDelta
+      if (mediaDelta > 0 && mediaDelta <= 1 && frameDelta > 0 && frameRate >= 1 && frameRate <= 240) {
+        recentVideoFrameRates.push(frameRate)
+        if (recentVideoFrameRates.length > 60) recentVideoFrameRates.shift()
+        const sortedFrameRates = [...recentVideoFrameRates].sort((a, b) => a - b)
+        videoSourceFrameRate = sortedFrameRates[Math.floor(sortedFrameRates.length / 2)]
+      }
+    }
+    previousVideoMediaTime = metadata.mediaTime
+    previousPresentedFrames = metadata.presentedFrames
+  }
   let frameCapture: ((canvas: HTMLCanvasElement) => void) | undefined
   let lastFrameAt = performance.now()
   let nextPlaybackFrameAt: number | undefined
@@ -151,8 +176,6 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   let overlayVisible = !options.hintElement.hidden
   let lastOverlayText = options.hintElement.getAttribute("aria-label") ?? ""
   let lastOverlayDepth: "nearer" | "farther" | undefined
-  let lastOverlayLeft = Number.NaN
-  let lastOverlayTop = Number.NaN
   const initialViewport = getRenderViewports(
     Math.max(1, mount.clientWidth),
     Math.max(1, mount.clientHeight),
@@ -299,14 +322,6 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         lastOverlayDepth = hint.depth
       }
       if (depthValue) depthValue.textContent = hint.depthValue ?? ""
-      if (!Number.isFinite(lastOverlayLeft) || Math.abs(lastOverlayLeft - hint.left) >= 0.1) {
-        options.hintElement.style.left = `${hint.left}%`
-        lastOverlayLeft = hint.left
-      }
-      if (!Number.isFinite(lastOverlayTop) || Math.abs(lastOverlayTop - hint.top) >= 0.1) {
-        options.hintElement.style.top = `${hint.top}%`
-        lastOverlayTop = hint.top
-      }
       if (!overlayVisible) {
         options.hintElement.hidden = false
         overlayVisible = true
@@ -368,9 +383,13 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     const renderStrategy = splitCount <= 1
       ? "Single view"
       : `Split ${splitCount} · render ${splitCount}×`
+    const videoFrameRateLabel = videoSourceFrameRate
+      ? String(Math.round(videoSourceFrameRate * 100) / 100)
+      : "--"
 
     getFpsMetricsElement().textContent = [
       `RENDER   ${fps} fps · ${p95.toFixed(1)} ms p95`,
+      `VIDEO    ${video.videoWidth || "--"}×${video.videoHeight || "--"} · ${videoFrameRateLabel} fps`,
       `VIEW     ${renderStrategy}`,
       `CPU      ${lastRenderMs.toFixed(2)} ms · ${renderP95.toFixed(2)} p95`,
       `TRACK    ${trackingHz.toFixed(1)} Hz · ${lastInferenceMs.toFixed(1)} ms · ${inferenceActivity}`,
@@ -397,6 +416,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
 
   const onMetadata = () => {
     texture.needsUpdate = true
+    resetVideoFrameRate()
     rebuildProjection()
     faceState.motion = undefined
     resetPanoramaScan()
@@ -427,12 +447,14 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   }
   video.addEventListener("playing", onVideoActivity)
   video.addEventListener("pause", onVideoPause)
+  video.addEventListener("seeking", resetVideoFrameRate)
   video.addEventListener("seeked", onVideoActivity)
   video.addEventListener("loadeddata", onVideoActivity)
 
   if ("requestVideoFrameCallback" in video) {
-    const onVideoFrame = () => {
+    const onVideoFrame = (_: DOMHighResTimeStamp, metadata: VideoFrameCallbackMetadata) => {
       if (disposed) return
+      sampleVideoFrameRate(metadata)
       videoFrameCallbackId = video.requestVideoFrameCallback(onVideoFrame)
       requestRender()
     }
@@ -1172,6 +1194,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       faceState.forwardVelocity = 0
       faceState.nextDetectionAt = 0
       setOverlay({})
+      resetVideoFrameRate()
       recentFrameTimes.length = 0
       recentRenderTimes.length = 0
       recentInferenceCompletions = []
@@ -1190,6 +1213,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       video.removeEventListener("loadedmetadata", onMetadata)
       video.removeEventListener("playing", onVideoActivity)
       video.removeEventListener("pause", onVideoPause)
+      video.removeEventListener("seeking", resetVideoFrameRate)
       video.removeEventListener("seeked", onVideoActivity)
       video.removeEventListener("loadeddata", onVideoActivity)
       resizeObserver.disconnect()

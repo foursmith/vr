@@ -109,29 +109,39 @@ export function PlayerStage(props: { controller: PlayerController }) {
               <div data-debug-metrics class="whitespace-pre px-3 py-2.5 font-mono text-[9px] font-medium leading-[1.7] text-white/54">
                 Waiting for frames…
               </div>
+              <div
+                ref={debug.setFaceHint}
+                id="face-hint"
+                class="flex items-center gap-1.5 whitespace-nowrap border-t border-white/7 px-3 py-2 font-mono text-[10px] font-semibold leading-none text-accent/88"
+                hidden
+              >
+                <span data-face-horizontal-group class="hidden items-center gap-1 rounded-md bg-white/6 px-1.5 py-1.5">
+                  <span data-face-horizontal-icon class="text-xs text-accent"></span>
+                  <span data-face-horizontal-value class="tabular-nums text-white/72"></span>
+                </span>
+                <span data-face-vertical-group class="hidden items-center gap-1 rounded-md bg-white/6 px-1.5 py-1.5">
+                  <span data-face-vertical-icon class="text-xs text-accent"></span>
+                  <span data-face-vertical-value class="tabular-nums text-white/72"></span>
+                </span>
+                <span data-face-depth-group class="hidden items-center gap-1 rounded-md bg-white/6 px-1.5 py-1" aria-hidden="true">
+                  <span class="relative h-5 w-5 shrink-0">
+                    <span class="absolute inset-1 rounded-full border border-white/22"></span>
+                    <span data-face-depth-target class="absolute inset-1 rounded-full border border-accent/88 shadow-[0_0_8px_rgba(98,207,216,0.32)] transition-transform duration-150"></span>
+                  </span>
+                  <span data-face-depth-value class="font-mono text-[10px] font-semibold tabular-nums text-white/72"></span>
+                </span>
+              </div>
+              <Show when={projectionBoundaryWarning()}>
+                <div
+                  data-projection-boundary-warning
+                  class="border-t border-amber-300/14 bg-amber-950/36 px-3 py-2 font-mono text-[9px] font-semibold leading-[1.5] text-amber-100/86"
+                  aria-live="off"
+                >
+                  Projection boundary ·
+                  {` ${projectionBoundaryWarning()}`}
+                </div>
+              </Show>
             </div>
-          </div>
-          <div
-            ref={debug.setFaceHint}
-            id="face-hint"
-            class="absolute top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 whitespace-nowrap font-mono text-[10px] font-semibold leading-none text-accent/88"
-            hidden
-          >
-            <span data-face-horizontal-group class="hidden items-center gap-1 rounded-md bg-white/6 px-1.5 py-1.5">
-              <span data-face-horizontal-icon class="text-xs text-accent"></span>
-              <span data-face-horizontal-value class="tabular-nums text-white/72"></span>
-            </span>
-            <span data-face-vertical-group class="hidden items-center gap-1 rounded-md bg-white/6 px-1.5 py-1.5">
-              <span data-face-vertical-icon class="text-xs text-accent"></span>
-              <span data-face-vertical-value class="tabular-nums text-white/72"></span>
-            </span>
-            <span data-face-depth-group class="hidden items-center gap-1 rounded-md bg-white/6 px-1.5 py-1" aria-hidden="true">
-              <span class="relative h-5 w-5 shrink-0">
-                <span class="absolute inset-1 rounded-full border border-white/22"></span>
-                <span data-face-depth-target class="absolute inset-1 rounded-full border border-accent/88 shadow-[0_0_8px_rgba(98,207,216,0.32)] transition-transform duration-150"></span>
-              </span>
-              <span data-face-depth-value class="font-mono text-[10px] font-semibold tabular-nums text-white/72"></span>
-            </span>
           </div>
         </div>
       </section>
@@ -160,17 +170,6 @@ export function PlayerStage(props: { controller: PlayerController }) {
             iconClass="h-5 w-5"
             onClick={resumeFaceAutoCenter}
           />
-        </div>
-      </Show>
-
-      <Show when={debug.panelOpen() && projectionBoundaryWarning()}>
-        <div
-          data-projection-boundary-warning
-          class="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full border border-amber-300/24 bg-amber-950/78 px-3 py-1.5 font-mono text-[10px] font-semibold tracking-[0.02em] text-amber-100/92 shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md sm:top-6"
-          aria-live="off"
-        >
-          Projection boundary ·
-          {` ${projectionBoundaryWarning()} (not blocked)`}
         </div>
       </Show>
 

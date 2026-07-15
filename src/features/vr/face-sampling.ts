@@ -304,11 +304,18 @@ export const drawSampleBoxes = (
     const label = `${Math.round(face.score * 100)}%${poseLabel}`
     const labelY = Math.max(0, y - 18)
     const labelWidth = Math.min(canvas.width - x, Math.max(42, label.length * 7 + 10))
+    const sizeLabel = Math.sqrt(Math.max(0, face.width * face.height)).toFixed(2)
+    const sizeLabelWidth = Math.max(42, sizeLabel.length * 7 + 10)
+    const sizeLabelRight = Math.min(canvas.width, x + width)
+    const sizeLabelX = Math.max(0, sizeLabelRight - sizeLabelWidth)
     context.fillStyle = "rgba(7, 34, 37, 0.92)"
     context.fillRect(x, labelY, labelWidth, 18)
+    context.fillRect(sizeLabelX, labelY, sizeLabelWidth, 18)
     context.fillStyle = "#b7edf0"
     context.font = "600 11px monospace"
     context.fillText(label, x + 5, Math.max(12, y - 5))
+    context.textAlign = "right"
+    context.fillText(sizeLabel, sizeLabelRight - 5, Math.max(12, y - 5))
     context.restore()
   })
 }
