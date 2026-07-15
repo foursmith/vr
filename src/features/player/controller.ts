@@ -1,7 +1,7 @@
 import type { PlaylistNode, PlaylistStateNode } from "../playlist/model"
 import type { DlnaDevice } from "../sources/fsvr-client"
 import type { SubtitleCue } from "../subtitles/parser"
-import type { CameraView, VrSceneController } from "../vr/scene"
+import type { CameraView, ProjectionBoundaryWarning, VrSceneController } from "../vr/scene"
 import type { LastPlayback, RepeatMode } from "./playback-state"
 import { DEFAULT_FORWARD, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS } from "@foursmith/player-core/config"
 import { createEffect, createMemo, createSignal, createStore, onSettled } from "solid-js"
@@ -294,9 +294,9 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   const [subtitleFileName, setSubtitleFileName] = createSignal<string>()
   const [debugPanelOpen, setDebugPanelOpen] = createSignal(false)
   const [faceAutoCenterPaused, setFaceAutoCenterPaused] = createSignal(false)
-  const [projectionBoundaryWarning, setProjectionBoundaryWarning] = createSignal<"yaw" | "pitch" | "forward">()
-  const showProjectionBoundaryWarning = (axis: "yaw" | "pitch" | "forward") => {
-    setProjectionBoundaryWarning(axis)
+  const [projectionBoundaryWarning, setProjectionBoundaryWarning] = createSignal<ProjectionBoundaryWarning>()
+  const showProjectionBoundaryWarning = (warning: ProjectionBoundaryWarning) => {
+    setProjectionBoundaryWarning(warning)
     if (projectionBoundaryWarningTimer !== undefined) window.clearTimeout(projectionBoundaryWarningTimer)
     projectionBoundaryWarningTimer = window.setTimeout(() => {
       projectionBoundaryWarningTimer = undefined

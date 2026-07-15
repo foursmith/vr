@@ -1,5 +1,6 @@
 export type FaceInferenceMode = "landmarks" | "detection"
 export type FaceDetectionRange = "short" | "full"
+export const MIN_FACE_CONFIDENCE = 0.6
 export interface FacePose {
   yaw: number
   pitch: number

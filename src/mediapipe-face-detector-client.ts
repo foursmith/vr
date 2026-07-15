@@ -8,7 +8,7 @@ export const createMediaPipeFaceDetectorClient = () => {
   return {
     detect: async (
       source: ImageBitmapSource,
-      detectionRange: FaceDetectionRange = "full",
+      detectionRange: FaceDetectionRange,
       inferenceMode: FaceInferenceMode = "detection",
     ) => {
       if (destroyed) throw new Error("MediaPipe face detector was destroyed")

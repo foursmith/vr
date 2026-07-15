@@ -1,9 +1,11 @@
 import type { PlayerController } from "../../features/player/controller"
-import { onSettled, Show, untrack } from "solid-js"
+import { createSignal, onSettled, Show, untrack } from "solid-js"
+import { Icon } from "../ui/Icon"
 import { IconButton } from "../ui/IconButton"
 
 const SINGLE_CLICK_DELAY_MS = 250
 const CLICK_MOVE_THRESHOLD_PX = 8
+const MAX_DEBUG_LOG_ENTRIES = 2000
 
 export function PlayerStage(props: { controller: PlayerController }) {
   const { controls, debug, display, frame, playback, subtitles } = untrack(() => props.controller)
@@ -13,6 +15,13 @@ export function PlayerStage(props: { controller: PlayerController }) {
   let pointerStart: { id: number, x: number, y: number } | undefined
   let lastPointerType = ""
   let suppressClick = false
+  let debugMetricsElement: HTMLDivElement | undefined
+  let debugLogElement: HTMLPreElement | undefined
+  let debugLogObserver: MutationObserver | undefined
+  let debugLogStartedAt = 0
+  let debugLogStartedOn = ""
+  const debugLogEntries: string[] = []
+  const [isRecordingLog, setIsRecordingLog] = createSignal(false)
 
   const cancelSingleClick = () => {
     if (singleClickTimer === undefined) return
@@ -71,7 +80,51 @@ export function PlayerStage(props: { controller: PlayerController }) {
     playback.togglePlayAndHideControls()
   }
 
+  const captureDebugLogEntry = () => {
+    const metrics = debugMetricsElement?.textContent?.trim()
+    const details = debugLogElement?.textContent?.trim()
+    if (!metrics || !details) return
+    const elapsed = (performance.now() - debugLogStartedAt) / 1000
+    debugLogEntries.push(`[+${elapsed.toFixed(3)}s]\n${metrics}\n${details}`)
+    if (debugLogEntries.length > MAX_DEBUG_LOG_ENTRIES) debugLogEntries.shift()
+  }
+
+  const stopDebugLogRecording = () => {
+    debugLogObserver?.disconnect()
+    debugLogObserver = undefined
+    setIsRecordingLog(false)
+  }
+
+  const startDebugLogRecording = () => {
+    debugLogEntries.length = 0
+    debugLogStartedAt = performance.now()
+    debugLogStartedOn = new Date().toISOString()
+    captureDebugLogEntry()
+    if (debugLogElement) {
+      debugLogObserver = new MutationObserver(captureDebugLogEntry)
+      debugLogObserver.observe(debugLogElement, { childList: true, characterData: true, subtree: true })
+    }
+    setIsRecordingLog(true)
+  }
+
+  const copyDebugLog = async () => {
+    stopDebugLogRecording()
+    if (debugLogEntries.length === 0) return
+    const log = [
+      `Tracking monitor log · ${debugLogStartedOn}`,
+      ...debugLogEntries,
+    ].join("\n\n")
+    try {
+      await navigator.clipboard.writeText(log)
+    } catch {
+      console.warn("Could not copy tracking monitor log")
+    }
+  }
+
   onSettled(() => cancelSingleClick)
+  onSettled(() => () => {
+    debugLogObserver?.disconnect()
+  })
 
   return (
     <>
@@ -104,11 +157,28 @@ export function PlayerStage(props: { controller: PlayerController }) {
               <div class="flex items-center gap-2 border-b border-white/7 px-3 py-2">
                 <span class="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_8px_rgba(98,207,216,0.62)]"></span>
                 <span class="text-[9px] font-semibold uppercase tracking-[0.12em] text-white/68">Tracking monitor</span>
-                <span class="ml-auto font-mono text-[8px] font-semibold tracking-[0.1em] text-accent/72">LIVE</span>
+                <button
+                  type="button"
+                  class={`pointer-events-auto ml-auto flex items-center gap-1 rounded-md border-0 bg-white/5 px-1.5 py-1 font-mono text-[8px] font-semibold tracking-[0.04em] outline-none transition-colors hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-accent/50 ${
+                    isRecordingLog() ? "text-red-200" : "text-accent/72 hover:text-accent"
+                  }`}
+                  aria-label={isRecordingLog() ? "Copy tracking log and stop recording" : "Record tracking log"}
+                  title={isRecordingLog() ? "Copy tracking log and stop recording" : "Record tracking log"}
+                  onPointerDown={event => event.stopPropagation()}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    if (isRecordingLog()) void copyDebugLog()
+                    else startDebugLogRecording()
+                  }}
+                >
+                  <Icon name={isRecordingLog() ? "copy" : "record"} class="h-2.5 w-2.5" />
+                  {isRecordingLog() ? "Copy" : "Record"}
+                </button>
               </div>
-              <div data-debug-metrics class="whitespace-pre px-3 py-2.5 font-mono text-[9px] font-medium leading-[1.7] text-white/54">
+              <div ref={debugMetricsElement} data-debug-metrics class="whitespace-pre px-3 py-2.5 font-mono text-[9px] font-medium leading-[1.7] text-white/54">
                 Waiting for frames…
               </div>
+              <pre ref={debugLogElement} data-debug-log class="hidden" aria-hidden="true"></pre>
               <div
                 ref={debug.setFaceHint}
                 id="face-hint"
@@ -138,7 +208,7 @@ export function PlayerStage(props: { controller: PlayerController }) {
                   aria-live="off"
                 >
                   Projection boundary ·
-                  {` ${projectionBoundaryWarning()}`}
+                  {` ${projectionBoundaryWarning()?.source === "auto" ? "Auto" : "Manual"} ${projectionBoundaryWarning()?.axis ?? ""}`}
                 </div>
               </Show>
             </div>

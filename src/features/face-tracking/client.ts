@@ -7,6 +7,7 @@ import type {
   NormalizedFace,
 } from "./protocol"
 import { readFacePose } from "./pose"
+import { MIN_FACE_CONFIDENCE } from "./protocol"
 
 const WASM_URL = "/mediapipe/tasks-vision/wasm"
 const VISION_WASM_FILESET = {
@@ -16,7 +17,6 @@ const VISION_WASM_FILESET = {
 const FULL_RANGE_FACE_MODEL_URL = "/models/face_detector/blaze_face_full_range.tflite"
 const SHORT_RANGE_FACE_MODEL_URL = "/models/face_detector/blaze_face_short_range.tflite"
 const FACE_LANDMARKER_MODEL_URL = "/models/face_landmarker/face_landmarker.task"
-const MIN_FACE_SCORE = 0.5
 
 const FACE_DETECTION_RESOURCES = [
   { url: VISION_WASM_FILESET.wasmLoaderPath, cacheName: "face-tracking-runtime" },
@@ -154,7 +154,7 @@ class MainThreadFaceBackend {
         baseOptions: { modelAssetPath, delegate },
         canvas: this.createCanvas(),
         runningMode: "IMAGE",
-        minDetectionConfidence: MIN_FACE_SCORE,
+        minDetectionConfidence: MIN_FACE_CONFIDENCE,
         minSuppressionThreshold: 0.45,
       })
     })
@@ -191,7 +191,7 @@ class MainThreadFaceBackend {
         canvas: this.createCanvas(),
         runningMode: "VIDEO",
         numFaces: 1,
-        minFaceDetectionConfidence: MIN_FACE_SCORE,
+        minFaceDetectionConfidence: MIN_FACE_CONFIDENCE,
         minFacePresenceConfidence: 0.5,
         minTrackingConfidence: 0.55,
         outputFaceBlendshapes: false,

@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import { readFacePose } from "./pose"
+import { MIN_FACE_CONFIDENCE } from "./protocol"
 
 interface NormalizedLandmark { x: number, y: number }
 interface FacePose { yaw: number, pitch: number, roll: number }
@@ -49,7 +50,6 @@ const VISION_WASM_FILESET = {
 const FULL_RANGE_FACE_MODEL_URL = "/models/face_detector/blaze_face_full_range.tflite"
 const SHORT_RANGE_FACE_MODEL_URL = "/models/face_detector/blaze_face_short_range.tflite"
 const FACE_LANDMARKER_MODEL_URL = "/models/face_landmarker/face_landmarker.task"
-const MIN_FACE_SCORE = 0.5
 
 const workerScope = globalThis as unknown as DedicatedWorkerGlobalScope
 let fullRangeDetector: FaceDetectorBackend | undefined
@@ -81,7 +81,7 @@ const createDetector = (range: FaceDetectionRange) => {
     // for the main rendering GPU context.
     baseOptions: { modelAssetPath, delegate: "CPU" },
     runningMode: "IMAGE",
-    minDetectionConfidence: MIN_FACE_SCORE,
+    minDetectionConfidence: MIN_FACE_CONFIDENCE,
     minSuppressionThreshold: 0.45,
   }) as Promise<FaceDetectorBackend>
 }
@@ -104,7 +104,7 @@ const getLandmarker = async () => {
     baseOptions: { modelAssetPath: FACE_LANDMARKER_MODEL_URL, delegate: "CPU" },
     runningMode: "VIDEO",
     numFaces: 1,
-    minFaceDetectionConfidence: MIN_FACE_SCORE,
+    minFaceDetectionConfidence: MIN_FACE_CONFIDENCE,
     minFacePresenceConfidence: 0.5,
     minTrackingConfidence: 0.55,
     outputFaceBlendshapes: false,

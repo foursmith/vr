@@ -2,6 +2,7 @@ import type { ProjectionMode } from "@foursmith/player-core"
 import type { PerspectiveCamera } from "three"
 import type { FaceDetectionRange, FaceInferenceMode, NormalizedFace } from "../face-tracking/protocol"
 import { Euler, MathUtils, Vector3 } from "three"
+import { MIN_FACE_CONFIDENCE } from "../face-tracking/protocol"
 
 const VIEWPORT_TARGET_X = 0.5
 const VIEWPORT_TARGET_Y = 1 / 3
@@ -13,7 +14,6 @@ export const FACE_CENTER_VIEWPORT_MAX_SPEED = 18
 export const FACE_CENTER_PANORAMA_MAX_SPEED = 32
 export const FACE_CENTER_TARGET_SIZE = 0.1
 export const FACE_CENTER_SIZE_DEAD_ZONE = 0.02
-export const FACE_CENTER_MIN_FORWARD = -35
 export const FACE_CENTER_MAX_FORWARD = 35
 export const FACE_CENTER_FORWARD_ACTIVATION_DISTANCE = 3
 export const FACE_CENTER_FORWARD_SETTLE_DISTANCE = 1.5
@@ -21,6 +21,7 @@ export const FACE_CENTER_FORWARD_MAX_SPEED = 16
 export const FACE_CENTER_VELOCITY_SMOOTHING_MS = 260
 export const FACE_CENTER_STOP_SPEED = 0.025
 const FACE_CENTER_ETA_SETTLE_OFFSET = 0.01
+const FACE_CENTER_PLAN_EPSILON = 0.001
 export const FACE_CENTER_EDGE_MARGIN_DEGREES = 2
 export const FACE_PITCH_LOOK_DEAD_ZONE_DEGREES = 6
 export const FACE_PITCH_LOOK_FULL_SCALE_DEGREES = 30
@@ -34,7 +35,6 @@ export const FACE_DIRECTION_MAX_PITCH_PREDICTION = 30
 const FACE_CENTER_VIEWPORT_DISTANCE_SCALE = 22
 const FACE_CENTER_PANORAMA_DISTANCE_SCALE = 45
 const FACE_CENTER_FORWARD_DISTANCE_SCALE = 18
-const MIN_FACE_SCORE = 0.5
 const TARGET_SMOOTHING_TIME_MS = 480
 const FACE_IDENTITY_SWITCH_MAX_GAP_MS = 1500
 export const FACE_IDENTITY_SWITCH_POSITION_SPEED = 0.8
@@ -42,7 +42,10 @@ export const FACE_IDENTITY_SWITCH_SIZE_SPEED = 1.2
 
 export type FaceBox = NormalizedFace & { lastSeenAt: number }
 export type DetectionMode = "viewport" | "panorama"
-export const getFaceDetectionRange = (mode: DetectionMode): FaceDetectionRange => mode === "viewport" ? "short" : "full"
+export const getFaceDetectionRange = (
+  mode: DetectionMode,
+  consecutiveViewportMisses = 0,
+): FaceDetectionRange => mode === "panorama" || consecutiveViewportMisses > 0 ? "full" : "short"
 export const getFaceInferenceMode = (
   mode: DetectionMode,
   hasReliableTarget: boolean,
@@ -57,6 +60,13 @@ export interface FaceCenteringError {
   pitchOffset: number
   forwardOffset: number
   needsMovement: boolean
+}
+export type FaceCenteringAxis = "yaw" | "pitch" | "forward"
+export interface FaceCenteringPlan {
+  error: FaceCenteringError
+  desiredView: { yaw: number, pitch: number, forward: number }
+  targetView: { yaw: number, pitch: number, forward: number }
+  blockedAxis?: FaceCenteringAxis
 }
 export interface FaceMovementHint {
   text: string
@@ -113,7 +123,7 @@ export interface FaceAutoCenterState {
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 const getFaceSize = (face: { width: number, height: number }) => Math.sqrt(Math.max(0, face.width * face.height))
 const isFaceSizeWithinDeadZone = (size: number | undefined) => size !== undefined
-  && Math.abs(size - FACE_CENTER_TARGET_SIZE) < FACE_CENTER_SIZE_DEAD_ZONE
+  && Math.abs(size - FACE_CENTER_TARGET_SIZE) < FACE_CENTER_SIZE_DEAD_ZONE - 1e-9
 const shortestAngle = (degrees: number) => ((degrees + 540) % 360) - 180
 const isHalfProjection = (projection: ProjectionMode) =>
   projection === "sbs_180_eqr" || projection === "sbs_180_fe" || projection === "m_180_eqr" || projection === "m_180_fe"
@@ -193,7 +203,7 @@ export const constrainFaceAutoCenterView = (
 
   let safe = 0
   let unsafe = 1
-  for (let index = 0; index < 12; index += 1) {
+  for (let index = 0; index < 20; index += 1) {
     const fraction = (safe + unsafe) / 2
     const candidate = {
       yaw: current.yaw + shortestAngle(proposed.yaw - current.yaw) * fraction,
@@ -209,6 +219,28 @@ export const constrainFaceAutoCenterView = (
     pitch: current.pitch + (proposed.pitch - current.pitch) * safe,
     forward: current.forward + (proposed.forward - current.forward) * safe,
   }
+}
+
+const getProjectionRecoveryForward = (
+  projection: ProjectionMode,
+  camera: PerspectiveCamera,
+  current: { yaw: number, pitch: number, forward: number },
+  targetDirection: { yaw: number, pitch: number },
+) => {
+  const targetAt = (forward: number) => ({ ...targetDirection, forward })
+  if (getProjectionCoverageMargin(projection, camera, targetAt(current.forward)) >= 0) return current.forward
+  if (getProjectionCoverageMargin(projection, camera, targetAt(FACE_CENTER_MAX_FORWARD)) < 0) {
+    return FACE_CENTER_MAX_FORWARD
+  }
+
+  let blocked = current.forward
+  let safe = FACE_CENTER_MAX_FORWARD
+  for (let index = 0; index < 12; index += 1) {
+    const forward = (blocked + safe) / 2
+    if (getProjectionCoverageMargin(projection, camera, targetAt(forward)) >= 0) safe = forward
+    else blocked = forward
+  }
+  return safe
 }
 
 export const getFaceCenteringError = (
@@ -246,6 +278,54 @@ export const getFaceCenteringError = (
     pitchOffset,
     forwardOffset,
     needsMovement: yawOffset !== 0 || pitchOffset !== 0 || forwardOffset !== 0,
+  }
+}
+
+export const getFaceCenteringPlan = (
+  target: FaceTarget,
+  camera: PerspectiveCamera,
+  view: { yaw: number, pitch: number, forward: number },
+  projection: ProjectionMode,
+  moving = false,
+): FaceCenteringPlan => {
+  const rawError = getFaceCenteringError(target, camera, view, moving)
+  const recoveryForward = target.mode === "panorama" && (rawError.yawOffset || rawError.pitchOffset)
+    ? getProjectionRecoveryForward(projection, camera, view, {
+        yaw: view.yaw + rawError.yawOffset,
+        pitch: view.pitch + rawError.pitchOffset,
+      })
+    : view.forward
+  const desiredView = {
+    yaw: view.yaw + rawError.yawOffset,
+    pitch: clamp(view.pitch + rawError.pitchOffset, -85, 85),
+    forward: rawError.forwardOffset ? view.forward + rawError.forwardOffset : recoveryForward,
+  }
+  const targetView = constrainFaceAutoCenterView(projection, camera, view, desiredView)
+  const blockedOffsets: Record<FaceCenteringAxis, number> = {
+    yaw: Math.abs(shortestAngle(desiredView.yaw - targetView.yaw)),
+    pitch: Math.abs(desiredView.pitch - targetView.pitch),
+    forward: Math.abs(desiredView.forward - targetView.forward),
+  }
+  const blockedAxis = (Object.entries(blockedOffsets) as Array<[FaceCenteringAxis, number]>)
+    .filter(([, offset]) => offset > 0.001)
+    .sort((first, second) => second[1] - first[1])[0]?.[0]
+  const normalizeOffset = (offset: number) => Math.abs(offset) < FACE_CENTER_PLAN_EPSILON ? 0 : offset
+  const yawOffset = normalizeOffset(shortestAngle(targetView.yaw - view.yaw))
+  const pitchOffset = normalizeOffset(targetView.pitch - view.pitch)
+  const forwardOffset = normalizeOffset(targetView.forward - view.forward)
+  return {
+    desiredView,
+    targetView,
+    blockedAxis,
+    error: {
+      yaw: rawError.yaw,
+      pitch: rawError.pitch,
+      forward: desiredView.forward - view.forward,
+      yawOffset,
+      pitchOffset,
+      forwardOffset,
+      needsMovement: yawOffset !== 0 || pitchOffset !== 0 || forwardOffset !== 0,
+    },
   }
 }
 
@@ -321,9 +401,8 @@ export const getFaceForwardTarget = (
   if (!size) return currentForward
   if (isFaceSizeWithinDeadZone(size)) return currentForward
   const remainingDistance = Math.max(1, surfaceDistance - currentForward)
-  return clamp(
+  return Math.min(
     surfaceDistance - remainingDistance * size / FACE_CENTER_TARGET_SIZE,
-    FACE_CENTER_MIN_FORWARD,
     FACE_CENTER_MAX_FORWARD,
   )
 }
@@ -332,7 +411,7 @@ export const getFaceMovementHint = (error: FaceCenteringError): FaceMovementHint
   const labels: string[] = []
   if (error.yawOffset) labels.push(`${error.yaw > 0 ? "→" : "←"} ${Math.round(Math.abs(error.yaw))}°`)
   if (error.pitchOffset) labels.push(`${error.pitch > 0 ? "↑" : "↓"} ${Math.round(Math.abs(error.pitch))}°`)
-  if (error.forwardOffset) labels.push(`${error.forward > 0 ? "nearer" : "farther"} ${Math.abs(error.forward).toFixed(1)}`)
+  if (error.forwardOffset) labels.push(`${error.forward > 0 ? "nearer" : "farther"} ${Math.abs(error.forwardOffset).toFixed(1)}`)
   if (!labels.length && !error.forwardOffset) return undefined
   return {
     text: labels.join(" · "),
@@ -343,7 +422,7 @@ export const getFaceMovementHint = (error: FaceCenteringError): FaceMovementHint
       ? { direction: error.pitch > 0 ? "up" : "down", value: `${Math.round(Math.abs(error.pitch))}°` }
       : undefined,
     depth: error.forwardOffset ? (error.forward > 0 ? "nearer" : "farther") : undefined,
-    depthValue: error.forwardOffset ? Math.abs(error.forward).toFixed(1) : undefined,
+    depthValue: error.forwardOffset ? Math.abs(error.forwardOffset).toFixed(1) : undefined,
   }
 }
 
@@ -602,7 +681,7 @@ const selectStableFace = (
   time: number,
   anchor?: FaceSelectionAnchor,
 ) => {
-  const candidates = faces.filter(face => face.score >= MIN_FACE_SCORE)
+  const candidates = faces.filter(face => face.score >= MIN_FACE_CONFIDENCE)
   if (!candidates.length) return undefined
   const previous = state.selectedFace && time - state.selectedFace.lastSeenAt < 2400 ? state.selectedFace : undefined
   const wrapX = mode === "panorama"

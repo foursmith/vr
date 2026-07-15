@@ -1,5 +1,5 @@
 import type { CameraView, ProjectionMode, ProjectionQuality } from "@foursmith/player-core"
-import type { FaceInferenceMode, FaceInferenceResult, FacePose } from "../face-tracking/protocol"
+import type { FaceDetectionRange, FaceInferenceMode, FaceInferenceResult, FacePose } from "../face-tracking/protocol"
 import type { DetectionMode, FaceAutoCenterState, FaceBox, FaceMovementHint, PanoramaSample } from "./face-auto-center"
 import type { FaceInferenceActivity } from "./frame-scheduler"
 import type { PanoramaRecoveryScan } from "./panorama-recovery"
@@ -10,8 +10,7 @@ import {
   constrainFaceAutoCenterView,
   estimateFaceCenteringDuration,
   FACE_CENTER_MAX_FORWARD,
-  FACE_CENTER_MIN_FORWARD,
-  getFaceCenteringError,
+  getFaceCenteringPlan,
   getFaceCenteringVelocity,
   getFaceDetectionRange,
   getFaceForwardVelocity,
@@ -45,6 +44,10 @@ export { DEFAULT_FOV, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS }
 export type { CameraView, ProjectionMode, ProjectionQuality }
 
 export interface MutableRefObject<T> { current: T }
+export interface ProjectionBoundaryWarning {
+  axis: "yaw" | "pitch" | "forward"
+  source: "auto" | "manual"
+}
 
 const WHEEL_ZOOM_SPEED = 0.0016
 const TRACKPAD_PINCH_ZOOM_SPEED = 0.01
@@ -97,7 +100,7 @@ export interface VrSceneOptions {
   debugPanelOpen: boolean
   viewRef: MutableRefObject<CameraView>
   onFaceAutoCenterPauseChange: (paused: boolean) => void
-  onProjectionBoundaryWarning: (axis: "yaw" | "pitch" | "forward") => void
+  onProjectionBoundaryWarning: (warning: ProjectionBoundaryWarning) => void
 }
 
 export interface VrSceneController {
@@ -170,6 +173,9 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   let lastCaptureMs = 0
   let inferenceActivity: FaceInferenceActivity = "searching"
   let rescanDuringMovement = false
+  let lastDetectionRange: FaceDetectionRange = "short"
+  let lastInferenceMode: FaceInferenceMode = "detection"
+  let automaticProjectionBoundary: ProjectionBoundaryWarning | undefined
   let panoramaRecoveryScan: PanoramaRecoveryScan | undefined
   const resetPanoramaScan = () => (panoramaRecoveryScan = undefined)
   let lastInputSize = "--"
@@ -220,6 +226,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   const inferenceContext = inferenceCanvas.getContext("2d", { alpha: false, willReadFrequently: true })
   const getFpsMetricsElement = () =>
     options.fpsElement.querySelector<HTMLElement>("[data-debug-metrics]") ?? options.fpsElement
+  const debugLogElement = options.fpsElement.querySelector<HTMLElement>("[data-debug-log]")
   const cameraForward = new Vector3()
   const getFaceSurfaceDistance = (projection: ProjectionMode) =>
     projection === "flat_2d" ? FLAT_SURFACE_DISTANCE : SPHERE_SURFACE_DISTANCE
@@ -240,7 +247,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   interface FaceDetectorBackend {
     detect: (
       source: ImageBitmapSource,
-      detectionRange?: ReturnType<typeof getFaceDetectionRange>,
+      detectionRange: FaceDetectionRange,
       inferenceMode?: FaceInferenceMode,
     ) => Promise<DetectedFace[]>
     destroy: () => void
@@ -387,6 +394,9 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     const videoFrameRateLabel = videoSourceFrameRate
       ? String(Math.round(videoSourceFrameRate * 100) / 100)
       : "--"
+    const faceSampleAge = faceState.motion ? Math.max(0, now - faceState.motion.lastSeenAt) / 1000 : 0
+    const currentMotion = faceState.motion && faceSampleAge < 1.5 ? faceState.motion : undefined
+    const forwardTarget = faceState.target?.forward
 
     getFpsMetricsElement().textContent = [
       `RENDER   ${fps} fps · ${p95.toFixed(1)} ms p95`,
@@ -394,11 +404,37 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       `VIEW     ${renderStrategy}`,
       `CPU      ${lastRenderMs.toFixed(2)} ms · ${renderP95.toFixed(2)} p95`,
       `TRACK    ${trackingHz.toFixed(1)} Hz · ${lastInferenceMs.toFixed(1)} ms · ${inferenceActivity}`,
-      `MOTION   ${(faceState.motion?.speed ?? 0).toFixed(2)}/s`,
-      `DEPTH    away ${Math.max(0, faceState.motion?.recedingSpeed ?? 0).toFixed(2)} · size ${(faceState.motion?.size ?? 0).toFixed(2)}`,
+      `MOTION   ${(currentMotion?.speed ?? 0).toFixed(2)}/s · away ${Math.max(0, currentMotion?.recedingSpeed ?? 0).toFixed(2)}`,
+      `DEPTH    ${options.viewRef.current.forward.toFixed(1)} → ${forwardTarget?.toFixed(1) ?? "--"} · v ${faceState.forwardVelocity.toFixed(2)}`,
+      `FACE     size ${currentMotion?.size.toFixed(2) ?? "--"} · age ${faceSampleAge.toFixed(1)}s`,
       `CAPTURE  ${lastCaptureMs.toFixed(1)} ms · skip ${skippedInferenceFrames}`,
       `ENGINE   ${faceDetector ? "MediaPipe" : "Idle"} · ${lastInputSize}`,
     ].join("\n")
+    const targetAge = faceState.target ? Math.max(0, now - faceState.target.lastSeenAt) / 1000 : 0
+    const nextDetectionIn = Number.isFinite(faceState.nextDetectionAt)
+      ? Math.max(0, faceState.nextDetectionAt - now)
+      : Number.POSITIVE_INFINITY
+    const trackingState = faceState.manuallyPaused
+      ? "paused"
+      : faceState.isMoving
+        ? "moving"
+        : automaticProjectionBoundary
+          ? "blocked"
+          : faceState.target
+            ? "locked"
+            : "searching"
+    if (debugLogElement) {
+      debugLogElement.textContent = [
+        `TRACKING state=${trackingState} enabled=${options.faceAutoCenter} pro=${options.faceTrackingPro} rescan=${rescanDuringMovement}`,
+        `BOUNDARY state=${automaticProjectionBoundary ? "blocked" : "clear"} source=${automaticProjectionBoundary?.source ?? "none"} axis=${automaticProjectionBoundary?.axis ?? "none"}`,
+        `DETECTION mode=${faceState.detectionMode} range=${lastDetectionRange} backend=${lastInferenceMode} activity=${inferenceActivity} inference=${inferenceInFlight ? "running" : "idle"} recovery=${faceState.recoveryMode ?? "none"}`,
+        `TARGET mode=${faceState.target?.mode ?? "none"} age=${targetAge.toFixed(2)}s size=${faceState.target?.size?.toFixed(3) ?? "--"} score=${faceState.selectedFace?.score.toFixed(3) ?? "--"}`,
+        `SCHEDULE next=${Number.isFinite(nextDetectionIn) ? `${nextDetectionIn.toFixed(0)}ms` : "paused"} misses=${faceState.consecutiveMisses} viewportMisses=${faceState.consecutiveViewportMisses}`,
+        `CAMERA yaw=${options.viewRef.current.yaw.toFixed(2)} pitch=${options.viewRef.current.pitch.toFixed(2)} forward=${options.viewRef.current.forward.toFixed(2)}`,
+        `VELOCITY yaw=${faceState.yawVelocity.toFixed(3)} pitch=${faceState.pitchVelocity.toFixed(3)} forward=${faceState.forwardVelocity.toFixed(3)}`,
+        `VIDEO projection=${options.projection} time=${video.currentTime.toFixed(2)}s source=${video.videoWidth}×${video.videoHeight} sourceFps=${videoFrameRateLabel}`,
+      ].join("\n")
+    }
     fpsFrameCount = 0
     fpsSampleStartedAt = now
   }
@@ -443,6 +479,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     faceState.pitchVelocity = 0
     faceState.forwardVelocity = 0
     faceState.isMoving = false
+    automaticProjectionBoundary = undefined
     setOverlay({})
     requestRender()
   }
@@ -470,6 +507,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     inferenceGeneration += 1
     if (paused) pauseFaceAutoCenter(faceState)
     else resumeFaceAutoCenter(faceState)
+    automaticProjectionBoundary = undefined
     resetPanoramaScan()
     options.onFaceAutoCenterPauseChange(paused)
     setOverlay({})
@@ -494,7 +532,9 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
 
   const applyManualAxis = (axis: "yaw" | "pitch" | "forward", proposedValue: number) => {
     const boundary = inspectProjectionBoundary(axis, proposedValue)
-    if (options.debugPanelOpen && boundary.blocked) options.onProjectionBoundaryWarning(axis)
+    if (options.debugPanelOpen && boundary.blocked) {
+      options.onProjectionBoundaryWarning({ axis, source: "manual" })
+    }
     const appliedValue = options.debugPanelOpen ? proposedValue : boundary.constrainedValue
     const changed = Math.abs(appliedValue - options.viewRef.current[axis]) > 0.0001
     options.viewRef.current[axis] = appliedValue
@@ -639,17 +679,20 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     const p95Index = Math.max(0, Math.ceil(sortedInferenceTimes.length * 0.95) - 1)
     const inferenceP95 = sortedInferenceTimes[p95Index] ?? 0
     const target = faceState.target
-    const targetError = target
-      ? getFaceCenteringError(target, camera, options.viewRef.current, faceState.isMoving)
+    const targetPlan = target
+      ? getFaceCenteringPlan(target, camera, options.viewRef.current, options.projection, faceState.isMoving)
       : undefined
+    const targetError = targetPlan?.error
     const targetNeedsMovement = targetError?.needsMovement ?? false
-    if (scheduleOverride) inferenceActivity = scheduleOverride.activity
+    const movementBlocked = Boolean(targetPlan?.blockedAxis && !targetNeedsMovement)
+    const effectiveScheduleOverride = movementBlocked ? undefined : scheduleOverride
+    if (effectiveScheduleOverride) inferenceActivity = effectiveScheduleOverride.activity
     else if (faceState.recoveryMode === "panorama") inferenceActivity = "recovery"
     else if (!target || faceState.consecutiveMisses > 0) inferenceActivity = "searching"
-    else if (faceState.isMoving || faceState.offCenterSince !== undefined || targetNeedsMovement) inferenceActivity = "active"
+    else if (faceState.isMoving || (!movementBlocked && (faceState.offCenterSince !== undefined || targetNeedsMovement))) inferenceActivity = "active"
     else inferenceActivity = "stable"
     const motion = faceState.motion && now - faceState.motion.lastSeenAt < 1500 ? faceState.motion : undefined
-    const adaptivePeriod = scheduleOverride?.period
+    const adaptivePeriod = effectiveScheduleOverride?.period
       ?? (faceState.isMoving && rescanDuringMovement && target && targetError
         ? movingFaceInferencePeriod(estimateFaceCenteringDuration(targetError, {
             yaw: faceState.yawVelocity,
@@ -696,7 +739,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       return
     }
 
-    if (!shouldEnterPanoramaRecovery(faceState.consecutiveViewportMisses + 1)) {
+    if (!shouldEnterPanoramaRecovery(faceState.consecutiveViewportMisses)) {
       resetPanoramaScan()
       faceState.recoveryMode = undefined
       return
@@ -743,7 +786,6 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         options.viewRef.current.forward,
         getFaceSurfaceDistance(projection),
       )
-      updateViewportRecoveryMode(foundFace, time)
     } else if (detectionMode === "panorama" && panoramaSample) {
       faceState.detectionMode = "panorama"
       const sampleFaces = new Map<FaceBox, FaceBox>()
@@ -782,10 +824,10 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         options.viewRef.current.forward,
         getFaceSurfaceDistance(projection),
       )
-      updateViewportRecoveryMode(foundFace, time)
     }
 
     updateTrackingResult(foundFace, time, detectionMode)
+    if (detectionMode === "viewport") updateViewportRecoveryMode(foundFace, time)
     if (options.debugPanelOpen && sampleContext) {
       if (foundFace) {
         sampleCanvas.width = inferenceCanvas.width
@@ -929,12 +971,19 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     void ensureFaceDetector()
       .then((detector) => {
         lastCaptureMs = performance.now() - captureStartedAt
+        const detectionRange = getFaceDetectionRange(detectionMode, faceState.consecutiveViewportMisses)
         const inferenceMode = getFaceInferenceMode(
           detectionMode,
-          Boolean(faceState.target?.mode === "viewport" && faceState.consecutiveMisses === 0),
+          Boolean(
+            detectionRange === "short"
+            && faceState.target?.mode === "viewport"
+            && faceState.consecutiveMisses === 0,
+          ),
           options.faceTrackingPro,
         )
-        return detector.detect(inferenceCanvas, getFaceDetectionRange(detectionMode), inferenceMode)
+        lastDetectionRange = detectionRange
+        lastInferenceMode = inferenceMode
+        return detector.detect(inferenceCanvas, detectionRange, inferenceMode)
           .then(faces => ({ faces, inferenceMode }))
       })
       .then(({ faces, inferenceMode }) => {
@@ -990,6 +1039,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       faceState.pitchVelocity = 0
       faceState.forwardVelocity = 0
       faceState.isMoving = false
+      automaticProjectionBoundary = undefined
       setOverlay({})
       return
     }
@@ -1006,6 +1056,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       faceState.pitchVelocity = 0
       faceState.forwardVelocity = 0
       faceState.isMoving = false
+      automaticProjectionBoundary = undefined
       setOverlay({})
       return
     }
@@ -1022,6 +1073,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       faceState.pitchVelocity = 0
       faceState.forwardVelocity = 0
       faceState.isMoving = false
+      automaticProjectionBoundary = undefined
       setOverlay({})
       return
     }
@@ -1041,26 +1093,30 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     const frameDelta = clamp(delta || 1 / 60, 1 / 240, 0.05)
     const updateVelocity = (current: number, desired: number) =>
       smoothFaceCenteringVelocity(current, desired, frameDelta * 1000)
-    const applyBoundaryAwareMovement = () => {
+    const applyPlannedMovement = (plannedBoundaryAxis?: ProjectionBoundaryWarning["axis"]) => {
       const current = options.viewRef.current
-      const moveAxis = (axis: "yaw" | "pitch" | "forward", proposedValue: number) => {
-        const boundary = inspectProjectionBoundary(axis, proposedValue)
-        current[axis] = boundary.constrainedValue
-        if (boundary.blocked) {
-          if (axis === "yaw") faceState.yawVelocity = 0
-          else if (axis === "pitch") faceState.pitchVelocity = 0
-          else faceState.forwardVelocity = 0
-        }
+      automaticProjectionBoundary = undefined
+      const proposed = {
+        yaw: current.yaw + faceState.yawVelocity * frameDelta,
+        pitch: clamp(current.pitch + faceState.pitchVelocity * frameDelta, -85, 85),
+        forward: Math.min(current.forward + faceState.forwardVelocity * frameDelta, FACE_CENTER_MAX_FORWARD),
       }
-      const nextYaw = current.yaw + faceState.yawVelocity * frameDelta
-      moveAxis("yaw", nextYaw)
-      moveAxis("pitch", clamp(current.pitch + faceState.pitchVelocity * frameDelta, -85, 85))
-      moveAxis("forward", clamp(
-        current.forward + faceState.forwardVelocity * frameDelta,
-        FACE_CENTER_MIN_FORWARD,
-        FACE_CENTER_MAX_FORWARD,
-      ))
+      const constrained = constrainFaceAutoCenterView(options.projection, camera, current, proposed)
+      const blockedAxes = (["yaw", "pitch", "forward"] as const).filter(axis =>
+        Math.abs(constrained[axis] - proposed[axis]) > 0.0001)
+      const blockedAxis = blockedAxes[0]
+      current.yaw = constrained.yaw
+      current.pitch = constrained.pitch
+      current.forward = constrained.forward
+      if (blockedAxes.includes("yaw")) faceState.yawVelocity = 0
+      if (blockedAxes.includes("pitch")) faceState.pitchVelocity = 0
+      if (blockedAxes.includes("forward")) faceState.forwardVelocity = 0
       faceState.isMoving = faceState.yawVelocity !== 0 || faceState.pitchVelocity !== 0 || faceState.forwardVelocity !== 0
+      const settledBoundaryAxis = !faceState.isMoving ? (blockedAxis ?? plannedBoundaryAxis) : undefined
+      if (settledBoundaryAxis) {
+        automaticProjectionBoundary = { axis: settledBoundaryAxis, source: "auto" }
+        if (options.debugPanelOpen) options.onProjectionBoundaryWarning(automaticProjectionBoundary)
+      }
     }
     const target = faceState.target
     const targetMaxAge = faceState.isMoving ? 4500 : 1100
@@ -1068,7 +1124,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       faceState.yawVelocity = updateVelocity(faceState.yawVelocity, 0)
       faceState.pitchVelocity = updateVelocity(faceState.pitchVelocity, 0)
       faceState.forwardVelocity = updateVelocity(faceState.forwardVelocity, 0)
-      applyBoundaryAwareMovement()
+      applyPlannedMovement()
       if (wasMoving && !faceState.isMoving) {
         rescanDuringMovement = false
         faceState.nextDetectionAt = 0
@@ -1077,11 +1133,11 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       return
     }
 
-    const error = getFaceCenteringError(target, camera, options.viewRef.current, faceState.isMoving)
-    const x = error.yawOffset
-    const y = error.pitchOffset
-    const forward = error.forwardOffset
-    const hint = getFaceMovementHint(error)
+    const plan = getFaceCenteringPlan(target, camera, options.viewRef.current, options.projection, faceState.isMoving)
+    const x = plan.error.yawOffset
+    const y = plan.error.pitchOffset
+    const forward = plan.error.forwardOffset
+    const hint = getFaceMovementHint(plan.error)
 
     setOverlay({ hint })
     if (!x && !y && !forward) faceState.offCenterSince = undefined
@@ -1090,7 +1146,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     const desiredPitchVelocity = getFaceCenteringVelocity(y, target.mode)
     const desiredForwardVelocity = getFaceForwardVelocity(forward)
     const movementDuration = !wasMoving
-      ? estimateFaceCenteringDuration(error, {
+      ? estimateFaceCenteringDuration(plan.error, {
           yaw: faceState.yawVelocity,
           pitch: faceState.pitchVelocity,
           forward: faceState.forwardVelocity,
@@ -1099,7 +1155,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     faceState.yawVelocity = x ? updateVelocity(faceState.yawVelocity, desiredYawVelocity) : 0
     faceState.pitchVelocity = y ? updateVelocity(faceState.pitchVelocity, desiredPitchVelocity) : 0
     faceState.forwardVelocity = forward ? updateVelocity(faceState.forwardVelocity, desiredForwardVelocity) : 0
-    applyBoundaryAwareMovement()
+    applyPlannedMovement(plan.blockedAxis)
     if (!wasMoving && faceState.isMoving) {
       rescanDuringMovement = movementDuration > FACE_CENTER_SHORT_MOVE_ETA_MS
       if (rescanDuringMovement) {
@@ -1223,6 +1279,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       faceState.pitchVelocity = 0
       faceState.forwardVelocity = 0
       faceState.nextDetectionAt = 0
+      automaticProjectionBoundary = undefined
       setOverlay({})
       resetVideoFrameRate()
       recentFrameTimes.length = 0

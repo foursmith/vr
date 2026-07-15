@@ -33,14 +33,14 @@ The next inference time is measured from the start of the previous inference. Co
 
 The player alternates between two spatial detection modes:
 
-- **Viewport detection** copies the currently rendered view into a reusable inference canvas. MediaPipe uses the BlazeFace short-range detector while searching because the viewport normally contains larger, nearby faces. By default it continues using that detector after a reliable target is established. When the persisted Precision tracking Pro setting is enabled, a reliable target switches viewport inference to the face landmarker to obtain a feature-based center and head pose.
+- **Viewport detection** copies the currently rendered view into a reusable inference canvas. Each acquisition cycle starts with the BlazeFace short-range detector. A miss retries the same viewport once with the full-range detector; only a second miss enters panorama recovery. A successful viewport result clears the miss count, so the next cycle starts from short range again. Precision tracking Pro may replace the initial short-range pass with landmarks for an already reliable viewport target, but its miss still falls back to the same full-range viewport retry.
 - **Panorama recovery** renders one perspective view of the projection sphere per inference. It uses the MediaPipe full-range detector because a face occupies fewer pixels in a wide-FOV recovery tile.
 
 The face landmarker model is not requested or instantiated while Precision tracking Pro is disabled. Enabling Pro allows the next reliable viewport target to load and use it lazily. Disabling Pro releases the active face-tracking backend if it had been enabled. A landmarker miss falls back to the viewport detector for the single viewport retry before recovery. Panorama recovery always uses face detection rather than landmarks.
 
 ### Face filtering and target selection
 
-Detections are normalized face boxes. Candidates below confidence `0.5` are discarded. Remaining candidates receive a selection score composed of:
+Detections are normalized face boxes. MediaPipe detection and automatic-centering candidate selection share a minimum confidence of `0.6`; candidates below it are discarded. Remaining candidates receive a selection score composed of:
 
 ```text
 selectionScore = confidence * 1.2
@@ -65,14 +65,15 @@ Within the same mode and a gap of at most 1.5 seconds, a new detection is classi
    - clear the recovery tile index and miss counters;
    - continue viewport tracking, using MediaPipe landmarks while the target remains reliable.
 2. A viewport detection misses:
-   - after the first consecutive miss, stay in viewport mode and retry with the detector;
+   - after a short-range or landmark miss, stay in viewport mode and retry the same rendered view with the full-range detector;
    - preserve the activity and adaptive frequency used by the missed inference for that retry;
    - after the second consecutive miss, store the current camera yaw and pitch, freeze the current motion prediction, order the five recovery tiles by proximity to that predicted direction, and enter panorama recovery.
 3. A recovery tile returns a candidate:
    - map the local face coordinates back to panorama coordinates;
    - accept it immediately only when confidence is at least `0.7`, its center stays inside the middle 64% of both tile axes, and its complete box stays at least 8% from every tile edge;
    - otherwise, if the pass has not refined a candidate yet, insert one 70° tile centered on the mapped candidate and run that next;
-   - a reliable coarse or refined candidate creates the panorama yaw/pitch target, stops scanning immediately, and moves the camera toward that target.
+   - a reliable coarse or refined candidate creates the panorama yaw/pitch target, stops scanning immediately, and moves the camera toward that target;
+   - if backward camera translation makes that direction unreachable without exposing a 180-degree projection edge, binary search finds the nearest inward position that restores coverage and the camera moves inward while aligning the panorama target; viewport detection then supplies a fresh face size and normal depth target.
 4. A recovery tile misses:
    - advance to the next tile;
    - a failed or still-unreliable refinement also advances past its originating coarse tile;
@@ -129,7 +130,7 @@ The prediction uses the last world-direction velocity, the age of that observati
 
 ### Conditional refinement
 
-Selection and recovery reliability are separate thresholds. A face with confidence at least `0.5` can participate in subject selection, but a panorama candidate is accepted without refinement only when confidence reaches `0.7` and it is sufficiently far from distorted tile edges. The first edge or lower-confidence candidate in a pass receives one 70° square perspective tile centered on its mapped panorama direction. No later candidate in the same pass can add another refinement, bounding the pass at six inferences. A refined result must satisfy the same reliability test; otherwise scanning resumes at the next coarse tile.
+Selection and recovery reliability are separate thresholds. A face with confidence at least `0.6` can participate in subject selection, but a panorama candidate is accepted without refinement only when confidence reaches `0.7` and it is sufficiently far from distorted tile edges. The first edge or lower-confidence candidate in a pass receives one 70° square perspective tile centered on its mapped panorama direction. No later candidate in the same pass can add another refinement, bounding the pass at six inferences. A refined result must satisfy the same reliability test; otherwise scanning resumes at the next coarse tile.
 
 ### Capture path
 
@@ -190,7 +191,7 @@ Viewport targets use a maximum speed of 18°/s and a 22° distance scale. Panora
 
 Viewport detections use `sqrt(face.width * face.height)` as an approximate distance observation and target a normalized face size of `0.10`. Automatic forward/backward adjustment starts only when the observed size differs from the target by at least `0.02`, so sizes in the open interval `(0.08, 0.12)` remain in the depth dead zone. The camera translates along its current look direction instead of changing zoom or FOV. Positive `forward` values move toward the projection surface; negative values move away.
 
-The target assumes a local projection-surface distance of 100 units for spherical modes and 65 units for the flat screen. Given the current forward position and observed face size, the remaining camera-to-surface distance is scaled by `observedSize / targetSize`. The result is clamped to `[-35, 35]` units. This is an approximate depth response inferred from apparent face size; the source video does not provide metric depth.
+The target assumes a local projection-surface distance of 100 units for spherical modes and 65 units for the flat screen. Given the current forward position and observed face size, the remaining camera-to-surface distance is scaled by `observedSize / targetSize`. Movement toward the surface is capped at `35` units, while backward movement has no artificial coordinate limit; this allows a face larger than the target to keep shrinking until it enters the size dead zone or reaches the real projection-coverage boundary. This is an approximate depth response inferred from apparent face size; the source video does not provide metric depth.
 
 Forward velocity uses the same exponential profile, capped at 16 units/s with an 18-unit distance scale, and the same 260 ms temporal velocity smoothing as yaw and pitch.
 
@@ -200,7 +201,7 @@ Manual zoom inputs use the same forward/backward camera axis instead of changing
 forwardTarget = surfaceDistance - (surfaceDistance - currentForward) / scale
 ```
 
-Keyboard zoom uses a scale factor of `1.1` per step. Manual movement does not use the automatic centering range of `[-35, 35]`: increasing scale approaches the projection surface asymptotically without crossing it, while decreasing scale can move away without an artificial backward limit. Normally, half-sphere boundary protection still constrains manual movement. When Debug is open, manual boundary blocking is disabled and a visible warning is emitted instead, allowing sufficiently large movement to expose areas outside the video. The perspective camera remains at zoom `1` with its configured FOV.
+Keyboard zoom uses a scale factor of `1.1` per step. Increasing scale approaches the projection surface asymptotically without crossing it, while decreasing scale can move away without an artificial backward limit. Normally, half-sphere boundary protection still constrains manual movement. When Debug is open, manual boundary blocking is disabled and a visible warning is emitted instead, allowing sufficiently large movement to expose areas outside the video. The perspective camera remains at zoom `1` with its configured FOV.
 
 ### Projection-edge protection and debug monitoring
 
@@ -208,7 +209,7 @@ Movement on 180-degree projections checks the complete viewport against the vide
 
 Equirectangular modes use the 100-unit video sphere. Fisheye modes use the 99-unit back-half mask because its curved silhouette can occlude the outer video sphere first after camera translation. A view is covered only when every sampled point remains inside the half-sphere with a 2° seam margin.
 
-If a proposed automatic-centering step crosses the boundary, a binary search keeps the last covered fraction and clears the blocked axis velocity. This automatic protection is always active, including while Debug is open. For manual movement only, Debug applies the original proposed step unchanged and emits a visible `Projection boundary · <axis> (not blocked)` warning where protection would otherwise intervene. Full 360-degree projections bypass this check.
+Before movement starts, yaw, pitch, depth, panorama recovery, and projection coverage are resolved into one feasible target view. If the requested view crosses a 180-degree boundary, binary search replaces it with the last fully covered view. The render loop never teleports to a boundary and never applies a separate depth correction; it only follows this constrained target through the shared velocity and smoothing model. Once the feasible endpoint is reached while the original request remains outside coverage, tracking reports `blocked`, inference scheduling falls back to stable monitoring, and the copied log records the blocked axis. A new reachable target produces a new plan and resumes active movement. Manual movement retains its separate Debug behavior: Debug may apply the proposed manual step unchanged while reporting `Projection boundary · Manual <axis>`. Full 360-degree projections bypass coverage constraints.
 
 ### Manual override state
 
