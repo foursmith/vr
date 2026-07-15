@@ -333,7 +333,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   const {
     changeQualityBy,
     faceAutoCenter,
-    faceTrackingPro,
     projectionId,
     qualityId,
     renderFrameRateId,
@@ -464,7 +463,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     hidden: false,
     splitScreen: splitScreen(),
     faceAutoCenter: faceAutoCenter(),
-    faceTrackingPro: faceTrackingPro(),
     debugPanelOpen: debugPanelOpen(),
   })
 
@@ -1585,7 +1583,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       renderFrameRateId: renderFrameRateId(),
       splitScreen: splitScreen(),
       faceAutoCenter: faceAutoCenter(),
-      faceTrackingPro: faceTrackingPro(),
       autoResumePlayback: autoResumePlayback(),
       subtitlesEnabled: subtitlesEnabled(),
       repeatMode: repeatMode(),

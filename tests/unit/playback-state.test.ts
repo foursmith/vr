@@ -35,7 +35,6 @@ describe("player state persistence", () => {
       renderFrameRateId: 99,
       splitScreen: false,
       faceAutoCenter: false,
-      faceTrackingPro: true,
       faceCenteringMode: "system",
       subtitlesEnabled: false,
       repeatMode: "folder",
@@ -49,7 +48,6 @@ describe("player state persistence", () => {
       renderFrameRateId: 3,
       splitScreen: false,
       faceAutoCenter: false,
-      faceTrackingPro: true,
       autoResumePlayback: false,
       subtitlesEnabled: false,
       repeatMode: "folder",
@@ -66,6 +64,14 @@ describe("player state persistence", () => {
       faceAutoCenter: true,
     })
     expect(loadGlobalPreferences()).not.toHaveProperty("faceCenteringMode")
+  })
+
+  it("ignores the removed precision tracking preference", () => {
+    localStorage.setItem("foursmith-vr:preferences", JSON.stringify({
+      ...DEFAULT_GLOBAL_PREFERENCES,
+      faceTrackingPro: true,
+    }))
+    expect(loadGlobalPreferences()).not.toHaveProperty("faceTrackingPro")
   })
 
   it("saves global preferences as one value", () => {

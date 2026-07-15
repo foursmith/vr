@@ -32,6 +32,7 @@ describe("faceTrackerClient worker backend", () => {
     const cache = {
       match: vi.fn(async () => undefined),
       put: vi.fn(async () => {}),
+      delete: vi.fn(async () => true),
     }
     const open = vi.fn(async () => cache)
     const fetch = vi.fn(async () => new Response("resource"))
@@ -43,24 +44,10 @@ describe("faceTrackerClient worker backend", () => {
 
     expect(fetch).toHaveBeenCalledTimes(4)
     expect(cache.put).toHaveBeenCalledTimes(4)
+    expect(cache.delete).toHaveBeenCalledWith(expect.objectContaining({ url: expect.stringContaining("face_landmarker") }))
     expect(progress).toHaveBeenNthCalledWith(1, { loaded: 0, total: 4, label: "Downloading face tracking resources" })
     expect(progress).toHaveBeenLastCalledWith({ loaded: 4, total: 4, label: "Downloading face tracking resources" })
     expect(fetch).not.toHaveBeenCalledWith(expect.objectContaining({ url: expect.stringContaining("face_landmarker") }))
-  })
-
-  it("downloads the face landmarker only when Pro resources are requested", async () => {
-    const cache = {
-      match: vi.fn(async () => undefined),
-      put: vi.fn(async () => {}),
-    }
-    const fetch = vi.fn(async () => new Response("resource"))
-    vi.stubGlobal("caches", { open: vi.fn(async () => cache) })
-    vi.stubGlobal("fetch", fetch)
-
-    await downloadFaceTrackingResources(() => {}, true)
-
-    expect(fetch).toHaveBeenCalledTimes(5)
-    expect(fetch).toHaveBeenCalledWith(expect.objectContaining({ url: expect.stringContaining("face_landmarker") }))
   })
 
   it("initializes once, forwards progress and resolves inference results", async () => {
@@ -78,13 +65,13 @@ describe("faceTrackerClient worker backend", () => {
     expect(client.getBackendLabel()).toBe("Worker CPU")
 
     const bitmap = { close: vi.fn() } as unknown as ImageBitmap
-    const inference = client.infer("detection", bitmap, 42, "short")
+    const inference = client.infer(bitmap, 42, "short")
     await Promise.resolve()
     expect(worker.postMessage).toHaveBeenLastCalledWith(
-      { id: 1, type: "infer", mode: "detection", detectionRange: "short", timestamp: 42, bitmap },
+      { id: 1, type: "infer", detectionRange: "short", timestamp: 42, bitmap },
       [bitmap],
     )
-    worker.emit({ id: 1, type: "result", mode: "detection", timestamp: 42, faces: [], inferenceMs: 3 })
+    worker.emit({ id: 1, type: "result", timestamp: 42, faces: [], inferenceMs: 3 })
     await expect(inference).resolves.toMatchObject({ id: 1, inferenceMs: 3 })
   })
 
@@ -95,14 +82,14 @@ describe("faceTrackerClient worker backend", () => {
     worker.emit({ type: "ready" })
     await initializing
     const bitmap = { close: vi.fn() } as unknown as ImageBitmap
-    const inference = client.infer("landmarks", bitmap, 10)
+    const inference = client.infer(bitmap, 10)
     await Promise.resolve()
     client.destroy()
     await expect(inference).rejects.toThrow("Face tracker was destroyed")
     expect(worker.terminate).toHaveBeenCalledOnce()
     await expect(client.initialize(() => {})).rejects.toThrow("Face tracker was destroyed")
     const lateBitmap = { close: vi.fn() } as unknown as ImageBitmap
-    await expect(client.infer("detection", lateBitmap, 20)).rejects.toThrow("Face tracker was destroyed")
+    await expect(client.infer(lateBitmap, 20)).rejects.toThrow("Face tracker was destroyed")
     expect(lateBitmap.close).toHaveBeenCalledOnce()
   })
 
@@ -114,16 +101,16 @@ describe("faceTrackerClient worker backend", () => {
     await initializing
 
     const firstBitmap = { close: vi.fn() } as unknown as ImageBitmap
-    const firstInference = client.infer("landmarks", firstBitmap, 1000)
+    const firstInference = client.infer(firstBitmap, 1000)
     await Promise.resolve()
-    worker.emit({ id: 1, type: "result", mode: "landmarks", timestamp: 1000, faces: [], inferenceMs: 3 })
+    worker.emit({ id: 1, type: "result", timestamp: 1000, faces: [], inferenceMs: 3 })
     await firstInference
 
     const secondBitmap = { close: vi.fn() } as unknown as ImageBitmap
-    const secondInference = client.infer("landmarks", secondBitmap, 1000)
+    const secondInference = client.infer(secondBitmap, 1000)
     await Promise.resolve()
     expect(worker.postMessage).toHaveBeenLastCalledWith(
-      { id: 2, type: "infer", mode: "landmarks", detectionRange: "full", timestamp: 1001, bitmap: secondBitmap },
+      { id: 2, type: "infer", detectionRange: "full", timestamp: 1001, bitmap: secondBitmap },
       [secondBitmap],
     )
     client.destroy()
@@ -140,7 +127,7 @@ describe("faceTrackerClient worker backend", () => {
       throw new Error("transfer failed")
     })
     const bitmap = { close: vi.fn() } as unknown as ImageBitmap
-    await expect(client.infer("detection", bitmap, 1)).rejects.toThrow("transfer failed")
+    await expect(client.infer(bitmap, 1)).rejects.toThrow("transfer failed")
     expect(bitmap.close).toHaveBeenCalledOnce()
     expect(worker.terminate).toHaveBeenCalledOnce()
   })

@@ -1,25 +1,19 @@
 /// <reference lib="webworker" />
 
-import { readFacePose } from "./pose"
 import { MIN_FACE_CONFIDENCE } from "./protocol"
 
-interface NormalizedLandmark { x: number, y: number }
-interface FacePose { yaw: number, pitch: number, roll: number }
-interface NormalizedFace { x: number, y: number, width: number, height: number, score: number, pose?: FacePose }
-type FaceInferenceMode = "landmarks" | "detection"
+interface NormalizedFace { x: number, y: number, width: number, height: number, score: number }
 type FaceDetectionRange = "short" | "full"
 interface FaceInferenceResult {
   id: number
   type: "result"
-  mode: FaceInferenceMode
   timestamp: number
   faces: NormalizedFace[]
-  center?: { x: number, y: number }
   inferenceMs: number
 }
 type FaceWorkerRequest
   = | { type: "init" }
-    | { id: number, type: "infer", mode: FaceInferenceMode, detectionRange: FaceDetectionRange, timestamp: number, bitmap: ImageBitmap }
+    | { id: number, type: "infer", detectionRange: FaceDetectionRange, timestamp: number, bitmap: ImageBitmap }
 type FaceWorkerResponse
   = | { type: "progress", loaded: number, total: number, label: string }
     | { type: "ready" }
@@ -34,14 +28,6 @@ interface FaceDetectorBackend {
   }
   close: () => void
 }
-interface FaceLandmarkerBackend {
-  detectForVideo: (image: ImageBitmap, timestamp: number) => {
-    faceLandmarks: NormalizedLandmark[][]
-    facialTransformationMatrixes: Array<{ rows: number, columns: number, data: number[] }>
-  }
-  close: () => void
-}
-
 const WASM_URL = "/mediapipe/tasks-vision/wasm"
 const VISION_WASM_FILESET = {
   wasmLoaderPath: `${WASM_URL}/vision_wasm_internal.js`,
@@ -49,17 +35,14 @@ const VISION_WASM_FILESET = {
 }
 const FULL_RANGE_FACE_MODEL_URL = "/models/face_detector/blaze_face_full_range.tflite"
 const SHORT_RANGE_FACE_MODEL_URL = "/models/face_detector/blaze_face_short_range.tflite"
-const FACE_LANDMARKER_MODEL_URL = "/models/face_landmarker/face_landmarker.task"
 
 const workerScope = globalThis as unknown as DedicatedWorkerGlobalScope
 let fullRangeDetector: FaceDetectorBackend | undefined
 let shortRangeDetector: FaceDetectorBackend | undefined
-let landmarker: FaceLandmarkerBackend | undefined
 let visionTasks: typeof import("@mediapipe/tasks-vision") | undefined
 let initializationPromise: Promise<void> | undefined
 let fullRangeDetectorPromise: Promise<FaceDetectorBackend> | undefined
 let shortRangeDetectorPromise: Promise<FaceDetectorBackend> | undefined
-let landmarkerPromise: Promise<FaceLandmarkerBackend> | undefined
 
 const post = (message: FaceWorkerResponse) => workerScope.postMessage(message)
 
@@ -98,62 +81,6 @@ const getDetector = async (range: FaceDetectionRange) => {
   return fullRangeDetector
 }
 
-const getLandmarker = async () => {
-  await initialize()
-  landmarkerPromise ??= visionTasks!.FaceLandmarker.createFromOptions(VISION_WASM_FILESET, {
-    baseOptions: { modelAssetPath: FACE_LANDMARKER_MODEL_URL, delegate: "CPU" },
-    runningMode: "VIDEO",
-    numFaces: 1,
-    minFaceDetectionConfidence: MIN_FACE_CONFIDENCE,
-    minFacePresenceConfidence: 0.5,
-    minTrackingConfidence: 0.55,
-    outputFaceBlendshapes: false,
-    outputFacialTransformationMatrixes: true,
-  }) as Promise<FaceLandmarkerBackend>
-  landmarker ??= await landmarkerPromise
-  return landmarker
-}
-
-const readLandmarkFace = (landmarks: NormalizedLandmark[]): NormalizedFace | undefined => {
-  let minX = 1
-  let minY = 1
-  let maxX = 0
-  let maxY = 0
-  let validCount = 0
-  for (const landmark of landmarks) {
-    if (!Number.isFinite(landmark.x) || !Number.isFinite(landmark.y)) continue
-    minX = Math.min(minX, landmark.x)
-    minY = Math.min(minY, landmark.y)
-    maxX = Math.max(maxX, landmark.x)
-    maxY = Math.max(maxY, landmark.y)
-    validCount += 1
-  }
-  if (validCount < 24) return undefined
-
-  minX = Math.min(1, Math.max(0, minX))
-  minY = Math.min(1, Math.max(0, minY))
-  maxX = Math.min(1, Math.max(0, maxX))
-  maxY = Math.min(1, Math.max(0, maxY))
-  const width = maxX - minX
-  const height = maxY - minY
-  return width >= 0.02 && height >= 0.02
-    ? { x: minX, y: minY, width, height, score: 1 }
-    : undefined
-}
-
-const readLandmarkCenter = (landmarks: NormalizedLandmark[], fallback: NormalizedFace) => {
-  const leftEye = landmarks[33]
-  const rightEye = landmarks[263]
-  const nose = landmarks[1]
-  if (!leftEye || !rightEye || !nose) {
-    return { x: fallback.x + fallback.width / 2, y: fallback.y + fallback.height / 2 }
-  }
-  return {
-    x: (leftEye.x + rightEye.x + nose.x * 1.4) / 3.4,
-    y: (leftEye.y + rightEye.y + nose.y * 1.4) / 3.4,
-  }
-}
-
 const readDetectedFaces = (detector: FaceDetectorBackend, bitmap: ImageBitmap) => detector.detect(bitmap).detections.filter(item => item.boundingBox).map((item) => {
   const box = item.boundingBox!
   return {
@@ -168,37 +95,15 @@ const readDetectedFaces = (detector: FaceDetectorBackend, bitmap: ImageBitmap) =
 const infer = async (request: Extract<FaceWorkerRequest, { type: "infer" }>) => {
   await initialize()
   const startedAt = performance.now()
-  let response: FaceInferenceResult
   try {
-    if (request.mode === "landmarks") {
-      const landmarkBackend = await getLandmarker()
-      const landmarkResult = landmarkBackend.detectForVideo(request.bitmap, request.timestamp)
-      const landmarks = landmarkResult.faceLandmarks[0]
-      const readFace = landmarks ? readLandmarkFace(landmarks) : undefined
-      const face = readFace
-        ? { ...readFace, pose: readFacePose(landmarkResult.facialTransformationMatrixes[0]) }
-        : undefined
-      response = {
-        id: request.id,
-        type: "result",
-        mode: request.mode,
-        timestamp: request.timestamp,
-        faces: face ? [face] : [],
-        center: face && landmarks ? readLandmarkCenter(landmarks, face) : undefined,
-        inferenceMs: performance.now() - startedAt,
-      }
-    } else {
-      const detector = await getDetector(request.detectionRange)
-      response = {
-        id: request.id,
-        type: "result",
-        mode: request.mode,
-        timestamp: request.timestamp,
-        faces: readDetectedFaces(detector, request.bitmap),
-        inferenceMs: performance.now() - startedAt,
-      }
-    }
-    post(response)
+    const detector = await getDetector(request.detectionRange)
+    post({
+      id: request.id,
+      type: "result",
+      timestamp: request.timestamp,
+      faces: readDetectedFaces(detector, request.bitmap),
+      inferenceMs: performance.now() - startedAt,
+    })
   } finally {
     request.bitmap.close()
   }

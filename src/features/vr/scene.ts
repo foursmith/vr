@@ -1,5 +1,5 @@
 import type { CameraView, ProjectionMode, ProjectionQuality } from "@foursmith/player-core"
-import type { FaceDetectionRange, FaceInferenceMode, FaceInferenceResult, FacePose } from "../face-tracking/protocol"
+import type { FaceDetectionRange, FaceInferenceResult } from "../face-tracking/protocol"
 import type { DetectionMode, FaceAutoCenterState, FaceBox, FaceMovementHint, PanoramaSample } from "./face-auto-center"
 import type { FaceInferenceActivity } from "./frame-scheduler"
 import type { PanoramaRecoveryScan } from "./panorama-recovery"
@@ -14,9 +14,7 @@ import {
   getFaceCenteringVelocity,
   getFaceDetectionRange,
   getFaceForwardVelocity,
-  getFaceInferenceMode,
   getFaceMovementHint,
-  getFacePitchAdjustedCenter,
   getManualZoomForwardTarget,
   getPredictedFaceDirection,
   mapSampleFaceToPanorama,
@@ -96,7 +94,6 @@ export interface VrSceneOptions {
   hidden: boolean
   splitScreen: boolean
   faceAutoCenter: boolean
-  faceTrackingPro: boolean
   debugPanelOpen: boolean
   viewRef: MutableRefObject<CameraView>
   onFaceAutoCenterPauseChange: (paused: boolean) => void
@@ -104,7 +101,7 @@ export interface VrSceneOptions {
 }
 
 export interface VrSceneController {
-  update: (nextOptions: Partial<Pick<VrSceneOptions, "projection" | "quality" | "frameRate" | "hidden" | "splitScreen" | "faceAutoCenter" | "faceTrackingPro" | "debugPanelOpen">>) => void
+  update: (nextOptions: Partial<Pick<VrSceneOptions, "projection" | "quality" | "frameRate" | "hidden" | "splitScreen" | "faceAutoCenter" | "debugPanelOpen">>) => void
   getOutputCanvas: () => HTMLCanvasElement
   setFrameCapture: (capture?: (canvas: HTMLCanvasElement) => void) => void
   adjustForward: (direction: number) => void
@@ -174,7 +171,6 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   let inferenceActivity: FaceInferenceActivity = "searching"
   let rescanDuringMovement = false
   let lastDetectionRange: FaceDetectionRange = "short"
-  let lastInferenceMode: FaceInferenceMode = "detection"
   let automaticProjectionBoundary: ProjectionBoundaryWarning | undefined
   let panoramaRecoveryScan: PanoramaRecoveryScan | undefined
   const resetPanoramaScan = () => (panoramaRecoveryScan = undefined)
@@ -241,14 +237,11 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   interface DetectedFace {
     boundingBox: { x: number, y: number, width: number, height: number }
     score?: number
-    pose?: FacePose
-    center?: { x: number, y: number }
   }
   interface FaceDetectorBackend {
     detect: (
       source: ImageBitmapSource,
       detectionRange: FaceDetectionRange,
-      inferenceMode?: FaceInferenceMode,
     ) => Promise<DetectedFace[]>
     destroy: () => void
   }
@@ -425,9 +418,9 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
             : "searching"
     if (debugLogElement) {
       debugLogElement.textContent = [
-        `TRACKING state=${trackingState} enabled=${options.faceAutoCenter} pro=${options.faceTrackingPro} rescan=${rescanDuringMovement}`,
+        `TRACKING state=${trackingState} enabled=${options.faceAutoCenter} rescan=${rescanDuringMovement}`,
         `BOUNDARY state=${automaticProjectionBoundary ? "blocked" : "clear"} source=${automaticProjectionBoundary?.source ?? "none"} axis=${automaticProjectionBoundary?.axis ?? "none"}`,
-        `DETECTION mode=${faceState.detectionMode} range=${lastDetectionRange} backend=${lastInferenceMode} activity=${inferenceActivity} inference=${inferenceInFlight ? "running" : "idle"} recovery=${faceState.recoveryMode ?? "none"}`,
+        `DETECTION mode=${faceState.detectionMode} range=${lastDetectionRange} activity=${inferenceActivity} inference=${inferenceInFlight ? "running" : "idle"} recovery=${faceState.recoveryMode ?? "none"}`,
         `TARGET mode=${faceState.target?.mode ?? "none"} age=${targetAge.toFixed(2)}s size=${faceState.target?.size?.toFixed(3) ?? "--"} score=${faceState.selectedFace?.score.toFixed(3) ?? "--"}`,
         `SCHEDULE next=${Number.isFinite(nextDetectionIn) ? `${nextDetectionIn.toFixed(0)}ms` : "paused"} misses=${faceState.consecutiveMisses} viewportMisses=${faceState.consecutiveViewportMisses}`,
         `CAMERA yaw=${options.viewRef.current.yaw.toFixed(2)} pitch=${options.viewRef.current.pitch.toFixed(2)} forward=${options.viewRef.current.forward.toFixed(2)}`,
@@ -771,22 +764,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     if (options.debugPanelOpen) recentInferenceCompletions.push(completedAt)
     let foundFace = false
 
-    if (result.mode === "landmarks") {
-      const face = applyDetections(faceState, result.faces, time, "viewport")
-      faceState.detectionMode = "viewport"
-      if (face) updateFaceMotion(faceState, face, time, camera, options.viewRef.current)
-      const pitchAdjustedCenter = result.center
-        ? getFacePitchAdjustedCenter(result.center, face?.pose?.pitch)
-        : undefined
-      foundFace = setViewportTarget(
-        faceState,
-        face,
-        time,
-        pitchAdjustedCenter,
-        options.viewRef.current.forward,
-        getFaceSurfaceDistance(projection),
-      )
-    } else if (detectionMode === "panorama" && panoramaSample) {
+    if (detectionMode === "panorama" && panoramaSample) {
       faceState.detectionMode = "panorama"
       const sampleFaces = new Map<FaceBox, FaceBox>()
       const face = applyDetections(faceState, result.faces, time, "panorama", {
@@ -972,27 +950,15 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       .then((detector) => {
         lastCaptureMs = performance.now() - captureStartedAt
         const detectionRange = getFaceDetectionRange(detectionMode, faceState.consecutiveViewportMisses)
-        const inferenceMode = getFaceInferenceMode(
-          detectionMode,
-          Boolean(
-            detectionRange === "short"
-            && faceState.target?.mode === "viewport"
-            && faceState.consecutiveMisses === 0,
-          ),
-          options.faceTrackingPro,
-        )
         lastDetectionRange = detectionRange
-        lastInferenceMode = inferenceMode
-        return detector.detect(inferenceCanvas, detectionRange, inferenceMode)
-          .then(faces => ({ faces, inferenceMode }))
+        return detector.detect(inferenceCanvas, detectionRange)
       })
-      .then(({ faces, inferenceMode }) => {
+      .then((faces) => {
         completedInferenceMs = performance.now() - captureStartedAt
         if (disposed || generation !== inferenceGeneration || video.paused || !options.faceAutoCenter || options.hidden) return
         const result: FaceInferenceResult = {
           id: 0,
           type: "result",
-          mode: inferenceMode,
           timestamp: now,
           faces: faces.map(face => ({
             x: face.boundingBox.x / inputWidth,
@@ -1000,11 +966,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
             width: face.boundingBox.width / inputWidth,
             height: face.boundingBox.height / inputHeight,
             score: face.score ?? 1,
-            pose: face.pose,
           })),
-          center: faces[0]?.center
-            ? { x: faces[0].center.x / inputWidth, y: faces[0].center.y / inputHeight }
-            : undefined,
           inferenceMs: completedInferenceMs,
         }
         if (applyInferenceResult(result, detectionMode, panoramaSample, projection)) {
@@ -1223,11 +1185,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         = nextOptions.projection !== undefined
           || nextOptions.hidden !== undefined
           || nextOptions.faceAutoCenter !== undefined
-          || nextOptions.faceTrackingPro !== undefined
       if (invalidatesInference) inferenceGeneration += 1
-      const releasesFaceDetector = nextOptions.faceAutoCenter === false
-        || (nextOptions.faceTrackingPro === false && options.faceTrackingPro)
-      if (releasesFaceDetector) releaseFaceDetector()
+      if (nextOptions.faceAutoCenter === false) releaseFaceDetector()
       Object.assign(options, nextOptions)
       if (!options.faceAutoCenter && faceState.manuallyPaused) setManualFaceCenterPaused(false)
       if (opensDebugPanel) {
@@ -1254,7 +1213,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       if (options.hidden) {
         stopScheduledRender()
       } else {
-        if (nextOptions.faceAutoCenter === true || nextOptions.faceTrackingPro === true || nextOptions.projection !== undefined) {
+        if (nextOptions.faceAutoCenter === true || nextOptions.projection !== undefined) {
           faceState.nextDetectionAt = 0
         }
         requestRender()

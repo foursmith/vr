@@ -19,7 +19,7 @@ Only one inference may be in flight. Each inference follows this pipeline:
 
 1. choose viewport detection or panorama recovery;
 2. capture a perspective inference image;
-3. run the selected detector or landmarker;
+3. run the selected face detector;
 4. filter and select a face;
 5. convert the result into viewport or panorama coordinates;
 6. update the centering target and motion model;
@@ -33,10 +33,8 @@ The next inference time is measured from the start of the previous inference. Co
 
 The player alternates between two spatial detection modes:
 
-- **Viewport detection** copies the currently rendered view into a reusable inference canvas. Each acquisition cycle starts with the BlazeFace short-range detector. A miss retries the same viewport once with the full-range detector; only a second miss enters panorama recovery. A successful viewport result clears the miss count, so the next cycle starts from short range again. Precision tracking Pro may replace the initial short-range pass with landmarks for an already reliable viewport target, but its miss still falls back to the same full-range viewport retry.
+- **Viewport detection** copies the currently rendered view into a reusable inference canvas. Each acquisition cycle starts with the BlazeFace short-range detector. A miss retries the same viewport once with the full-range detector; only a second miss enters panorama recovery. A successful viewport result clears the miss count, so the next cycle starts from short range again.
 - **Panorama recovery** renders one perspective view of the projection sphere per inference. It uses the MediaPipe full-range detector because a face occupies fewer pixels in a wide-FOV recovery tile.
-
-The face landmarker model is not requested or instantiated while Precision tracking Pro is disabled. Enabling Pro allows the next reliable viewport target to load and use it lazily. Disabling Pro releases the active face-tracking backend if it had been enabled. A landmarker miss falls back to the viewport detector for the single viewport retry before recovery. Panorama recovery always uses face detection rather than landmarks.
 
 ### Face filtering and target selection
 
@@ -63,9 +61,9 @@ Within the same mode and a gap of at most 1.5 seconds, a new detection is classi
 1. A viewport detection succeeds:
    - update the selected face, centering target, and motion model;
    - clear the recovery tile index and miss counters;
-   - continue viewport tracking, using MediaPipe landmarks while the target remains reliable.
+   - continue viewport tracking with the short-range detector.
 2. A viewport detection misses:
-   - after a short-range or landmark miss, stay in viewport mode and retry the same rendered view with the full-range detector;
+   - after a short-range miss, stay in viewport mode and retry the same rendered view with the full-range detector;
    - preserve the activity and adaptive frequency used by the missed inference for that retry;
    - after the second consecutive miss, store the current camera yaw and pitch, freeze the current motion prediction, order the five recovery tiles by proximity to that predicted direction, and enter panorama recovery.
 3. A recovery tile returns a candidate:
@@ -81,18 +79,6 @@ Within the same mode and a gap of at most 1.5 seconds, a new detection is classi
    - after the final coarse tile, clear the viewport-miss counter and return to viewport detection before another recovery pass.
 
 Only viewport misses count toward the two-miss recovery threshold. A successful detection clears both miss counters. Face continuity remains active across short misses so one failed inference does not immediately discard the subject.
-
-### Face pose
-
-When Precision tracking Pro is enabled and MediaPipe establishes a reliable viewport target, the face landmarker returns 478 normalized landmarks and a canonical-face transformation matrix. The player uses the eye and nose landmarks for the viewport center and decomposes the column-major 4×4 matrix into signed YXZ Euler angles:
-
-- `yaw` is rotation around the vertical Y axis;
-- `pitch` is rotation around the horizontal X axis;
-- `roll` is rotation around the forward Z axis.
-
-The decomposition removes uniform scale before reading rotation and handles the YXZ gimbal-lock case by fixing roll to zero. Invalid, non-finite, or non-4×4 transforms are ignored.
-
-Pitch adjusts vertical composition. Magnitudes up to 6° are ignored. Beyond that dead zone, the offset grows linearly and reaches its maximum at 30°. Negative pitch moves the target upward and positive pitch moves it downward. The offset is capped at 12% of viewport height and passes through the normal 480 ms target smoothing. Yaw and roll are diagnostic data only; they do not affect centering, motion prediction, face identity selection, or panorama mapping.
 
 ## Detection capture and recovery scan
 
@@ -271,12 +257,12 @@ The configured playback render rate limits ordinary video presentation but does 
 
 Changes to any of the following must update this document in the same change:
 
-- face detector or landmarker selection, confidence filtering, or target selection;
+- face detector selection, confidence filtering, or target selection;
 - viewport/recovery state transitions;
 - scan tile count, order, yaw, pitch, FOV, or projection coverage;
 - perspective capture or GPU readback behavior;
 - perspective-to-panorama coordinate mapping;
-- composition target, pose adjustment, target smoothing, dead zones, or camera motion;
+- composition target, target smoothing, dead zones, or camera motion;
 - forward/backward estimation or projection-edge protection;
 - motion smoothing, proximity, movement, recession, or subject-switch calculations;
 - activity states, frequency limits, thresholds, headroom, or P95 scheduling.
@@ -288,7 +274,6 @@ Primary implementation files:
 - `src/features/vr/panorama-recovery.ts`
 - `src/features/vr/frame-scheduler.ts`
 - `src/features/vr/scene.ts`
-- `src/features/face-tracking/pose.ts`
 
 Primary tests:
 
@@ -296,6 +281,5 @@ Primary tests:
 - `tests/unit/face-auto-center.test.ts`
 - `tests/unit/panorama-recovery.test.ts`
 - `tests/unit/frame-scheduler.test.ts`
-- `tests/unit/face-pose.test.ts`
 
 When changing the algorithm, update the relevant unit tests, run `bun run typecheck`, `bun run test`, and `bun run lint`, and verify that this document still describes the shipped constants and state transitions.

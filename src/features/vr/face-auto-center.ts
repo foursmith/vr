@@ -1,6 +1,6 @@
 import type { ProjectionMode } from "@foursmith/player-core"
 import type { PerspectiveCamera } from "three"
-import type { FaceDetectionRange, FaceInferenceMode, NormalizedFace } from "../face-tracking/protocol"
+import type { FaceDetectionRange, NormalizedFace } from "../face-tracking/protocol"
 import { Euler, MathUtils, Vector3 } from "three"
 import { MIN_FACE_CONFIDENCE } from "../face-tracking/protocol"
 
@@ -23,9 +23,6 @@ export const FACE_CENTER_STOP_SPEED = 0.025
 const FACE_CENTER_ETA_SETTLE_OFFSET = 0.01
 const FACE_CENTER_PLAN_EPSILON = 0.001
 export const FACE_CENTER_EDGE_MARGIN_DEGREES = 2
-export const FACE_PITCH_LOOK_DEAD_ZONE_DEGREES = 6
-export const FACE_PITCH_LOOK_FULL_SCALE_DEGREES = 30
-export const FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET = 0.12
 export const VIEWPORT_MISSES_BEFORE_PANORAMA = 2
 export const FACE_DIRECTION_MAX_AGE_MS = 900
 export const FACE_DIRECTION_SCAN_LEAD_MS = 160
@@ -46,11 +43,6 @@ export const getFaceDetectionRange = (
   mode: DetectionMode,
   consecutiveViewportMisses = 0,
 ): FaceDetectionRange => mode === "panorama" || consecutiveViewportMisses > 0 ? "full" : "short"
-export const getFaceInferenceMode = (
-  mode: DetectionMode,
-  hasReliableTarget: boolean,
-  faceTrackingPro: boolean,
-): FaceInferenceMode => mode === "viewport" && hasReliableTarget && faceTrackingPro ? "landmarks" : "detection"
 export interface FaceTarget { x: number, y: number, size?: number, yaw?: number, pitch?: number, forward?: number, mode: DetectionMode, lastSeenAt: number }
 export interface FaceCenteringError {
   yaw: number
@@ -440,25 +432,6 @@ export const getFaceWorldDirection = (
   return {
     yaw: shortestAngle(view.yaw + getViewportYawOffset(camera, center.x)),
     pitch: clamp(view.pitch + getViewportPitchOffset(camera, center.y), -90, 90),
-  }
-}
-
-export const getFacePitchAdjustedCenter = (
-  center: { x: number, y: number },
-  pitch: number | undefined,
-) => {
-  if (pitch === undefined || !Number.isFinite(pitch)) return center
-  const magnitude = Math.abs(pitch)
-  if (magnitude <= FACE_PITCH_LOOK_DEAD_ZONE_DEGREES) return center
-  const strength = clamp(
-    (magnitude - FACE_PITCH_LOOK_DEAD_ZONE_DEGREES)
-    / (FACE_PITCH_LOOK_FULL_SCALE_DEGREES - FACE_PITCH_LOOK_DEAD_ZONE_DEGREES),
-    0,
-    1,
-  )
-  return {
-    x: center.x,
-    y: clamp(center.y + Math.sign(pitch) * FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET * strength, 0, 1),
   }
 }
 
