@@ -133,7 +133,7 @@ Bug reports, feature requests, and pull requests are welcome. Please use [GitHub
 4. Use a [Conventional Commit](https://www.conventionalcommits.org/) message, for example `fix(player): correct projection reset`.
 5. Open a pull request describing the change and how it was tested.
 
-When changing the Web UI, follow the project's [SolidJS 2 migration guide](doc/MIGRATION.md) and existing UnoCSS Wind3 conventions. Changes to face tracking and recovery scanning must also keep the [face scanning algorithm reference](doc/FACE_SCANNING.md) synchronized.
+When changing the Web UI, follow the project's [SolidJS 2 migration guide](doc/MIGRATION.md) and existing UnoCSS Wind3 conventions. Changes to face detection, tracking, or centering algorithms must also keep the [portrait centering reference](doc/PORTRAIT_CENTERING.md) synchronized.
 
 ## License
 

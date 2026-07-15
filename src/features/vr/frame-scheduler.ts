@@ -5,7 +5,7 @@ export interface FrameSchedule {
 
 export type FrameScheduleMode = "interaction" | "playback"
 
-// Keep doc/FACE_SCANNING.md synchronized with inference activity and threshold changes.
+// Keep doc/PORTRAIT_CENTERING.md synchronized with inference activity and threshold changes.
 
 const FRAME_DEADLINE_TOLERANCE_MS = 0.5
 const INFERENCE_HEADROOM = 1.15

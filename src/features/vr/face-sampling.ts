@@ -3,7 +3,7 @@ import type { PerspectiveCamera } from "three"
 import type { FaceAutoCenterState, PanoramaSample } from "./face-auto-center"
 import { MathUtils } from "three"
 
-// Keep doc/FACE_SCANNING.md synchronized with scan geometry and sampling changes.
+// Keep doc/PORTRAIT_CENTERING.md synchronized with scan geometry and sampling changes.
 
 const VIEWPORT_TARGET_X = 0.5
 const VIEWPORT_TARGET_Y = 1 / 3

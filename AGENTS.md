@@ -35,8 +35,8 @@
 
 - Do not run end-to-end (e2e) tests unless the user explicitly requests them.
 
-### Face Scanning Algorithm
+### Portrait Centering
 
-- [`doc/FACE_SCANNING.md`](doc/FACE_SCANNING.md) is the maintenance reference for face recovery scanning, perspective mapping, motion prediction, and adaptive inference scheduling.
-- Any change to the scan geometry, recovery state machine, capture path, coordinate mapping, motion model, frequency thresholds, or related debug metrics must update `doc/FACE_SCANNING.md` in the same change.
-- Update the corresponding face-scanning unit tests whenever the algorithm changes.
+- [`doc/PORTRAIT_CENTERING.md`](doc/PORTRAIT_CENTERING.md) is the maintenance reference for portrait centering, face detection, target selection, recovery scanning, coordinate mapping, camera motion, motion prediction, and adaptive inference scheduling. UI behavior is outside its scope.
+- Any change to those algorithms must update `doc/PORTRAIT_CENTERING.md` in the same change.
+- Update the corresponding portrait-centering unit tests whenever an algorithm changes.
