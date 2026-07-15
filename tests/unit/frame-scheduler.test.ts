@@ -33,4 +33,23 @@ describe("frame scheduler", () => {
   it("slows face inference when processing cannot keep up with the render target", () => {
     expect(faceInferencePeriod(60, 40)).toBeCloseTo(46)
   })
+
+  it("adapts inference frequency to tracking activity", () => {
+    expect(faceInferencePeriod(60, 0, "stable")).toBeCloseTo(1000 / 3)
+    expect(faceInferencePeriod(60, 0, "active")).toBeCloseTo(1000 / 6)
+    expect(faceInferencePeriod(60, 0, "searching")).toBe(125)
+    expect(faceInferencePeriod(60, 0, "recovery")).toBeCloseTo(1000 / 12)
+  })
+
+  it("uses measured inference cost as a floor for every activity", () => {
+    expect(faceInferencePeriod(60, 100, "stable")).toBeCloseTo(1000 / 3)
+    expect(faceInferencePeriod(60, 100, "active")).toBeCloseTo(1000 / 6)
+    expect(faceInferencePeriod(60, 100, "recovery")).toBeCloseTo(103)
+  })
+
+  it("slows down for a close still face and anticipates fast or receding motion", () => {
+    expect(faceInferencePeriod(60, 0, "stable", { size: 0.25, speed: 0.02, recedingSpeed: 0 })).toBe(500)
+    expect(faceInferencePeriod(60, 0, "active", { size: 0.12, speed: 0.5, recedingSpeed: 0 })).toBe(100)
+    expect(faceInferencePeriod(60, 0, "stable", { size: 0.12, speed: 0.02, recedingSpeed: 0.15 })).toBe(100)
+  })
 })

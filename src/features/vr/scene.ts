@@ -2,6 +2,7 @@ import type { CameraView, ProjectionMode, ProjectionQuality } from "@foursmith/p
 import type { PerspectiveCamera } from "three"
 import type { FaceCenteringMode, FaceInferenceResult } from "../face-tracking/protocol"
 import type { DetectionMode, FaceAutoCenterState, PanoramaSample } from "./face-auto-center"
+import type { FaceInferenceActivity } from "./frame-scheduler"
 import { createVrPlayerCore, DEFAULT_FOV, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS } from "@foursmith/player-core"
 import { MathUtils } from "three"
 import {
@@ -12,8 +13,15 @@ import {
 
   setPanoramaTarget,
   setViewportTarget,
+  updateFaceMotion,
 } from "./face-auto-center"
-import { drawPanoramaInferenceSample, drawSampleBoxes, drawViewportInferenceSample } from "./face-sampling"
+import {
+  createPerspectivePanoramaSample,
+  drawSampleBoxes,
+  drawViewportInferenceSample,
+  getPanoramaScanTile,
+  getPanoramaScanTileCount,
+} from "./face-sampling"
 import { faceInferencePeriod, scheduleFrame } from "./frame-scheduler"
 
 export { DEFAULT_FOV, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS }
@@ -118,6 +126,10 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   const recentInferenceTimes: number[] = []
   let lastInferenceMs = 0
   let lastCaptureMs = 0
+  let inferenceActivity: FaceInferenceActivity = "searching"
+  let panoramaScanIndex = 0
+  let panoramaScanOriginYaw = options.viewRef.current.yaw
+  let panoramaScanOriginPitch = options.viewRef.current.pitch
   let lastInputSize = "--"
   let skippedInferenceFrames = 0
   let overlayVisible = !options.hintElement.hidden
@@ -301,7 +313,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       `FPS ${fps}  P95 ${p95.toFixed(1)} ms`,
       renderStrategy,
       `Render CPU ${lastRenderMs.toFixed(2)} ms  P95 ${renderP95.toFixed(2)} ms`,
-      `Track ${trackingHz.toFixed(1)} Hz  Infer ${lastInferenceMs.toFixed(1)} ms`,
+      `Track ${trackingHz.toFixed(1)} Hz  Infer ${lastInferenceMs.toFixed(1)} ms  ${inferenceActivity}`,
+      `Motion ${(faceState.motion?.speed ?? 0).toFixed(2)}/s  Away ${Math.max(0, faceState.motion?.recedingSpeed ?? 0).toFixed(2)}/s  Size ${(faceState.motion?.size ?? 0).toFixed(2)}`,
       `Capture ${lastCaptureMs.toFixed(1)} ms  Skipped ${skippedInferenceFrames}`,
       `${faceDetector ? options.faceCenteringMode === "system" ? "System Worker" : "MediaPipe Worker" : "Face detector idle"}  Input ${lastInputSize}`,
     ].join("\n")
@@ -324,6 +337,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   const onMetadata = () => {
     texture.needsUpdate = true
     rebuildProjection()
+    faceState.motion = undefined
     faceState.nextDetectionAt = 0
     requestRender()
   }
@@ -337,6 +351,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     inferenceGeneration += 1
     faceState.faces = []
     faceState.target = undefined
+    faceState.motion = undefined
     faceState.recoveryMode = undefined
     faceState.yawVelocity = 0
     faceState.pitchVelocity = 0
@@ -499,7 +514,15 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     const sortedInferenceTimes = [...recentInferenceTimes].sort((a, b) => a - b)
     const p95Index = Math.max(0, Math.ceil(sortedInferenceTimes.length * 0.95) - 1)
     const inferenceP95 = sortedInferenceTimes[p95Index] ?? 0
-    const adaptivePeriod = faceInferencePeriod(options.frameRate, inferenceP95)
+    const target = faceState.target
+    const targetNeedsMovement = target
+      && (Math.abs(target.x) > VIEWPORT_DEAD_ZONE_X || Math.abs(target.y) > VIEWPORT_DEAD_ZONE_Y)
+    if (faceState.recoveryMode === "panorama") inferenceActivity = "recovery"
+    else if (!target || faceState.consecutiveMisses > 0) inferenceActivity = "searching"
+    else if (faceState.isMoving || faceState.offCenterSince !== undefined || targetNeedsMovement) inferenceActivity = "active"
+    else inferenceActivity = "stable"
+    const motion = faceState.motion && now - faceState.motion.lastSeenAt < 1500 ? faceState.motion : undefined
+    const adaptivePeriod = faceInferencePeriod(options.frameRate, inferenceP95, inferenceActivity, motion)
     // Keep the adaptive period measured from inference start to inference start.
     faceState.nextDetectionAt = now + Math.max(0, adaptivePeriod - completedInferenceMs)
   }
@@ -542,6 +565,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       faceState.detectionMode = "viewport"
       faceState.faces = face ? [face] : []
       faceState.selectedFace = face ? { ...face, mode: "viewport" } : faceState.selectedFace
+      if (face) updateFaceMotion(faceState, face, time)
       foundFace = setViewportTarget(faceState, face, time, result.center)
       faceState.recoveryMode = foundFace ? undefined : "viewport"
     } else if (detectionMode === "panorama" && panoramaSample) {
@@ -553,18 +577,101 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         wrapX: panoramaSample.wraps,
       }, sampleFace => mapSampleFaceToPanorama(sampleFace, panoramaSample))
       foundFace = setPanoramaTarget(faceState, face, time, projection, camera)
-      faceState.recoveryMode = undefined
+      if (foundFace) {
+        panoramaScanIndex = 0
+        faceState.recoveryMode = undefined
+      } else if (panoramaScanIndex + 1 < getPanoramaScanTileCount(projection)) {
+        panoramaScanIndex += 1
+        faceState.recoveryMode = "panorama"
+      } else {
+        panoramaScanIndex = 0
+        faceState.recoveryMode = undefined
+      }
     } else {
       faceState.detectionMode = "viewport"
       const face = applyDetections(faceState, result.faces, time, "viewport")
+      if (face) updateFaceMotion(faceState, face, time)
       foundFace = setViewportTarget(faceState, face, time)
-      faceState.recoveryMode = foundFace ? undefined : "panorama"
+      if (foundFace) {
+        panoramaScanIndex = 0
+        faceState.recoveryMode = undefined
+      } else {
+        panoramaScanIndex = 0
+        panoramaScanOriginYaw = options.viewRef.current.yaw
+        panoramaScanOriginPitch = options.viewRef.current.pitch
+        faceState.recoveryMode = "panorama"
+      }
     }
 
     updateTrackingResult(foundFace, time)
     if (options.debugPanelOpen) {
       drawSampleBoxes(faceState, sampleCanvas, sampleContext!, performance.now(), faceState.detectionMode)
     }
+  }
+
+  const renderSceneViewports = () => {
+    const viewports = getRenderViewports(mount.clientWidth, mount.clientHeight, options.splitScreen)
+    renderer.setScissorTest(viewports.length > 1)
+    renderer.setViewport(0, 0, mount.clientWidth, mount.clientHeight)
+    renderer.setScissor(0, 0, mount.clientWidth, mount.clientHeight)
+    viewports.forEach((viewport) => {
+      renderer.setViewport(viewport.x, viewport.y, viewport.width, viewport.height)
+      renderer.setScissor(viewport.x, viewport.y, viewport.width, viewport.height)
+      renderer.render(scene, camera)
+    })
+    renderer.setScissorTest(false)
+  }
+
+  const capturePanoramaInferenceSample = (projection: ProjectionMode) => {
+    const tile = getPanoramaScanTile(projection, panoramaScanIndex, panoramaScanOriginYaw, panoramaScanOriginPitch)
+    const savedCamera = {
+      aspect: camera.aspect,
+      fov: camera.fov,
+      zoom: camera.zoom,
+      x: camera.rotation.x,
+      y: camera.rotation.y,
+      z: camera.rotation.z,
+      order: camera.rotation.order,
+    }
+    const side = Math.max(1, Math.min(mount.clientWidth, mount.clientHeight))
+    const sidePixels = Math.min(
+      renderer.domElement.width,
+      renderer.domElement.height,
+      Math.max(1, Math.round(side * renderer.getPixelRatio())),
+    )
+
+    let size: ReturnType<typeof drawViewportInferenceSample>
+    try {
+      camera.aspect = 1
+      camera.fov = tile.fov
+      camera.zoom = 1
+      camera.rotation.set(MathUtils.degToRad(tile.pitch), MathUtils.degToRad(tile.yaw), 0, "YXZ")
+      camera.updateProjectionMatrix()
+      renderer.setScissorTest(true)
+      renderer.setViewport(0, 0, side, side)
+      renderer.setScissor(0, 0, side, side)
+      renderer.render(scene, camera)
+
+      size = drawViewportInferenceSample(
+        sampleCanvas,
+        sampleContext!,
+        renderer.domElement,
+        0,
+        renderer.domElement.height - sidePixels,
+        sidePixels,
+        sidePixels,
+        PANORAMA_SAMPLE_WIDTH,
+      )
+    } finally {
+      camera.aspect = savedCamera.aspect
+      camera.fov = savedCamera.fov
+      camera.zoom = savedCamera.zoom
+      camera.rotation.set(savedCamera.x, savedCamera.y, savedCamera.z, savedCamera.order)
+      camera.updateProjectionMatrix()
+      renderSceneViewports()
+    }
+
+    return size ? createPerspectivePanoramaSample(projection, tile) : undefined
   }
 
   const submitInference = (now: number) => {
@@ -581,15 +688,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     try {
       if (faceState.recoveryMode === "panorama") {
         detectionMode = "panorama"
-        panoramaSample = drawPanoramaInferenceSample(
-          sampleCanvas,
-          sampleContext,
-          video,
-          PANORAMA_SAMPLE_WIDTH,
-          projection,
-          options.viewRef.current,
-          camera,
-        )
+        panoramaSample = capturePanoramaInferenceSample(projection)
         if (!panoramaSample) return
         inputWidth = sampleCanvas.width
         inputHeight = sampleCanvas.height
@@ -680,6 +779,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     if (!options.faceAutoCenter || options.hidden) {
       faceState.faces = []
       faceState.target = undefined
+      faceState.motion = undefined
       faceState.recoveryMode = undefined
       faceState.consecutiveMisses = 0
       faceState.yawVelocity = 0
@@ -692,6 +792,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     if (!video.videoWidth || !video.videoHeight || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
       faceState.faces = []
       faceState.target = undefined
+      faceState.motion = undefined
       faceState.recoveryMode = undefined
       faceState.yawVelocity = 0
       faceState.pitchVelocity = 0
@@ -805,18 +906,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     }
     camera.rotation.set(MathUtils.degToRad(options.viewRef.current.pitch), MathUtils.degToRad(options.viewRef.current.yaw), 0, "YXZ")
     const renderStartedAt = performance.now()
-    const viewports = getRenderViewports(mount.clientWidth, mount.clientHeight, options.splitScreen)
-    renderer.setScissorTest(viewports.length > 1)
-    renderer.setViewport(0, 0, mount.clientWidth, mount.clientHeight)
-    renderer.setScissor(0, 0, mount.clientWidth, mount.clientHeight)
-    const renderViewport = (viewport: RenderViewport) => {
-      renderer.setViewport(viewport.x, viewport.y, viewport.width, viewport.height)
-      renderer.setScissor(viewport.x, viewport.y, viewport.width, viewport.height)
-      renderer.render(scene, camera)
-    }
-
-    viewports.forEach(renderViewport)
-    renderer.setScissorTest(false)
+    renderSceneViewports()
     frameCapture?.(renderer.domElement)
     lastRenderMs = performance.now() - renderStartedAt
     recentRenderTimes.push(lastRenderMs)
@@ -893,6 +983,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       stopScheduledRender()
       faceState.faces = []
       faceState.target = undefined
+      faceState.motion = undefined
       faceState.recoveryMode = undefined
       faceState.consecutiveMisses = 0
       faceState.isMoving = false
