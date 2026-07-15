@@ -280,6 +280,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   const [volume, setVolume] = createSignal(initialPreferences.volume)
   const [playbackRate, setPlaybackRate] = createSignal(initialPreferences.playbackRate)
   const [repeatMode, setRepeatMode] = createSignal<RepeatMode>(initialPreferences.repeatMode)
+  const [autoResumePlayback, setAutoResumePlayback] = createSignal(initialPreferences.autoResumePlayback)
   const [abLoop, setAbLoop] = createStore({ a: undefined as number | undefined, b: undefined as number | undefined })
   const [abExport, setAbExport] = createStore({
     status: "idle" as AbExportStatus,
@@ -1274,7 +1275,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
         serverState.endpoint,
       ).href
       lastPlayback = { ...playback, key: videoStateKey({ name: location.name, url: mediaUrl }) }
-      loadVideoUrl(mediaUrl, location.name, `${identity.sourceId}:${identity.entryId}`)
+      if (autoResumePlayback()) loadVideoUrl(mediaUrl, location.name, `${identity.sourceId}:${identity.entryId}`)
     }
   }
 
@@ -1574,6 +1575,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       renderFrameRateId: renderFrameRateId(),
       splitScreen: splitScreen(),
       faceAutoCenter: faceAutoCenter(),
+      autoResumePlayback: autoResumePlayback(),
       subtitlesEnabled: subtitlesEnabled(),
       repeatMode: repeatMode(),
     }),
@@ -1667,6 +1669,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       openVideoFile,
       abLoop,
       abExport,
+      autoResumePlayback,
       clearAbLoop,
       abExportFormatSupported: isAbExportFormatSupported,
       exportAbLoop,
@@ -1684,6 +1687,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       setRepeatMode,
       setAbEnd,
       setAbStart,
+      setAutoResumePlayback,
       setVolumeLevel,
       startInitialLoad,
       syncTime,
@@ -1724,6 +1728,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     },
     server: {
       authenticate: authenticateServer,
+      enabled: () => connectFsvr,
       scanDlna,
       state: serverState,
     },

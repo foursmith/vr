@@ -48,7 +48,7 @@ function SettingToggle(props: {
 
 export function SettingsModal(props: { controller: PlayerController, open: boolean, onOpenChange: (open: boolean) => void }) {
   const controller = untrack(() => props.controller)
-  const { debug, display, frame } = controller
+  const { debug, display, frame, playback, server } = controller
   const { setFaceAutoCenter, setQualityId, setRenderFrameRateId, setSplitScreen, state } = display
   const [narrowScreen, setNarrowScreen] = createSignal(window.matchMedia("(max-width: 639.9px)").matches)
   onSettled(() => {
@@ -110,6 +110,15 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
           pressed={state.faceAutoCenter}
           onCheckedChange={setFaceAutoCenter}
         />
+        <Show when={server.enabled()}>
+          <SettingToggle
+            title="Auto-resume playback"
+            description="Automatically reopen and play the last server video on startup."
+            icon="play"
+            pressed={playback.autoResumePlayback()}
+            onCheckedChange={playback.setAutoResumePlayback}
+          />
+        </Show>
         <Show when={!narrowScreen()}>
           <details class="settings-collapsible group overflow-hidden rounded-2xl bg-white/4">
             <summary class="grid min-h-13 cursor-pointer list-none grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-3 py-1 pl-3 pr-1 text-left transition-colors marker:hidden hover:bg-white/8">

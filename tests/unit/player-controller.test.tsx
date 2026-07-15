@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Player } from "../../src/components/player/Player"
 
 import { createPlayerController } from "../../src/features/player/controller"
-import { loadGlobalPreferences, loadVideoPlaybackState, videoStateKey } from "../../src/features/player/playback-state"
+import { DEFAULT_GLOBAL_PREFERENCES, loadGlobalPreferences, loadVideoPlaybackState, saveGlobalPreferences, saveLastPlayback, videoStateKey } from "../../src/features/player/playback-state"
 
 const mocks = vi.hoisted(() => ({
   sceneController: {
@@ -120,6 +120,24 @@ describe("player controller", () => {
     const { dispose } = setupController()
     await settle()
     expect(fetch).not.toHaveBeenCalled()
+    dispose()
+  })
+
+  it("hides auto-resume playback in pure web mode", async () => {
+    const { controller, dispose, host } = setupController()
+    const fileInput = host.querySelector<HTMLInputElement>("input[type='file']:not([webkitdirectory])")!
+    Object.defineProperty(fileInput, "files", {
+      configurable: true,
+      value: [new File(["video"], "movie.mp4", { type: "video/mp4" })],
+    })
+
+    controller.frame.handleFile()
+    await vi.advanceTimersByTimeAsync(200)
+    await settle()
+    host.querySelector<HTMLButtonElement>("button[aria-label='Settings']")!.click()
+    await settle()
+
+    expect(host.querySelector("button[aria-label='Auto-resume playback']")).toBeNull()
     dispose()
   })
 
@@ -597,6 +615,7 @@ describe("player controller", () => {
     controller.display.setRenderFrameRateId(1)
     controller.display.setSplitScreen(false)
     controller.display.setFaceAutoCenter(false)
+    controller.playback.setAutoResumePlayback(true)
     controller.subtitles.toggle()
     await settle()
     expect(loadGlobalPreferences()).toMatchObject({
@@ -607,6 +626,7 @@ describe("player controller", () => {
       renderFrameRateId: 1,
       splitScreen: false,
       faceAutoCenter: false,
+      autoResumePlayback: true,
       subtitlesEnabled: false,
     })
     dispose()
@@ -632,6 +652,29 @@ describe("player controller", () => {
     dispose()
   })
 
+  it("resumes the last browser file when its folder is imported with startup auto-resume disabled", async () => {
+    const first = new File(["first"], "first.mp4", { type: "video/mp4", lastModified: 10 })
+    const lastPlayed = new File(["last"], "last.mp4", { type: "video/mp4", lastModified: 20 })
+    Object.defineProperty(first, "webkitRelativePath", { value: "Movies/first.mp4" })
+    Object.defineProperty(lastPlayed, "webkitRelativePath", { value: "Movies/last.mp4" })
+    saveLastPlayback({ key: videoStateKey({ name: lastPlayed.name, file: lastPlayed }), position: 37, projectionId: 2 })
+
+    const { controller, dispose, host, video } = setupController()
+    expect(controller.playback.autoResumePlayback()).toBe(false)
+    const folderInput = host.querySelector<HTMLInputElement>("input[webkitdirectory]")!
+    Object.defineProperty(folderInput, "files", { configurable: true, value: [first, lastPlayed] })
+
+    controller.frame.handleFolder()
+    await vi.advanceTimersByTimeAsync(200)
+    await settle()
+
+    const selected = controller.playlist.playlistVideos().find(node => node.id === controller.playlist.state.selectedId)
+    expect(selected?.name).toBe("last.mp4")
+    expect(video.currentTime).toBe(37)
+    expect(controller.display.state.projectionId).toBe(2)
+    dispose()
+  })
+
   it("reports initialization failures and allows retry", async () => {
     const warning = vi.spyOn(console, "warn").mockImplementation(() => {})
     mocks.createVrScene.mockImplementationOnce(() => {
@@ -651,6 +694,7 @@ describe("player controller", () => {
   })
 
   it("restores the last fsvr video from a legacy URL key", async () => {
+    saveGlobalPreferences({ ...DEFAULT_GLOBAL_PREFERENCES, autoResumePlayback: true })
     const mediaPath = "/api/v1/media/local/Zm9sZGVyL21vdmllLm1wNA"
     localStorage.setItem("foursmith-vr:last-playback", JSON.stringify({
       key: `url:${window.location.origin}${mediaPath}`,
@@ -673,7 +717,7 @@ describe("player controller", () => {
       return Response.json({ error: "not found" }, { status: 404 })
     }))
 
-    const { controller, dispose, video } = setupController({ connectFsvr: true })
+    const { controller, dispose, host, video } = setupController({ connectFsvr: true })
     await settle()
     await vi.advanceTimersByTimeAsync(200)
     await settle()
@@ -690,6 +734,49 @@ describe("player controller", () => {
       position: 37,
       projectionId: 2,
     })
+    host.querySelector<HTMLButtonElement>("button[aria-label='Settings']")!.click()
+    await settle()
+    expect(host.querySelector("button[aria-label='Auto-resume playback']")).not.toBeNull()
+    dispose()
+  })
+
+  it("does not restore the last fsvr video when auto-resume playback is disabled", async () => {
+    saveGlobalPreferences({ ...DEFAULT_GLOBAL_PREFERENCES, autoResumePlayback: false })
+    localStorage.setItem("foursmith-vr:last-playback", JSON.stringify({
+      key: "fsvr:local/Zm9sZGVyL21vdmllLm1wNA",
+      position: 37,
+      projectionId: 2,
+    }))
+    const fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input))
+      if (url.pathname === "/api/v1/status") return Response.json({ name: "fsvr" })
+      if (url.pathname === "/api/v1/auth") return Response.json({ authenticated: true })
+      if (url.pathname === "/api/v1/sources") {
+        return Response.json([{ id: "local", name: "Movies", kind: "local" }])
+      }
+      if (url.pathname === "/api/v1/sources/local/entries" && !url.searchParams.has("path")) {
+        return Response.json([{ id: "Zm9sZGVy", name: "folder", kind: "folder" }])
+      }
+      if (url.pathname === "/api/v1/sources/local/entries" && url.searchParams.get("path") === "Zm9sZGVy") {
+        return Response.json([{ id: "Zm9sZGVyL21vdmllLm1wNA", name: "movie.mp4", kind: "video" }])
+      }
+      return Response.json({ error: "not found" }, { status: 404 })
+    })
+    vi.stubGlobal("fetch", fetch)
+
+    const { controller, dispose, video } = setupController({ connectFsvr: true })
+    for (let index = 0; index < 8; index += 1) await settle()
+    await vi.advanceTimersByTimeAsync(0)
+    for (let index = 0; index < 4; index += 1) await settle()
+
+    expect(controller.server.state.status).toBe("connected")
+    expect(controller.frame.hasVideo()).toBe(false)
+    expect(video.getAttribute("src")).toBeNull()
+    expect(controller.playlist.state.expandedFolderIds).toEqual([
+      "source:local",
+      "local:Zm9sZGVy",
+    ])
+    expect(controller.playlist.state.selectedId).toBeUndefined()
     dispose()
   })
 

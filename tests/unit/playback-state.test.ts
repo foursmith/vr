@@ -48,6 +48,7 @@ describe("player state persistence", () => {
       renderFrameRateId: 3,
       splitScreen: false,
       faceAutoCenter: false,
+      autoResumePlayback: false,
       subtitlesEnabled: false,
       repeatMode: "folder",
     })
