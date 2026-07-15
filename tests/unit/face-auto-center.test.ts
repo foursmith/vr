@@ -1,7 +1,7 @@
 import type { FaceAutoCenterState, FaceBox, FaceTarget } from "../../src/features/vr/face-auto-center"
 import { PerspectiveCamera } from "three"
 import { describe, expect, it } from "vitest"
-import { applyDetections, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, getFaceCenter, getFaceCenteringError, getFaceCenteringVelocity, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, updateFaceMotion } from "../../src/features/vr/face-auto-center"
+import { applyDetections, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, getFaceCenter, getFaceCenteringError, getFaceCenteringVelocity, getFaceDetectionRange, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, updateFaceMotion } from "../../src/features/vr/face-auto-center"
 
 const state = (): FaceAutoCenterState => ({
   faces: [],
@@ -17,6 +17,11 @@ const state = (): FaceAutoCenterState => ({
 const face = (overrides: Partial<FaceBox> = {}): FaceBox => ({ x: 0.2, y: 0.1, width: 0.2, height: 0.3, score: 0.9, lastSeenAt: 10, ...overrides })
 
 describe("face auto-center", () => {
+  it("uses short-range detection for the viewport and full-range detection for panorama recovery", () => {
+    expect(getFaceDetectionRange("viewport")).toBe("short")
+    expect(getFaceDetectionRange("panorama")).toBe("full")
+  })
+
   it("computes centers and projection yaw limits", () => {
     expect(getFaceCenter(face()).x).toBeCloseTo(0.3)
     expect(getFaceCenter(face()).y).toBeCloseTo(0.25)

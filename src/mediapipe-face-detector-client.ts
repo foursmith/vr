@@ -1,3 +1,4 @@
+import type { FaceDetectionRange } from "./features/face-tracking/protocol"
 import { getFaceTrackerClient, releaseFaceAutoCenterResources } from "./features/face-tracking/client"
 
 export const createMediaPipeFaceDetectorClient = () => {
@@ -5,7 +6,7 @@ export const createMediaPipeFaceDetectorClient = () => {
   let destroyed = false
 
   return {
-    detect: async (source: ImageBitmapSource) => {
+    detect: async (source: ImageBitmapSource, detectionRange: FaceDetectionRange = "full") => {
       if (destroyed) throw new Error("MediaPipe face detector was destroyed")
       const bitmap = await createImageBitmap(source)
       if (destroyed) {
@@ -14,7 +15,7 @@ export const createMediaPipeFaceDetectorClient = () => {
       }
       const width = bitmap.width
       const height = bitmap.height
-      const result = await tracker.infer("detection", bitmap, performance.now(), "full")
+      const result = await tracker.infer("detection", bitmap, performance.now(), detectionRange)
       return result.faces.map(face => ({
         boundingBox: {
           x: face.x * width,

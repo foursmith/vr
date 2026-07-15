@@ -181,16 +181,12 @@ const infer = async (request: Extract<FaceWorkerRequest, { type: "infer" }>) => 
       }
     } else {
       const detector = await getDetector(request.detectionRange)
-      let faces = readDetectedFaces(detector, request.bitmap)
-      if (request.detectionRange === "short" && !faces.length) {
-        faces = readDetectedFaces(await getDetector("full"), request.bitmap)
-      }
       response = {
         id: request.id,
         type: "result",
         mode: request.mode,
         timestamp: request.timestamp,
-        faces,
+        faces: readDetectedFaces(detector, request.bitmap),
         inferenceMs: performance.now() - startedAt,
       }
     }

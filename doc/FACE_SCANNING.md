@@ -18,6 +18,8 @@ The player alternates between two detection modes:
 - **Viewport detection** copies the currently visible render into the reusable inference canvas. This is the normal tracking path.
 - **Panorama recovery** renders one perspective view of the sphere per inference. It starts after viewport detection misses a face and continues until a face is found or all recovery tiles have been checked.
 
+MediaPipe viewport detection uses the BlazeFace short-range model, which is optimized for larger, nearby faces. A viewport miss proceeds directly to panorama recovery without retrying the same sample with another model. Panorama recovery uses the full-range model because faces occupy fewer pixels in the wide-FOV scan tiles. The system face detector backend accepts the same scheduling choice but uses its platform-provided model.
+
 Only one inference may be in flight. The next inference time is measured from the start of the previous inference, with the completed capture and inference time subtracted from the remaining delay.
 
 ## Recovery state machine

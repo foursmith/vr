@@ -230,8 +230,7 @@ class MainThreadFaceBackend {
           score: item.categories[0]?.score ?? 0,
         }
       }).sort((a, b) => b.width * b.height - a.width * a.height).slice(0, 8)
-      let faces = readFaces(await this.getDetector(detectionRange))
-      if (detectionRange === "short" && !faces.length) faces = readFaces(await this.getDetector("full"))
+      const faces = readFaces(await this.getDetector(detectionRange))
       return { id, type: "result", mode, timestamp, faces, inferenceMs: performance.now() - startedAt }
     } finally {
       bitmap.close()

@@ -27,10 +27,10 @@ describe("mediaPipe face detector client", () => {
     })
     const client = createMediaPipeFaceDetectorClient()
 
-    await expect(client.detect({} as HTMLCanvasElement)).resolves.toEqual([
+    await expect(client.detect({} as HTMLCanvasElement, "short")).resolves.toEqual([
       { boundingBox: { x: 80, y: 36, width: 160, height: 72 } },
     ])
-    expect(mocks.infer).toHaveBeenCalledWith("detection", bitmap, expect.any(Number), "full")
+    expect(mocks.infer).toHaveBeenCalledWith("detection", bitmap, expect.any(Number), "short")
 
     client.destroy()
     expect(mocks.release).toHaveBeenCalledOnce()

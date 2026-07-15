@@ -8,6 +8,7 @@ import {
   applyDetections,
   getFaceCenteringError,
   getFaceCenteringVelocity,
+  getFaceDetectionRange,
   getProjectionYawLimit,
   mapSampleFaceToPanorama,
   pauseFaceAutoCenter,
@@ -725,7 +726,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     void ensureFaceDetector()
       .then((detector) => {
         lastCaptureMs = performance.now() - captureStartedAt
-        return detector.detect(sampleCanvas)
+        return detector.detect(sampleCanvas, getFaceDetectionRange(detectionMode))
       })
       .then((faces) => {
         completedInferenceMs = performance.now() - captureStartedAt

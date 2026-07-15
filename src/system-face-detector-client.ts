@@ -1,3 +1,5 @@
+import type { FaceDetectionRange } from "./features/face-tracking/protocol"
+
 export interface SystemDetectedFace {
   boundingBox: { x: number, y: number, width: number, height: number }
 }
@@ -57,7 +59,7 @@ export const createSystemFaceDetectorWorkerClient = () => {
   worker.postMessage({ type: "init" })
 
   return {
-    detect: async (source: ImageBitmapSource) => {
+    detect: async (source: ImageBitmapSource, _detectionRange?: FaceDetectionRange) => {
       await ready
       if (destroyed) throw new Error("System face detection Worker was destroyed")
       const bitmap = await createImageBitmap(source)
