@@ -1,7 +1,7 @@
 import type { ProjectionMode } from "@foursmith/player-core"
 import type { PerspectiveCamera } from "three"
 import type { NormalizedFace } from "../face-tracking/protocol"
-import { MathUtils } from "three"
+import { Euler, MathUtils, Vector3 } from "three"
 
 const VIEWPORT_TARGET_X = 0.5
 const VIEWPORT_TARGET_Y = 1 / 3
@@ -12,7 +12,22 @@ export type FaceBox = NormalizedFace & { lastSeenAt: number }
 export type DetectionMode = "viewport" | "panorama"
 interface FaceTarget { x: number, y: number, yaw?: number, pitch?: number, mode: DetectionMode, lastSeenAt: number }
 interface FaceSelectionAnchor { x: number, y: number, weight: number, wrapX: boolean }
-export interface PanoramaSample { center: { x: number, y: number }, startX: number, widthX: number, wraps: boolean }
+export interface PerspectivePanoramaView { yaw: number, pitch: number, fov: number, aspect: number, yawSpan: 180 | 360 }
+export interface PanoramaSample {
+  center: { x: number, y: number }
+  startX: number
+  widthX: number
+  wraps: boolean
+  perspective?: PerspectivePanoramaView
+}
+export interface FaceMotionState {
+  centerX: number
+  centerY: number
+  size: number
+  speed: number
+  recedingSpeed: number
+  lastSeenAt: number
+}
 
 export interface FaceAutoCenterState {
   faces: FaceBox[]
@@ -28,6 +43,7 @@ export interface FaceAutoCenterState {
   yawVelocity: number
   pitchVelocity: number
   lastErrorAt: number
+  motion?: FaceMotionState
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
@@ -46,7 +62,62 @@ export const getFaceCenter = (face: FaceBox) => ({
   y: face.y + face.height / 2,
 })
 
+export const updateFaceMotion = (state: FaceAutoCenterState, face: FaceBox, time: number) => {
+  const center = getFaceCenter(face)
+  const size = Math.sqrt(Math.max(0, face.width * face.height))
+  const previous = state.motion
+  const elapsedMs = previous ? time - previous.lastSeenAt : 0
+  if (!previous || elapsedMs <= 0 || elapsedMs > 1500) {
+    state.motion = { centerX: center.x, centerY: center.y, size, speed: 0, recedingSpeed: 0, lastSeenAt: time }
+    return state.motion
+  }
+
+  const elapsedSeconds = elapsedMs / 1000
+  const measuredSpeed = clamp(Math.hypot(center.x - previous.centerX, center.y - previous.centerY) / elapsedSeconds, 0, 4)
+  const measuredRecedingSpeed = clamp((previous.size - size) / elapsedSeconds, -2, 2)
+  const blend = 1 - Math.exp(-elapsedMs / 350)
+  state.motion = {
+    centerX: center.x,
+    centerY: center.y,
+    size,
+    speed: previous.speed + (measuredSpeed - previous.speed) * blend,
+    recedingSpeed: previous.recedingSpeed + (measuredRecedingSpeed - previous.recedingSpeed) * blend,
+    lastSeenAt: time,
+  }
+  return state.motion
+}
+
 export const mapSampleFaceToPanorama = (face: FaceBox, sample: PanoramaSample): FaceBox => {
+  if (sample.perspective) {
+    const view = sample.perspective
+    const center = getFaceCenter(face)
+    const tanHalfVertical = Math.tan(MathUtils.degToRad(view.fov) / 2)
+    const direction = new Vector3(
+      (center.x * 2 - 1) * tanHalfVertical * view.aspect,
+      (1 - center.y * 2) * tanHalfVertical,
+      -1,
+    )
+      .normalize()
+      .applyEuler(new Euler(MathUtils.degToRad(view.pitch), MathUtils.degToRad(view.yaw), 0, "YXZ"))
+    const yaw = MathUtils.radToDeg(Math.atan2(-direction.x, -direction.z))
+    const pitch = MathUtils.radToDeg(Math.asin(clamp(direction.y, -1, 1)))
+    const angularWidth = MathUtils.radToDeg(2 * Math.atan(face.width * tanHalfVertical * view.aspect))
+    const angularHeight = MathUtils.radToDeg(2 * Math.atan(face.height * tanHalfVertical))
+    const width = clamp(angularWidth / view.yawSpan, 0, 1)
+    const height = clamp(angularHeight / 180, 0, 1)
+    const rawPanoramaCenterX = 0.5 - yaw / view.yawSpan
+    const panoramaCenterX = view.yawSpan === 360
+      ? ((rawPanoramaCenterX % 1) + 1) % 1
+      : clamp(rawPanoramaCenterX, 0, 1)
+    const panoramaCenterY = clamp(0.5 - pitch / 180, 0, 1)
+    return {
+      ...face,
+      x: view.yawSpan === 360 ? panoramaCenterX - width / 2 : clamp(panoramaCenterX - width / 2, 0, 1 - width),
+      y: clamp(panoramaCenterY - height / 2, 0, 1 - height),
+      width,
+      height,
+    }
+  }
   const center = getFaceCenter(face)
   const rawCenterX = sample.startX + center.x * sample.widthX
   const panoramaCenterX = sample.wraps ? ((rawCenterX % 1) + 1) % 1 : clamp(rawCenterX, 0, 1)

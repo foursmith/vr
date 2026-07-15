@@ -1,9 +1,32 @@
 import type { FaceAutoCenterState } from "../../src/features/vr/face-auto-center"
 import { PerspectiveCamera } from "three"
 import { describe, expect, it, vi } from "vitest"
-import { drawPanoramaInferenceSample, drawSampleBoxes, drawViewportInferenceSample, getViewportInferenceSampleSize } from "../../src/features/vr/face-sampling"
+import {
+  drawPanoramaInferenceSample,
+  drawSampleBoxes,
+  drawViewportInferenceSample,
+  getPanoramaScanTile,
+  getPanoramaScanTileCount,
+  getViewportInferenceSampleSize,
+} from "../../src/features/vr/face-sampling"
 
 describe("face sampling", () => {
+  it("covers 360-degree projections with three wide horizontal directions and two caps", () => {
+    expect(getPanoramaScanTileCount("mono_360_eqr")).toBe(5)
+    expect([0, 1, 2].map(index => getPanoramaScanTile("mono_360_eqr", index, 170, 30).yaw)).toEqual([170, -70, 50])
+    expect(getPanoramaScanTile("mono_360_eqr", 0, 170, 30)).toMatchObject({ pitch: 30, fov: 130 })
+    expect(getPanoramaScanTile("mono_360_eqr", 3, 170, 30).pitch).toBe(70)
+    expect(getPanoramaScanTile("mono_360_eqr", 4, 170, 30).pitch).toBe(-70)
+  })
+
+  it("prioritizes the lost 180-degree view before scanning the half-sphere", () => {
+    expect(getPanoramaScanTileCount("m_180_eqr")).toBe(5)
+    expect([0, 1, 2].map(index => getPanoramaScanTile("m_180_eqr", index, 80, -30).yaw)).toEqual([80, -60, 60])
+    expect(getPanoramaScanTile("m_180_eqr", 0, 80, -30)).toMatchObject({ pitch: -30, fov: 130 })
+    expect(getPanoramaScanTile("m_180_eqr", 3, 80, -30).pitch).toBe(70)
+    expect(getPanoramaScanTile("m_180_eqr", 4, 80, -30).pitch).toBe(-70)
+  })
+
   it("preserves aspect ratio and enforces minimum dimensions", () => {
     expect(getViewportInferenceSampleSize(1920, 1080, 320)).toEqual({ width: 320, height: 180 })
     expect(getViewportInferenceSampleSize(4000, 500, 100)).toEqual({ width: 160, height: 120 })

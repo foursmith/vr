@@ -27,3 +27,9 @@
 ### Testing
 
 - Do not run end-to-end (e2e) tests unless the user explicitly requests them.
+
+### Face Scanning Algorithm
+
+- [`doc/FACE_SCANNING.md`](doc/FACE_SCANNING.md) is the maintenance reference for face recovery scanning, perspective mapping, motion prediction, and adaptive inference scheduling.
+- Any change to the scan geometry, recovery state machine, capture path, coordinate mapping, motion model, frequency thresholds, or related debug metrics must update `doc/FACE_SCANNING.md` in the same change.
+- Update the corresponding face-scanning unit tests whenever the algorithm changes.
