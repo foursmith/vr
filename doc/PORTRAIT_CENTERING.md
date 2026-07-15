@@ -181,17 +181,25 @@ The target assumes a local projection-surface distance of 100 units for spherica
 
 Forward velocity uses the same exponential profile, capped at 16 units/s with an 18-unit distance scale, and the same 260 ms temporal velocity smoothing as yaw and pitch.
 
-### Projection-edge protection
+Manual zoom inputs use the same forward/backward camera axis instead of changing camera zoom or FOV. Pinch distance, wheel deltas, and keyboard steps are converted to a multiplicative scale, then applied to the remaining camera-to-surface distance:
 
-Automatic movement on 180-degree projections verifies the complete viewport against the video hemisphere before applying each yaw, pitch, or forward step. Rays are cast around all four viewport edges at quarter-edge intervals, intersected with the projection surface, and measured against the hemisphere boundary plane. Plane distance is used instead of yaw because the boundary appears curved near the poles.
+```text
+forwardTarget = surfaceDistance - (surfaceDistance - currentForward) / scale
+```
+
+Keyboard zoom uses a scale factor of `1.1` per step. Manual movement does not use the automatic centering range of `[-35, 35]`: increasing scale approaches the projection surface asymptotically without crossing it, while decreasing scale can move away without an artificial backward limit. Normally, half-sphere boundary protection still constrains manual movement. When Debug is open, manual boundary blocking is disabled and a visible warning is emitted instead, allowing sufficiently large movement to expose areas outside the video. The perspective camera remains at zoom `1` with its configured FOV.
+
+### Projection-edge protection and debug monitoring
+
+Movement on 180-degree projections checks the complete viewport against the video hemisphere for each monitored yaw, pitch, or forward step. Rays are cast around all four viewport edges at quarter-edge intervals, intersected with the projection surface, and measured against the hemisphere boundary plane. Plane distance is used instead of yaw because the boundary appears curved near the poles.
 
 Equirectangular modes use the 100-unit video sphere. Fisheye modes use the 99-unit back-half mask because its curved silhouette can occlude the outer video sphere first after camera translation. A view is covered only when every sampled point remains inside the half-sphere with a 2° seam margin.
 
-If a proposed step crosses the boundary, a binary search keeps the last covered fraction and clears the blocked axis velocity. The camera may still move from an already exposed view toward better coverage. Full 360-degree projections bypass this check.
+If a proposed automatic-centering step crosses the boundary, a binary search keeps the last covered fraction and clears the blocked axis velocity. This automatic protection is always active, including while Debug is open. For manual movement only, Debug applies the original proposed step unchanged and emits a visible `Projection boundary · <axis> (not blocked)` warning where protection would otherwise intervene. Full 360-degree projections bypass this check.
 
 ### Manual override state
 
-An effective manual view change, zoom change, or view reset pauses detection, recovery scanning, and camera motion with no timeout. Starting an interaction without changing the view does not pause centering. A view reset also returns the camera to the projection center. Resuming clears the override and schedules an immediate viewport detection. Disabling centering or resetting the media also clears the override.
+An effective manual rotation, forward/backward change, or view reset pauses detection, recovery scanning, and camera motion with no timeout. Starting an interaction without changing the view does not pause centering. A view reset also returns the camera to the projection center. Resuming clears the override and schedules an immediate viewport detection. Disabling centering or resetting the media also clears the override.
 
 This section defines state behavior only; the UI used to expose these actions is outside this document's scope.
 

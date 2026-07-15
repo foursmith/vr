@@ -1,5 +1,5 @@
 import type { CameraView } from "@foursmith/player-core/config"
-import { DEFAULT_FORWARD, DEFAULT_ZOOM, QUALITY_OPTIONS } from "@foursmith/player-core/config"
+import { DEFAULT_FORWARD, QUALITY_OPTIONS } from "@foursmith/player-core/config"
 import { createSignal, createStore } from "solid-js"
 
 type ValueUpdate<T> = T | ((current: T) => T)
@@ -27,7 +27,6 @@ export function createDisplay(options: {
     splitScreen: options.initialState?.splitScreen ?? true,
     faceAutoCenter: options.initialState?.faceAutoCenter ?? true,
   })
-  const [zoom, setZoomSignal] = createSignal(DEFAULT_ZOOM)
   const [fullscreen, setFullscreen] = createSignal(false)
 
   const setValue = <K extends keyof typeof state>(key: K, update: ValueUpdate<(typeof state)[K]>) => {
@@ -48,21 +47,6 @@ export function createDisplay(options: {
   const setSplitScreen = (update: ValueUpdate<boolean>) => setValue("splitScreen", update)
   const setFaceAutoCenter = (update: ValueUpdate<boolean>) => setValue("faceAutoCenter", update)
 
-  const setZoom = (next: number) => {
-    if (!options.resourcesReady()) return
-    const clamped = Math.min(2.4, Math.max(0.8, next))
-    if (clamped === options.viewRef.current.zoom) return
-    options.viewRef.current.zoom = clamped
-    options.viewRef.current.pausedUntil = performance.now() + 900
-    setZoomSignal(clamped)
-    options.onManualViewChange?.()
-  }
-
-  const syncZoom = (next: number) => {
-    options.viewRef.current.zoom = next
-    setZoomSignal(next)
-  }
-
   const restoreProjection = (projectionId: number) => {
     setValue("projectionId", projectionId)
   }
@@ -70,10 +54,8 @@ export function createDisplay(options: {
   const resetTransientView = () => {
     options.viewRef.current.yaw = 0
     options.viewRef.current.pitch = 0
-    options.viewRef.current.zoom = DEFAULT_ZOOM
     options.viewRef.current.forward = DEFAULT_FORWARD
     options.viewRef.current.pausedUntil = performance.now() + 900
-    setZoomSignal(DEFAULT_ZOOM)
   }
 
   const resetView = () => {
@@ -112,10 +94,8 @@ export function createDisplay(options: {
     setQualityId,
     setRenderFrameRateId,
     setSplitScreen,
-    setZoom,
     state,
     toggleFullscreen,
-    zoom,
   }
 
   return {
@@ -129,6 +109,5 @@ export function createDisplay(options: {
     resetTransientView,
     restoreProjection,
     syncFullscreen,
-    syncZoom,
   }
 }

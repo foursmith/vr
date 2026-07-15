@@ -9,6 +9,7 @@ import { DEFAULT_GLOBAL_PREFERENCES, loadGlobalPreferences, loadVideoPlaybackSta
 
 const mocks = vi.hoisted(() => ({
   sceneController: {
+    adjustForward: vi.fn(),
     update: vi.fn(),
     getOutputCanvas: vi.fn(),
     setFrameCapture: vi.fn(),
@@ -201,7 +202,24 @@ describe("player controller", () => {
     await controller.playback.startInitialLoad()
     const options = mocks.createVrScene.mock.calls[0]![0]
 
-    controller.display.setZoom(1.2)
+    options.onProjectionBoundaryWarning("forward")
+    await settle()
+    expect(host.querySelector("[data-projection-boundary-warning]")).toBeNull()
+    controller.debug.setPanelOpen(true)
+    await settle()
+    options.onProjectionBoundaryWarning("forward")
+    await settle()
+    expect(host.querySelector("[data-projection-boundary-warning]")?.textContent).toContain("forward (not blocked)")
+    await vi.advanceTimersByTimeAsync(1600)
+    await settle()
+    expect(host.querySelector("[data-projection-boundary-warning]")).toBeNull()
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "]" }))
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "[" }))
+    expect(mocks.sceneController.adjustForward).toHaveBeenNthCalledWith(1, 1)
+    expect(mocks.sceneController.adjustForward).toHaveBeenNthCalledWith(2, -1)
+
+    controller.display.resetView()
     expect(mocks.sceneController.pauseFaceAutoCenter).toHaveBeenCalledOnce()
 
     options.onFaceAutoCenterPauseChange(true)
@@ -303,7 +321,7 @@ describe("player controller", () => {
     single.dispose()
   })
 
-  it("groups volume, speed, and zoom into one horizontal slider panel", async () => {
+  it("groups volume and speed into one horizontal slider panel", async () => {
     const { controller, dispose, host } = setupController()
     const fileInput = host.querySelector<HTMLInputElement>("input[type='file']:not([webkitdirectory])")!
     Object.defineProperty(fileInput, "files", {
@@ -314,7 +332,7 @@ describe("player controller", () => {
     await vi.advanceTimersByTimeAsync(200)
     await settle()
 
-    const adjustmentButton = host.querySelector<HTMLButtonElement>("button[aria-label='Adjust volume, speed, and zoom']")!
+    const adjustmentButton = host.querySelector<HTMLButtonElement>("button[aria-label='Adjust volume and speed']")!
     adjustmentButton.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }))
     await settle()
     expect(host.querySelector("section[aria-label='Playback adjustments']")).toBeNull()
@@ -327,7 +345,6 @@ describe("player controller", () => {
     expect([...panel.querySelectorAll("input[type='range']")].map(input => input.getAttribute("aria-label"))).toEqual([
       "Volume",
       "Speed",
-      "Zoom",
     ])
 
     const speed = panel.querySelector<HTMLInputElement>("input[aria-label='Speed']")!
@@ -349,12 +366,6 @@ describe("player controller", () => {
     panel.querySelector<HTMLButtonElement>("button[aria-label='Unmute']")!.click()
     await settle()
     expect(controller.playback.volume()).toBe(0.4)
-
-    controller.display.setZoom(1.4)
-    await settle()
-    panel.querySelector<HTMLButtonElement>("button[aria-label='Reset zoom']")!.click()
-    await settle()
-    expect(controller.display.zoom()).toBe(1)
 
     const settingsButton = host.querySelector<HTMLButtonElement>("button[aria-label='Settings']")!
     speed.focus()

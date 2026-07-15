@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest"
 import { createDisplay } from "../../src/features/player/display"
 
 describe("player display state", () => {
-  it("guards unavailable resources and clamps zoom and quality", () => {
+  it("guards unavailable resources and clamps quality", () => {
     let ready = false
     const viewRef = { current: { yaw: 12, pitch: -4, zoom: 1, forward: 8, pausedUntil: 0 } }
     let dispose!: () => void
@@ -14,13 +14,7 @@ describe("player display state", () => {
     expect(display.qualityId()).toBe(2)
     expect(display.renderFrameRateId()).toBe(3)
     expect(display.faceAutoCenter()).toBe(true)
-    display.controller.setZoom(3)
-    expect(display.controller.zoom()).toBe(1)
     ready = true
-    display.controller.setZoom(3)
-    flush()
-    expect(display.controller.zoom()).toBe(2.4)
-    expect(viewRef.current.zoom).toBe(2.4)
     display.changeQualityBy(99)
     flush()
     expect(display.qualityId()).toBe(3)
@@ -58,13 +52,11 @@ describe("player display state", () => {
     })
     expect(display.controller.state).toMatchObject({ qualityId: 1, renderFrameRateId: 1, splitScreen: false, faceAutoCenter: false })
     display.controller.setProjectionId(2)
-    display.controller.setZoom(1.5)
     flush()
     expect(display.controller.state.projectionId).toBe(2)
-    expect(display.controller.zoom()).toBe(1.5)
   })
 
-  it("reports effective manual zoom and reset-view changes", () => {
+  it("reports manual reset-view changes", () => {
     const onManualViewChange = vi.fn()
     const display = createDisplay({
       getPlayer: () => document.body,
@@ -73,10 +65,7 @@ describe("player display state", () => {
       onManualViewChange,
     })
 
-    display.controller.setZoom(1)
-    expect(onManualViewChange).not.toHaveBeenCalled()
-    display.controller.setZoom(1.4)
     display.controller.resetView()
-    expect(onManualViewChange).toHaveBeenCalledTimes(2)
+    expect(onManualViewChange).toHaveBeenCalledOnce()
   })
 })

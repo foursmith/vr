@@ -8,7 +8,7 @@ const CLICK_MOVE_THRESHOLD_PX = 8
 export function PlayerStage(props: { controller: PlayerController }) {
   const { controls, debug, display, frame, playback, subtitles } = untrack(() => props.controller)
   const { controlsVisible, registerUiSurface, setControlsHold } = controls
-  const { faceAutoCenterPaused, handlePlayerPointerDown, handlePlayerPointerUp, resumeFaceAutoCenter, setVideo, setVrMount, setVrRoot } = frame
+  const { faceAutoCenterPaused, handlePlayerPointerDown, handlePlayerPointerUp, projectionBoundaryWarning, resumeFaceAutoCenter, setVideo, setVrMount, setVrRoot } = frame
   let singleClickTimer: number | undefined
   let pointerStart: { id: number, x: number, y: number } | undefined
   let lastPointerType = ""
@@ -160,6 +160,17 @@ export function PlayerStage(props: { controller: PlayerController }) {
             iconClass="h-5 w-5"
             onClick={resumeFaceAutoCenter}
           />
+        </div>
+      </Show>
+
+      <Show when={debug.panelOpen() && projectionBoundaryWarning()}>
+        <div
+          data-projection-boundary-warning
+          class="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full border border-amber-300/24 bg-amber-950/78 px-3 py-1.5 font-mono text-[10px] font-semibold tracking-[0.02em] text-amber-100/92 shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md sm:top-6"
+          aria-live="off"
+        >
+          Projection boundary ·
+          {` ${projectionBoundaryWarning()} (not blocked)`}
         </div>
       </Show>
 

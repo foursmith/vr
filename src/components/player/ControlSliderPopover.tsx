@@ -52,9 +52,8 @@ function HorizontalControlRange(props: {
 }
 
 export function ControlSliderPopover(props: { controller: PlayerController, trigger: () => HTMLElement | undefined }) {
-  const { controls, display, playback } = untrack(() => props.controller)
+  const { controls, playback } = untrack(() => props.controller)
   const { activeSlider, closeSlider, sliderAnchor, updateSliderAnchor } = controls
-  const { resetView, setZoom, zoom } = display
   const { playbackRate, setPlaybackRateLevel, setVolumeLevel, toggleMute, volume } = playback
   const formattedRate = () => `${Number(playbackRate().toFixed(2))}×`
   let panel: HTMLElement | undefined
@@ -111,19 +110,6 @@ export function ControlSliderPopover(props: { controller: PlayerController, trig
             actionLabel="Reset speed"
             actionIcon="rotate-ccw"
             onAction={() => setPlaybackRateLevel(1)}
-          />
-          <HorizontalControlRange
-            label="Zoom"
-            valueLabel={`${Math.round(zoom() * 100)}%`}
-            min={0.8}
-            max={2.4}
-            step={0.01}
-            value={zoom()}
-            progress={((zoom() - 0.8) / 1.6) * 100}
-            onInput={setZoom}
-            actionLabel="Reset zoom"
-            actionIcon="rotate-ccw"
-            onAction={resetView}
           />
         </section>
       </LiquidGlass>

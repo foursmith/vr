@@ -16,7 +16,7 @@ import {
   getFaceInferenceMode,
   getFaceMovementHint,
   getFacePitchAdjustedCenter,
-  getProjectionYawLimit,
+  getManualZoomForwardTarget,
   mapSampleFaceToPanorama,
   pauseFaceAutoCenter,
   resumeFaceAutoCenter,
@@ -40,10 +40,9 @@ export type { CameraView, ProjectionMode, ProjectionQuality }
 
 export interface MutableRefObject<T> { current: T }
 
-const MIN_ZOOM = 0.8
-const MAX_ZOOM = 2.4
 const WHEEL_ZOOM_SPEED = 0.0016
 const TRACKPAD_PINCH_ZOOM_SPEED = 0.01
+const KEYBOARD_ZOOM_SCALE = 1.1
 const PANORAMA_DIRECTION_ANCHOR_WEIGHT = 1.35
 const FACE_TARGET_GRACE_MS = 900
 const VIEWPORT_SAMPLE_WIDTH = 320
@@ -62,7 +61,6 @@ interface OverlayState {
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
-const shortestAngle = (degrees: number) => ((degrees + 540) % 360) - 180
 
 const getRenderViewports = (width: number, height: number, splitScreen: boolean): RenderViewport[] => {
   if (!splitScreen || width <= height) return [{ x: 0, y: 0, width, height }]
@@ -93,14 +91,15 @@ export interface VrSceneOptions {
   faceAutoCenter: boolean
   debugPanelOpen: boolean
   viewRef: MutableRefObject<CameraView>
-  onZoomChange: (zoom: number) => void
   onFaceAutoCenterPauseChange: (paused: boolean) => void
+  onProjectionBoundaryWarning: (axis: "yaw" | "pitch" | "forward") => void
 }
 
 export interface VrSceneController {
   update: (nextOptions: Partial<Pick<VrSceneOptions, "projection" | "quality" | "frameRate" | "hidden" | "splitScreen" | "faceAutoCenter" | "debugPanelOpen">>) => void
   getOutputCanvas: () => HTMLCanvasElement
   setFrameCapture: (capture?: (canvas: HTMLCanvasElement) => void) => void
+  adjustForward: (direction: number) => void
   pauseFaceAutoCenter: () => void
   resumeFaceAutoCenter: () => void
   resetMedia: () => void
@@ -165,8 +164,6 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     devicePixelRatio: window.devicePixelRatio || 1,
   })
   const { camera, renderer, scene, texture } = core
-  camera.zoom = options.viewRef.current.zoom
-  camera.updateProjectionMatrix()
   renderer.domElement.className = "block h-dvh w-full touch-none saturate-105 contrast-102"
   const applyRenderQuality = () => {
     core.setQuality(options.quality, window.devicePixelRatio || 1)
@@ -455,13 +452,29 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
 
   const dragging = { active: false, pointerId: 0, x: 0, y: 0 }
   const touchPoints = new Map<number, { x: number, y: number }>()
-  let pinch: { pointerIds: [number, number], distance: number, zoom: number } | undefined
+  let pinch: { pointerIds: [number, number], distance: number, forward: number } | undefined
 
-  const applyZoom = (nextZoom: number) => {
-    const clampedZoom = clamp(nextZoom, MIN_ZOOM, MAX_ZOOM)
-    if (clampedZoom === options.viewRef.current.zoom) return
-    options.viewRef.current.zoom = clampedZoom
-    options.onZoomChange(clampedZoom)
+  const inspectProjectionBoundary = (axis: "yaw" | "pitch" | "forward", proposedValue: number) => {
+    const current = options.viewRef.current
+    const proposed = { yaw: current.yaw, pitch: current.pitch, forward: current.forward, [axis]: proposedValue }
+    const constrained = constrainFaceAutoCenterView(options.projection, camera, current, proposed)
+    const blocked = Math.abs(constrained[axis] - proposedValue) > 0.0001
+    return { blocked, constrainedValue: constrained[axis] }
+  }
+
+  const applyManualAxis = (axis: "yaw" | "pitch" | "forward", proposedValue: number) => {
+    const boundary = inspectProjectionBoundary(axis, proposedValue)
+    if (options.debugPanelOpen && boundary.blocked) options.onProjectionBoundaryWarning(axis)
+    const appliedValue = options.debugPanelOpen ? proposedValue : boundary.constrainedValue
+    const changed = Math.abs(appliedValue - options.viewRef.current[axis]) > 0.0001
+    options.viewRef.current[axis] = appliedValue
+    return changed
+  }
+
+  const applyManualForward = (nextForward: number) => {
+    const current = options.viewRef.current
+    if (nextForward === current.forward) return
+    if (!applyManualAxis("forward", nextForward)) return
     pauseFaceCenterForManualInput()
     requestRender()
   }
@@ -476,7 +489,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     pinch = {
       pointerIds: [firstId, secondId],
       distance: Math.max(1, Math.hypot(second.x - first.x, second.y - first.y)),
-      zoom: options.viewRef.current.zoom,
+      forward: options.viewRef.current.forward,
     }
     dragging.active = false
   }
@@ -516,7 +529,11 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
           return
         }
         const distance = Math.max(1, Math.hypot(second.x - first.x, second.y - first.y))
-        applyZoom(pinch.zoom * distance / pinch.distance)
+        applyManualForward(getManualZoomForwardTarget(
+          pinch.forward,
+          distance / pinch.distance,
+          getFaceSurfaceDistance(options.projection),
+        ))
         return
       }
     }
@@ -531,9 +548,11 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     const dy = event.clientY - dragging.y
     dragging.x = event.clientX
     dragging.y = event.clientY
-    if (dx || dy) pauseFaceCenterForManualInput()
-    options.viewRef.current.yaw += dx * 0.08
-    options.viewRef.current.pitch = clamp(options.viewRef.current.pitch + dy * 0.08, -85, 85)
+    const nextYaw = options.viewRef.current.yaw + dx * 0.08
+    const nextPitch = clamp(options.viewRef.current.pitch + dy * 0.08, -85, 85)
+    const yawChanged = applyManualAxis("yaw", nextYaw)
+    const pitchChanged = applyManualAxis("pitch", nextPitch)
+    if (yawChanged || pitchChanged) pauseFaceCenterForManualInput()
     requestRender()
   }
   const onPointerUp = (event: PointerEvent) => {
@@ -568,7 +587,11 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         ? mount.clientHeight
         : 1
     const speed = event.ctrlKey ? TRACKPAD_PINCH_ZOOM_SPEED : WHEEL_ZOOM_SPEED
-    applyZoom(options.viewRef.current.zoom * Math.exp(-event.deltaY * deltaScale * speed))
+    applyManualForward(getManualZoomForwardTarget(
+      options.viewRef.current.forward,
+      Math.exp(-event.deltaY * deltaScale * speed),
+      getFaceSurfaceDistance(options.projection),
+    ))
   }
 
   renderer.domElement.addEventListener("pointerdown", onPointerDown)
@@ -953,22 +976,18 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       const next = current + (desired - current) * velocityBlend
       return Math.abs(next) < FACE_CENTER_STOP_SPEED && desired === 0 ? 0 : next
     }
-    const applySafeMovement = () => {
+    const applyBoundaryAwareMovement = () => {
       const current = options.viewRef.current
       const moveAxis = (axis: "yaw" | "pitch" | "forward", proposedValue: number) => {
-        const proposed = { yaw: current.yaw, pitch: current.pitch, forward: current.forward, [axis]: proposedValue }
-        const constrained = constrainFaceAutoCenterView(options.projection, camera, current, proposed)
-        current[axis] = constrained[axis]
-        if (Math.abs(constrained[axis] - proposedValue) > 0.0001) {
+        const boundary = inspectProjectionBoundary(axis, proposedValue)
+        current[axis] = boundary.constrainedValue
+        if (boundary.blocked) {
           if (axis === "yaw") faceState.yawVelocity = 0
           else if (axis === "pitch") faceState.pitchVelocity = 0
           else faceState.forwardVelocity = 0
         }
       }
-      const yawLimit = getProjectionYawLimit(options.projection)
-      const nextYaw = yawLimit === undefined
-        ? current.yaw + faceState.yawVelocity * frameDelta
-        : clamp(shortestAngle(current.yaw) + faceState.yawVelocity * frameDelta, -yawLimit, yawLimit)
+      const nextYaw = current.yaw + faceState.yawVelocity * frameDelta
       moveAxis("yaw", nextYaw)
       moveAxis("pitch", clamp(current.pitch + faceState.pitchVelocity * frameDelta, -85, 85))
       moveAxis("forward", clamp(
@@ -984,7 +1003,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       faceState.yawVelocity = updateVelocity(faceState.yawVelocity, 0)
       faceState.pitchVelocity = updateVelocity(faceState.pitchVelocity, 0)
       faceState.forwardVelocity = updateVelocity(faceState.forwardVelocity, 0)
-      applySafeMovement()
+      applyBoundaryAwareMovement()
       setOverlay({})
       return
     }
@@ -1004,7 +1023,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     faceState.yawVelocity = x ? updateVelocity(faceState.yawVelocity, desiredYawVelocity) : 0
     faceState.pitchVelocity = y ? updateVelocity(faceState.pitchVelocity, desiredPitchVelocity) : 0
     faceState.forwardVelocity = forward ? updateVelocity(faceState.forwardVelocity, desiredForwardVelocity) : 0
-    applySafeMovement()
+    applyBoundaryAwareMovement()
   }
 
   function render(now: number) {
@@ -1019,10 +1038,6 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     }
     const delta = (now - lastFrameAt) / 1000
     lastFrameAt = now
-    if (camera.zoom !== options.viewRef.current.zoom) {
-      camera.zoom = options.viewRef.current.zoom
-      camera.updateProjectionMatrix()
-    }
     applyCameraPose()
     const renderStartedAt = performance.now()
     renderSceneViewports()
@@ -1049,6 +1064,11 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   return {
     getOutputCanvas: () => renderer.domElement,
     setFrameCapture: capture => (frameCapture = capture),
+    adjustForward: direction => applyManualForward(getManualZoomForwardTarget(
+      options.viewRef.current.forward,
+      KEYBOARD_ZOOM_SCALE ** direction,
+      getFaceSurfaceDistance(options.projection),
+    )),
     pauseFaceAutoCenter: pauseFaceCenterForManualInput,
     resumeFaceAutoCenter: () => setManualFaceCenterPaused(false),
     update(nextOptions) {

@@ -74,7 +74,7 @@ export function PlayerControls(props: { controller: PlayerController }) {
             <ProjectionSelect value={displayState.projectionId} mount={controller.frame.getPlayer()} onChange={setProjectionId} />
             <div ref={adjustmentsButton} class="shrink-0">
               <IconButton
-                label="Adjust volume, speed, and zoom"
+                label="Adjust volume and speed"
                 icon="sliders"
                 onClick={() => toggleSlider("adjustments", adjustmentsButton)}
               />

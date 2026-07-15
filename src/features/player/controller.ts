@@ -185,6 +185,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   let lastAudibleVolume = initialPreferences.volume || DEFAULT_GLOBAL_PREFERENCES.volume
   let videoLoadGeneration = 0
   let videoSwitchTimer: number | undefined
+  let projectionBoundaryWarningTimer: number | undefined
   let videoSwitchInProgress = false
   let pendingVideoSwitch: { resource: VideoResource, playlistId?: string } | undefined
   let autoplayPending = false
@@ -293,6 +294,15 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   const [subtitleFileName, setSubtitleFileName] = createSignal<string>()
   const [debugPanelOpen, setDebugPanelOpen] = createSignal(false)
   const [faceAutoCenterPaused, setFaceAutoCenterPaused] = createSignal(false)
+  const [projectionBoundaryWarning, setProjectionBoundaryWarning] = createSignal<"yaw" | "pitch" | "forward">()
+  const showProjectionBoundaryWarning = (axis: "yaw" | "pitch" | "forward") => {
+    setProjectionBoundaryWarning(axis)
+    if (projectionBoundaryWarningTimer !== undefined) window.clearTimeout(projectionBoundaryWarningTimer)
+    projectionBoundaryWarningTimer = window.setTimeout(() => {
+      projectionBoundaryWarningTimer = undefined
+      setProjectionBoundaryWarning(undefined)
+    }, 1600)
+  }
   const [loadingState, setLoadingState] = createStore({
     resourcesReady: true,
     progress: 100,
@@ -330,14 +340,11 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     resetTransientView,
     restoreProjection,
     syncFullscreen,
-    syncZoom,
   } = displayModule
   const {
     resetView,
     setProjectionId: setDisplayProjectionId,
-    setZoom,
     toggleFullscreen,
-    zoom,
   } = displayModule.controller
   const controlsModule = createControls({ hasVideo, resourcesReady })
   const {
@@ -1412,11 +1419,11 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
         break
       case "[":
       case "-":
-        setZoom(zoom() - 0.1)
+        scene?.adjustForward(-1)
         break
       case "]":
       case "=":
-        setZoom(zoom() + 0.1)
+        scene?.adjustForward(1)
         break
       case ",":
         changeQualityBy(-1)
@@ -1456,8 +1463,8 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
           fpsElement: fpsMeter,
           video,
           viewRef,
-          onZoomChange: syncZoom,
           onFaceAutoCenterPauseChange: setFaceAutoCenterPaused,
+          onProjectionBoundaryWarning: showProjectionBoundaryWarning,
           ...sceneOptions(),
         })
         showVideoTranslationLayer()
@@ -1530,6 +1537,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       window.removeEventListener("pagehide", handlePageHide)
       stopLocalPlaylistRefresh()
       if (videoSwitchTimer !== undefined) window.clearTimeout(videoSwitchTimer)
+      if (projectionBoundaryWarningTimer !== undefined) window.clearTimeout(projectionBoundaryWarningTimer)
       pendingVideoSwitch = undefined
       autoplayPending = false
       playlistImportGeneration += 1
@@ -1636,6 +1644,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       handleVideoDrop,
       hasVideo,
       openVideoFile,
+      projectionBoundaryWarning,
       resumeFaceAutoCenter: () => scene?.resumeFaceAutoCenter(),
       setFileInput: (element: HTMLInputElement) => (fileInput = element),
       setFolderInput: (element: HTMLInputElement) => (folderInput = element),

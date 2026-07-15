@@ -245,6 +245,9 @@ export const getFaceForwardVelocity = (offset: number) => {
   return Math.sign(offset) * FACE_CENTER_FORWARD_MAX_SPEED * (1 - Math.exp(-distance / FACE_CENTER_FORWARD_DISTANCE_SCALE))
 }
 
+export const getManualZoomForwardTarget = (currentForward: number, scale: number, surfaceDistance: number) =>
+  surfaceDistance - (surfaceDistance - currentForward) / Math.max(Number.EPSILON, scale)
+
 export const getFaceForwardTarget = (
   face: FaceBox,
   currentForward: number,
