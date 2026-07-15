@@ -13,6 +13,13 @@
 - Before adding utility syntax that may be preset-specific, verify that it is supported by the installed UnoCSS version and `presetWind3()`.
 - Preserve the existing `presetIcons()` integration and use the configured UnoCSS icon utilities for icons already covered by the project icon system.
 
+### Feature Design and Reuse
+
+- Avoid implementing features as layers of narrowly scoped patches, duplicated state, callbacks, or special-case branches.
+- Before adding new logic, identify and reuse the existing components, state flows, interaction handling, and abstractions that already cover the behavior.
+- If the existing design is not compatible with the feature, prefer a focused refactor that simplifies and generalizes the shared logic before adding the new behavior.
+- Keep feature changes cohesive: each piece of state should have a clear owner, related behavior should use one code path, and tests should verify the shared behavior rather than implementation-specific workarounds.
+
 ### Version Control
 
 - Use `git` as the primary version control system for this repository.
