@@ -18,6 +18,7 @@ export function createDisplay(options: {
     renderFrameRateId: number
     splitScreen: boolean
     faceAutoCenter: boolean
+    faceTrackingPro: boolean
   }>
 }) {
   const [state, setState] = createStore({
@@ -26,6 +27,7 @@ export function createDisplay(options: {
     renderFrameRateId: options.initialState?.renderFrameRateId ?? 3,
     splitScreen: options.initialState?.splitScreen ?? true,
     faceAutoCenter: options.initialState?.faceAutoCenter ?? true,
+    faceTrackingPro: options.initialState?.faceTrackingPro ?? false,
   })
   const [fullscreen, setFullscreen] = createSignal(false)
 
@@ -46,6 +48,7 @@ export function createDisplay(options: {
   }
   const setSplitScreen = (update: ValueUpdate<boolean>) => setValue("splitScreen", update)
   const setFaceAutoCenter = (update: ValueUpdate<boolean>) => setValue("faceAutoCenter", update)
+  const setFaceTrackingPro = (update: ValueUpdate<boolean>) => setValue("faceTrackingPro", update)
 
   const restoreProjection = (projectionId: number) => {
     setValue("projectionId", projectionId)
@@ -90,6 +93,7 @@ export function createDisplay(options: {
     fullscreen,
     resetView,
     setFaceAutoCenter,
+    setFaceTrackingPro,
     setProjectionId,
     setQualityId,
     setRenderFrameRateId,
@@ -102,6 +106,7 @@ export function createDisplay(options: {
     changeQualityBy,
     controller,
     faceAutoCenter: () => state.faceAutoCenter,
+    faceTrackingPro: () => state.faceTrackingPro,
     projectionId: () => state.projectionId,
     qualityId: () => state.qualityId,
     renderFrameRateId: () => state.renderFrameRateId,

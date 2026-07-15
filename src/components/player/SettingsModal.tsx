@@ -23,6 +23,7 @@ function SettingToggle(props: {
   title: string
   description: string
   icon: IconName
+  badge?: string
   pressed: boolean
   onCheckedChange: (checked: boolean) => void
 }) {
@@ -38,7 +39,12 @@ function SettingToggle(props: {
         <Icon name={props.icon} class="h-4 w-4" />
       </span>
       <span class="min-w-0">
-        <span class="block text-xs font-semibold text-white/92">{props.title}</span>
+        <span class="flex items-center gap-1.5 text-xs font-semibold text-white/92">
+          {props.title}
+          <Show when={props.badge}>
+            {badge => <span class="rounded-full bg-accent/12 px-1.5 py-0.5 font-mono text-[8px] leading-none tracking-wide text-accent/82">{badge()}</span>}
+          </Show>
+        </span>
         <span class="mt-0.5 block text-[11px] leading-snug text-white/48">{props.description}</span>
       </span>
       <Switch checked={props.pressed} label={props.title} onCheckedChange={props.onCheckedChange} />
@@ -49,7 +55,7 @@ function SettingToggle(props: {
 export function SettingsModal(props: { controller: PlayerController, open: boolean, onOpenChange: (open: boolean) => void }) {
   const controller = untrack(() => props.controller)
   const { debug, display, frame, playback, server } = controller
-  const { setFaceAutoCenter, setQualityId, setRenderFrameRateId, setSplitScreen, state } = display
+  const { setFaceAutoCenter, setFaceTrackingPro, setQualityId, setRenderFrameRateId, setSplitScreen, state } = display
   const [narrowScreen, setNarrowScreen] = createSignal(window.matchMedia("(max-width: 639.9px)").matches)
   onSettled(() => {
     const media = window.matchMedia("(max-width: 639.9px)")
@@ -109,6 +115,14 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
           icon="scan-face"
           pressed={state.faceAutoCenter}
           onCheckedChange={setFaceAutoCenter}
+        />
+        <SettingToggle
+          title="Precision tracking"
+          badge="PRO"
+          description="Use facial features and head pose for finer centering. Loads an additional model."
+          icon="scan-face"
+          pressed={state.faceTrackingPro}
+          onCheckedChange={setFaceTrackingPro}
         />
         <Show when={server.enabled()}>
           <SettingToggle

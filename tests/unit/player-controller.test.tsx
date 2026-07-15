@@ -190,6 +190,7 @@ describe("player controller", () => {
       quality: "sharp",
       frameRate: 60,
       faceAutoCenter: true,
+      faceTrackingPro: false,
     }))
     dispose()
     expect(mocks.sceneController.destroy).toHaveBeenCalledOnce()
@@ -626,6 +627,7 @@ describe("player controller", () => {
     controller.display.setRenderFrameRateId(1)
     controller.display.setSplitScreen(false)
     controller.display.setFaceAutoCenter(false)
+    controller.display.setFaceTrackingPro(true)
     controller.playback.setAutoResumePlayback(true)
     controller.subtitles.toggle()
     await settle()
@@ -637,6 +639,7 @@ describe("player controller", () => {
       renderFrameRateId: 1,
       splitScreen: false,
       faceAutoCenter: false,
+      faceTrackingPro: true,
       autoResumePlayback: true,
       subtitlesEnabled: false,
     })

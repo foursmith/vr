@@ -37,7 +37,8 @@ export const getFaceDetectionRange = (mode: DetectionMode): FaceDetectionRange =
 export const getFaceInferenceMode = (
   mode: DetectionMode,
   hasReliableTarget: boolean,
-): FaceInferenceMode => mode === "viewport" && hasReliableTarget ? "landmarks" : "detection"
+  faceTrackingPro: boolean,
+): FaceInferenceMode => mode === "viewport" && hasReliableTarget && faceTrackingPro ? "landmarks" : "detection"
 export interface FaceTarget { x: number, y: number, yaw?: number, pitch?: number, forward?: number, mode: DetectionMode, lastSeenAt: number }
 export interface FaceCenteringError {
   yaw: number

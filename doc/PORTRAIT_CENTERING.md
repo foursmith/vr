@@ -33,10 +33,10 @@ The next inference time is measured from the start of the previous inference. Co
 
 The player alternates between two spatial detection modes:
 
-- **Viewport detection** copies the currently rendered view into a reusable inference canvas. MediaPipe uses the BlazeFace short-range detector while searching because the viewport normally contains larger, nearby faces. After a reliable target is established, it uses the face landmarker to obtain a feature-based center and head pose.
+- **Viewport detection** copies the currently rendered view into a reusable inference canvas. MediaPipe uses the BlazeFace short-range detector while searching because the viewport normally contains larger, nearby faces. By default it continues using that detector after a reliable target is established. When the persisted Precision tracking Pro setting is enabled, a reliable target switches viewport inference to the face landmarker to obtain a feature-based center and head pose.
 - **Panorama recovery** renders one perspective view of the projection sphere per inference. It uses the MediaPipe full-range detector because a face occupies fewer pixels in a wide-FOV recovery tile.
 
-A landmarker miss falls back to the viewport detector for the single viewport retry before recovery. Panorama recovery always uses face detection rather than landmarks.
+The face landmarker model is not requested or instantiated while Precision tracking Pro is disabled. Enabling Pro allows the next reliable viewport target to load and use it lazily. Disabling Pro releases the active face-tracking backend if it had been enabled. A landmarker miss falls back to the viewport detector for the single viewport retry before recovery. Panorama recovery always uses face detection rather than landmarks.
 
 ### Face filtering and target selection
 
@@ -80,7 +80,7 @@ Only viewport misses count toward the two-miss recovery threshold. A successful 
 
 ### Face pose
 
-After MediaPipe establishes a reliable viewport target, the face landmarker returns 478 normalized landmarks and a canonical-face transformation matrix. The player uses the eye and nose landmarks for the viewport center and decomposes the column-major 4×4 matrix into signed YXZ Euler angles:
+When Precision tracking Pro is enabled and MediaPipe establishes a reliable viewport target, the face landmarker returns 478 normalized landmarks and a canonical-face transformation matrix. The player uses the eye and nose landmarks for the viewport center and decomposes the column-major 4×4 matrix into signed YXZ Euler angles:
 
 - `yaw` is rotation around the vertical Y axis;
 - `pitch` is rotation around the horizontal X axis;

@@ -89,6 +89,7 @@ export interface VrSceneOptions {
   hidden: boolean
   splitScreen: boolean
   faceAutoCenter: boolean
+  faceTrackingPro: boolean
   debugPanelOpen: boolean
   viewRef: MutableRefObject<CameraView>
   onFaceAutoCenterPauseChange: (paused: boolean) => void
@@ -96,7 +97,7 @@ export interface VrSceneOptions {
 }
 
 export interface VrSceneController {
-  update: (nextOptions: Partial<Pick<VrSceneOptions, "projection" | "quality" | "frameRate" | "hidden" | "splitScreen" | "faceAutoCenter" | "debugPanelOpen">>) => void
+  update: (nextOptions: Partial<Pick<VrSceneOptions, "projection" | "quality" | "frameRate" | "hidden" | "splitScreen" | "faceAutoCenter" | "faceTrackingPro" | "debugPanelOpen">>) => void
   getOutputCanvas: () => HTMLCanvasElement
   setFrameCapture: (capture?: (canvas: HTMLCanvasElement) => void) => void
   adjustForward: (direction: number) => void
@@ -872,6 +873,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         const inferenceMode = getFaceInferenceMode(
           detectionMode,
           Boolean(faceState.target?.mode === "viewport" && faceState.consecutiveMisses === 0),
+          options.faceTrackingPro,
         )
         return detector.detect(inferenceCanvas, getFaceDetectionRange(detectionMode), inferenceMode)
           .then(faces => ({ faces, inferenceMode }))
@@ -1082,8 +1084,10 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         = nextOptions.projection !== undefined
           || nextOptions.hidden !== undefined
           || nextOptions.faceAutoCenter !== undefined
+          || nextOptions.faceTrackingPro !== undefined
       if (invalidatesInference) inferenceGeneration += 1
       const releasesFaceDetector = nextOptions.faceAutoCenter === false
+        || (nextOptions.faceTrackingPro === false && options.faceTrackingPro)
       if (releasesFaceDetector) releaseFaceDetector()
       Object.assign(options, nextOptions)
       if (!options.faceAutoCenter && faceState.manuallyPaused) setManualFaceCenterPaused(false)
@@ -1111,7 +1115,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       if (options.hidden) {
         stopScheduledRender()
       } else {
-        if (nextOptions.faceAutoCenter === true || nextOptions.projection !== undefined) {
+        if (nextOptions.faceAutoCenter === true || nextOptions.faceTrackingPro === true || nextOptions.projection !== undefined) {
           faceState.nextDetectionAt = 0
         }
         requestRender()

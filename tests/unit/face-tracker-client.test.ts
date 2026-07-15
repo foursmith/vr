@@ -41,10 +41,26 @@ describe("faceTrackerClient worker backend", () => {
 
     await downloadFaceTrackingResources(progress)
 
+    expect(fetch).toHaveBeenCalledTimes(4)
+    expect(cache.put).toHaveBeenCalledTimes(4)
+    expect(progress).toHaveBeenNthCalledWith(1, { loaded: 0, total: 4, label: "Downloading face tracking resources" })
+    expect(progress).toHaveBeenLastCalledWith({ loaded: 4, total: 4, label: "Downloading face tracking resources" })
+    expect(fetch).not.toHaveBeenCalledWith(expect.objectContaining({ url: expect.stringContaining("face_landmarker") }))
+  })
+
+  it("downloads the face landmarker only when Pro resources are requested", async () => {
+    const cache = {
+      match: vi.fn(async () => undefined),
+      put: vi.fn(async () => {}),
+    }
+    const fetch = vi.fn(async () => new Response("resource"))
+    vi.stubGlobal("caches", { open: vi.fn(async () => cache) })
+    vi.stubGlobal("fetch", fetch)
+
+    await downloadFaceTrackingResources(() => {}, true)
+
     expect(fetch).toHaveBeenCalledTimes(5)
-    expect(cache.put).toHaveBeenCalledTimes(5)
-    expect(progress).toHaveBeenNthCalledWith(1, { loaded: 0, total: 5, label: "Downloading face tracking resources" })
-    expect(progress).toHaveBeenLastCalledWith({ loaded: 5, total: 5, label: "Downloading face tracking resources" })
+    expect(fetch).toHaveBeenCalledWith(expect.objectContaining({ url: expect.stringContaining("face_landmarker") }))
   })
 
   it("initializes once, forwards progress and resolves inference results", async () => {

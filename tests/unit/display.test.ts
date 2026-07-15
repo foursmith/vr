@@ -14,6 +14,7 @@ describe("player display state", () => {
     expect(display.qualityId()).toBe(2)
     expect(display.renderFrameRateId()).toBe(3)
     expect(display.faceAutoCenter()).toBe(true)
+    expect(display.faceTrackingPro()).toBe(false)
     ready = true
     display.changeQualityBy(99)
     flush()
@@ -48,9 +49,9 @@ describe("player display state", () => {
       getPlayer: () => document.body,
       resourcesReady: () => true,
       viewRef: { current: { yaw: 0, pitch: 0, zoom: 1, forward: 0, pausedUntil: 0 } },
-      initialState: { qualityId: 1, renderFrameRateId: 1, splitScreen: false, faceAutoCenter: false },
+      initialState: { qualityId: 1, renderFrameRateId: 1, splitScreen: false, faceAutoCenter: false, faceTrackingPro: true },
     })
-    expect(display.controller.state).toMatchObject({ qualityId: 1, renderFrameRateId: 1, splitScreen: false, faceAutoCenter: false })
+    expect(display.controller.state).toMatchObject({ qualityId: 1, renderFrameRateId: 1, splitScreen: false, faceAutoCenter: false, faceTrackingPro: true })
     display.controller.setProjectionId(2)
     flush()
     expect(display.controller.state.projectionId).toBe(2)
