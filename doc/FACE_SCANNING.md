@@ -46,6 +46,16 @@ Detection mode and camera movement share one hysteresis policy. From rest, a vie
 
 The dead zone is subtracted from larger errors so movement starts continuously at its edge. When an axis re-enters the dead zone, its residual camera velocity is cleared immediately; small detection jitter therefore cannot keep the render loop or camera moving.
 
+### Camera motion profile
+
+Camera speed increases continuously with the angular distance remaining outside the dead zone:
+
+```text
+speed = sign(offset) * maxSpeed * (1 - exp(-abs(offset) / distanceScale))
+```
+
+Viewport targets use a maximum speed of 18°/s and a 22° distance scale. Panorama recovery targets use a maximum speed of 32°/s and a 45° distance scale, allowing large recovery turns to travel decisively while close corrections stay gentle. Desired velocity is temporally smoothed with a 260 ms time constant, producing progressive acceleration and braking instead of an immediate speed jump.
+
 ### Manual view override
 
 Dragging the view, changing zoom, or explicitly resetting the view pauses face centering after the first effective change. The pause has no timeout: detections, recovery scanning, and camera motion remain stopped so the player does not undo the user's chosen view. Starting a gesture without moving does not pause centering.

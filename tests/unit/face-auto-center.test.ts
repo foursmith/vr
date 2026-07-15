@@ -1,7 +1,7 @@
 import type { FaceAutoCenterState, FaceBox, FaceTarget } from "../../src/features/vr/face-auto-center"
 import { PerspectiveCamera } from "three"
 import { describe, expect, it } from "vitest"
-import { applyDetections, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, getFaceCenter, getFaceCenteringError, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, updateFaceMotion } from "../../src/features/vr/face-auto-center"
+import { applyDetections, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, getFaceCenter, getFaceCenteringError, getFaceCenteringVelocity, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, updateFaceMotion } from "../../src/features/vr/face-auto-center"
 
 const state = (): FaceAutoCenterState => ({
   faces: [],
@@ -46,6 +46,21 @@ describe("face auto-center", () => {
     expect(getFaceCenteringError(target({ mode: "panorama", yaw: FACE_CENTER_PANORAMA_ACTIVATION_DEGREES + 0.1 }), camera, { yaw: 0, pitch: 0 }).needsMovement).toBe(true)
     expect(getFaceCenteringError(target({ mode: "panorama", yaw: FACE_CENTER_PANORAMA_SETTLE_DEGREES + 0.1 }), camera, { yaw: 0, pitch: 0 }, true).needsMovement).toBe(true)
     expect(getFaceCenteringError(target({ mode: "panorama", yaw: FACE_CENTER_PANORAMA_SETTLE_DEGREES - 0.1 }), camera, { yaw: 0, pitch: 0 }, true).needsMovement).toBe(false)
+  })
+
+  it("accelerates camera movement with target distance and preserves direction", () => {
+    const viewportSpeeds = [2, 12, 45].map(offset => getFaceCenteringVelocity(offset, "viewport"))
+    const panoramaSpeeds = [2, 30, 120].map(offset => getFaceCenteringVelocity(offset, "panorama"))
+
+    expect(viewportSpeeds[0]).toBeGreaterThan(0)
+    expect(viewportSpeeds[0]).toBeLessThan(viewportSpeeds[1])
+    expect(viewportSpeeds[1]).toBeLessThan(viewportSpeeds[2])
+    expect(viewportSpeeds[2]).toBeLessThan(FACE_CENTER_VIEWPORT_MAX_SPEED)
+    expect(panoramaSpeeds[0]).toBeLessThan(panoramaSpeeds[1])
+    expect(panoramaSpeeds[1]).toBeLessThan(panoramaSpeeds[2])
+    expect(panoramaSpeeds[2]).toBeLessThan(FACE_CENTER_PANORAMA_MAX_SPEED)
+    expect(getFaceCenteringVelocity(-30, "panorama")).toBeCloseTo(-panoramaSpeeds[1])
+    expect(getFaceCenteringVelocity(0, "viewport")).toBe(0)
   })
 
   it("smooths face movement and detects a receding subject", () => {

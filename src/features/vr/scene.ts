@@ -7,6 +7,7 @@ import { MathUtils } from "three"
 import {
   applyDetections,
   getFaceCenteringError,
+  getFaceCenteringVelocity,
   getProjectionYawLimit,
   mapSampleFaceToPanorama,
   pauseFaceAutoCenter,
@@ -39,8 +40,6 @@ const VIEWPORT_SAMPLE_WIDTH = 320
 const PANORAMA_SAMPLE_WIDTH = 320
 const MAX_SPLIT_SCREEN_PANELS = 3
 const MIN_SPLIT_SCREEN_ASPECT = 9 / 16
-const FACE_CENTER_RESPONSE = 0.65
-const FACE_CENTER_MAX_SPEED = 5.5
 const FACE_CENTER_VELOCITY_SMOOTHING_MS = 260
 const FACE_CENTER_STOP_SPEED = 0.025
 
@@ -854,12 +853,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     setOverlay({ hint })
     if (!x && !y) faceState.offCenterSince = undefined
     else faceState.offCenterSince ??= now
-    const panoramaTarget = target.mode === "panorama"
-    const farTarget = Math.abs(yawError) > 70
-    const response = FACE_CENTER_RESPONSE * (panoramaTarget ? 1.25 : farTarget ? 1.1 : 1)
-    const maxSpeed = FACE_CENTER_MAX_SPEED * (panoramaTarget ? 1.35 : farTarget ? 1.15 : 1)
-    const desiredYawVelocity = clamp(x * response, -maxSpeed, maxSpeed)
-    const desiredPitchVelocity = clamp(y * response, -maxSpeed, maxSpeed)
+    const desiredYawVelocity = getFaceCenteringVelocity(x, target.mode)
+    const desiredPitchVelocity = getFaceCenteringVelocity(y, target.mode)
     faceState.yawVelocity = x ? updateVelocity(faceState.yawVelocity, desiredYawVelocity) : 0
     faceState.pitchVelocity = y ? updateVelocity(faceState.pitchVelocity, desiredPitchVelocity) : 0
     const yawStep = faceState.yawVelocity * frameDelta

@@ -9,6 +9,10 @@ export const FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD = 0.08
 export const FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD = 0.05
 export const FACE_CENTER_PANORAMA_ACTIVATION_DEGREES = 10
 export const FACE_CENTER_PANORAMA_SETTLE_DEGREES = 7
+export const FACE_CENTER_VIEWPORT_MAX_SPEED = 18
+export const FACE_CENTER_PANORAMA_MAX_SPEED = 32
+const FACE_CENTER_VIEWPORT_DISTANCE_SCALE = 22
+const FACE_CENTER_PANORAMA_DISTANCE_SCALE = 45
 const MIN_FACE_SCORE = 0.5
 const TARGET_SMOOTHING_TIME_MS = 480
 
@@ -103,6 +107,14 @@ export const getFaceCenteringError = (
     pitchOffset,
     needsMovement: yawOffset !== 0 || pitchOffset !== 0,
   }
+}
+
+export const getFaceCenteringVelocity = (offset: number, mode: DetectionMode) => {
+  const distance = Math.abs(offset)
+  if (!distance) return 0
+  const maxSpeed = mode === "panorama" ? FACE_CENTER_PANORAMA_MAX_SPEED : FACE_CENTER_VIEWPORT_MAX_SPEED
+  const distanceScale = mode === "panorama" ? FACE_CENTER_PANORAMA_DISTANCE_SCALE : FACE_CENTER_VIEWPORT_DISTANCE_SCALE
+  return Math.sign(offset) * maxSpeed * (1 - Math.exp(-distance / distanceScale))
 }
 
 export const getFaceCenter = (face: FaceBox) => ({
