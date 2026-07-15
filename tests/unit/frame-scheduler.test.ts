@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { faceInferencePeriod, scheduleFrame } from "../../src/features/vr/frame-scheduler"
+import { FACE_CENTER_MOVING_SCAN_MAX_PERIOD_MS, FACE_CENTER_MOVING_SCAN_MIN_PERIOD_MS, faceInferencePeriod, movingFaceInferencePeriod, scheduleFrame, shouldRunFaceInference } from "../../src/features/vr/frame-scheduler"
 
 describe("frame scheduler", () => {
   it("holds a stable 24 fps average on a 60 Hz animation clock without drifting to 20 fps", () => {
@@ -31,6 +31,15 @@ describe("frame scheduler", () => {
       render: true,
       nextFrameAt: 11 + 1000 / 24,
     })
+  })
+
+  it("locks short automatic movements and permits scheduled rescans during long movements", () => {
+    expect(shouldRunFaceInference(1000, 900, true)).toBe(false)
+    expect(shouldRunFaceInference(1000, 900, true, true)).toBe(true)
+    expect(shouldRunFaceInference(1000, 900, false)).toBe(true)
+    expect(shouldRunFaceInference(899, 900, false)).toBe(false)
+    expect(movingFaceInferencePeriod(600, 0)).toBe(FACE_CENTER_MOVING_SCAN_MIN_PERIOD_MS)
+    expect(movingFaceInferencePeriod(6000, 0)).toBe(FACE_CENTER_MOVING_SCAN_MAX_PERIOD_MS)
   })
 
   it.each([

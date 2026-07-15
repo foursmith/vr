@@ -1,7 +1,7 @@
 import type { FaceAutoCenterState, FaceBox, FaceTarget } from "../../src/features/vr/face-auto-center"
 import { PerspectiveCamera } from "three"
 import { describe, expect, it } from "vitest"
-import { applyDetections, constrainFaceAutoCenterView, FACE_CENTER_EDGE_MARGIN_DEGREES, FACE_CENTER_FORWARD_ACTIVATION_DISTANCE, FACE_CENTER_FORWARD_MAX_SPEED, FACE_CENTER_FORWARD_SETTLE_DISTANCE, FACE_CENTER_MAX_FORWARD, FACE_CENTER_MIN_FORWARD, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_TARGET_SIZE, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, FACE_DIRECTION_MAX_AGE_MS, FACE_IDENTITY_SWITCH_POSITION_SPEED, FACE_IDENTITY_SWITCH_SIZE_SPEED, FACE_PITCH_LOOK_DEAD_ZONE_DEGREES, FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET, getFaceCenter, getFaceCenteringError, getFaceCenteringVelocity, getFaceDetectionRange, getFaceForwardTarget, getFaceForwardVelocity, getFaceInferenceMode, getFacePitchAdjustedCenter, getManualZoomForwardTarget, getPredictedFaceDirection, getProjectionCoverageMargin, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, shouldEnterPanoramaRecovery, updateFaceMotion, VIEWPORT_MISSES_BEFORE_PANORAMA } from "../../src/features/vr/face-auto-center"
+import { applyDetections, constrainFaceAutoCenterView, estimateFaceCenteringDuration, FACE_CENTER_EDGE_MARGIN_DEGREES, FACE_CENTER_FORWARD_ACTIVATION_DISTANCE, FACE_CENTER_FORWARD_MAX_SPEED, FACE_CENTER_FORWARD_SETTLE_DISTANCE, FACE_CENTER_MAX_FORWARD, FACE_CENTER_MIN_FORWARD, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_SIZE_DEAD_ZONE, FACE_CENTER_STOP_SPEED, FACE_CENTER_TARGET_SIZE, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, FACE_DIRECTION_MAX_AGE_MS, FACE_IDENTITY_SWITCH_POSITION_SPEED, FACE_IDENTITY_SWITCH_SIZE_SPEED, FACE_PITCH_LOOK_DEAD_ZONE_DEGREES, FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET, getFaceCenter, getFaceCenteringError, getFaceCenteringVelocity, getFaceDetectionRange, getFaceForwardTarget, getFaceForwardVelocity, getFaceInferenceMode, getFacePitchAdjustedCenter, getManualZoomForwardTarget, getPredictedFaceDirection, getProjectionCoverageMargin, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, shouldEnterPanoramaRecovery, smoothFaceCenteringVelocity, updateFaceMotion, VIEWPORT_MISSES_BEFORE_PANORAMA } from "../../src/features/vr/face-auto-center"
 
 const state = (): FaceAutoCenterState => ({
   faces: [],
@@ -159,12 +159,16 @@ describe("face auto-center", () => {
   it("translates the camera forward and backward from face size without changing zoom", () => {
     const value = state()
     const camera = new PerspectiveCamera(80, 9 / 16)
-    const smallFace = face({ width: 0.1, height: 0.1 })
-    const largeFace = face({ width: 0.6, height: 0.6 })
+    const smallFace = face({ width: 0.05, height: 0.05 })
+    const largeFace = face({ width: 0.2, height: 0.2 })
 
+    expect(FACE_CENTER_TARGET_SIZE).toBe(0.1)
+    expect(FACE_CENTER_SIZE_DEAD_ZONE).toBe(0.02)
     expect(getFaceForwardTarget(smallFace, 0, 100)).toBe(FACE_CENTER_MAX_FORWARD)
     expect(getFaceForwardTarget(largeFace, 0, 100)).toBe(FACE_CENTER_MIN_FORWARD)
     expect(getFaceForwardTarget(face({ width: FACE_CENTER_TARGET_SIZE, height: FACE_CENTER_TARGET_SIZE }), 0, 100)).toBeCloseTo(0)
+    expect(getFaceForwardTarget(face({ width: 0.119, height: 0.119 }), 7, 100)).toBe(7)
+    expect(getFaceForwardTarget(face({ width: 0.121, height: 0.121 }), 7, 100)).not.toBe(7)
 
     setViewportTarget(value, smallFace, 100, undefined, 0, 100)
     expect(value.target?.forward).toBe(FACE_CENTER_MAX_FORWARD)
@@ -172,6 +176,12 @@ describe("face auto-center", () => {
     expect(getFaceCenteringError({ ...centeredTarget, forward: FACE_CENTER_FORWARD_ACTIVATION_DISTANCE - 0.01 }, camera, { yaw: 0, pitch: 0, forward: 0 }).needsMovement).toBe(false)
     expect(getFaceCenteringError({ ...centeredTarget, forward: FACE_CENTER_FORWARD_ACTIVATION_DISTANCE + 0.01 }, camera, { yaw: 0, pitch: 0, forward: 0 }).needsMovement).toBe(true)
     expect(getFaceCenteringError({ ...centeredTarget, forward: FACE_CENTER_FORWARD_SETTLE_DISTANCE + 0.01 }, camera, { yaw: 0, pitch: 0, forward: 0 }, true).needsMovement).toBe(true)
+    expect(getFaceCenteringError({ ...centeredTarget, size: 0.119, forward: FACE_CENTER_MAX_FORWARD }, camera, { yaw: 0, pitch: 0, forward: 0 }).needsMovement).toBe(false)
+    expect(getFaceCenteringError({ ...centeredTarget, size: 0.121, forward: FACE_CENTER_MAX_FORWARD }, camera, { yaw: 0, pitch: 0, forward: 0 }).needsMovement).toBe(true)
+    const settlingState = state()
+    setViewportTarget(settlingState, smallFace, 100, undefined, 0, 100)
+    setViewportTarget(settlingState, face({ width: 0.1, height: 0.1 }), 200, undefined, 4, 100)
+    expect(settlingState.target).toMatchObject({ size: 0.1, forward: 4 })
     expect(getFaceForwardVelocity(20)).toBeGreaterThan(0)
     expect(getFaceForwardVelocity(20)).toBeLessThan(FACE_CENTER_FORWARD_MAX_SPEED)
     expect(getFaceForwardVelocity(-20)).toBeCloseTo(-getFaceForwardVelocity(20))
@@ -191,6 +201,30 @@ describe("face auto-center", () => {
     expect(panoramaSpeeds[2]).toBeLessThan(FACE_CENTER_PANORAMA_MAX_SPEED)
     expect(getFaceCenteringVelocity(-30, "panorama")).toBeCloseTo(-panoramaSpeeds[1])
     expect(getFaceCenteringVelocity(0, "viewport")).toBe(0)
+  })
+
+  it("estimates concurrent automatic movement duration from the active velocity model", () => {
+    const stopped = { yaw: 0, pitch: 0, forward: 0 }
+    const shortDuration = estimateFaceCenteringDuration(
+      { yawOffset: 5, pitchOffset: 0, forwardOffset: 0 },
+      stopped,
+      "viewport",
+    )
+    const longDuration = estimateFaceCenteringDuration(
+      { yawOffset: 20, pitchOffset: 8, forwardOffset: 12 },
+      stopped,
+      "viewport",
+    )
+
+    expect(estimateFaceCenteringDuration({ yawOffset: 0, pitchOffset: 0, forwardOffset: 0 }, stopped, "viewport")).toBe(0)
+    expect(shortDuration).toBeGreaterThan(0)
+    expect(longDuration).toBeGreaterThan(shortDuration)
+    expect(smoothFaceCenteringVelocity(
+      FACE_CENTER_STOP_SPEED / 2,
+      FACE_CENTER_STOP_SPEED / 2,
+      16,
+    )).toBe(0)
+    expect(smoothFaceCenteringVelocity(1, FACE_CENTER_STOP_SPEED / 2, 16)).toBeGreaterThan(0)
   })
 
   it("maps manual zoom scale to unbounded distance-relative camera movement", () => {

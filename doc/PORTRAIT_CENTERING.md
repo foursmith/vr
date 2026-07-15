@@ -188,7 +188,7 @@ Viewport targets use a maximum speed of 18°/s and a 22° distance scale. Panora
 
 ### Forward and backward camera motion
 
-Viewport detections use `sqrt(face.width * face.height)` as an approximate distance observation and target a normalized face size of `0.24`. The camera translates along its current look direction instead of changing zoom or FOV. Positive `forward` values move toward the projection surface; negative values move away.
+Viewport detections use `sqrt(face.width * face.height)` as an approximate distance observation and target a normalized face size of `0.10`. Automatic forward/backward adjustment starts only when the observed size differs from the target by at least `0.02`, so sizes in the open interval `(0.08, 0.12)` remain in the depth dead zone. The camera translates along its current look direction instead of changing zoom or FOV. Positive `forward` values move toward the projection surface; negative values move away.
 
 The target assumes a local projection-surface distance of 100 units for spherical modes and 65 units for the flat screen. Given the current forward position and observed face size, the remaining camera-to-surface distance is scaled by `observedSize / targetSize`. The result is clamped to `[-35, 35]` units. This is an approximate depth response inferred from apparent face size; the source video does not provide metric depth.
 
@@ -235,7 +235,7 @@ The base activity limits are:
 | Activity | Maximum frequency | Meaning |
 | --- | ---: | --- |
 | `stable` | 3 Hz | Face is composed and the camera is settled |
-| `active` | 6 Hz | Face is outside the dead zone or the camera is moving |
+| `active` | 6 Hz | Face is outside the dead zone or a long automatic movement is being rescanned |
 | `searching` | 8 Hz | No reliable target or repeated viewport misses |
 | `recovery` | 12 Hz | Perspective recovery tiles are being scanned |
 
@@ -255,6 +255,10 @@ period = max(targetPeriod, processingFloor)
 ```
 
 Activity headroom is 1.15 for `stable`, 1.10 for `active`, 1.08 for `searching`, and 1.03 for `recovery`.
+
+At the start of automatic movement, the controller estimates its duration by simulating the current yaw, pitch, and forward errors with the same nonlinear desired-velocity curves and 260 ms velocity smoothing used by rendering. The estimate ends when at least 95% of each initial axis error has been traversed. Movements estimated at 3.5 seconds or less lock their target and do not submit another inference until all three axes stop. Longer movements enable rescanning so a large camera move can correct for subject motion instead of remaining blind.
+
+Long-movement rescans use one third of the latest remaining-duration estimate, clamped to 300–800 ms and never shorter than the measured inference P95 plus 50 ms. Each result can update the active target and produces a new duration estimate. Once movement stops, the long-movement state clears and the next due viewport inference runs immediately.
 
 The first viewport miss preserves the missed inference's activity, adaptive maximum frequency, motion adjustment, and processing headroom for the detector retry. If the retry also misses, panorama recovery begins and subsequent tile scans use the `recovery` schedule.
 

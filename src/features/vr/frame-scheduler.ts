@@ -10,6 +10,9 @@ export type FrameScheduleMode = "interaction" | "playback"
 const FRAME_DEADLINE_TOLERANCE_MS = 0.5
 const INFERENCE_HEADROOM = 1.15
 const INFERENCE_MAX_PERIOD_MS = 360
+export const FACE_CENTER_SHORT_MOVE_ETA_MS = 3500
+export const FACE_CENTER_MOVING_SCAN_MIN_PERIOD_MS = 300
+export const FACE_CENTER_MOVING_SCAN_MAX_PERIOD_MS = 800
 
 export type FaceInferenceActivity = "stable" | "active" | "searching" | "recovery"
 export interface FaceMotionMetrics { size: number, speed: number, recedingSpeed: number }
@@ -49,6 +52,21 @@ export const faceInferencePeriod = (
     Math.min(INFERENCE_MAX_PERIOD_MS, inferenceP95 * config.headroom),
   )
 }
+
+export const shouldRunFaceInference = (
+  now: number,
+  nextDetectionAt: number,
+  autoCenterMoving: boolean,
+  rescanDuringMovement = false,
+) => (!autoCenterMoving || rescanDuringMovement) && now >= nextDetectionAt
+
+export const movingFaceInferencePeriod = (remainingDurationMs: number, inferenceP95: number) => Math.max(
+  inferenceP95 + 50,
+  Math.min(
+    FACE_CENTER_MOVING_SCAN_MAX_PERIOD_MS,
+    Math.max(FACE_CENTER_MOVING_SCAN_MIN_PERIOD_MS, remainingDurationMs / 3),
+  ),
+)
 
 export function scheduleFrame(
   now: number,
