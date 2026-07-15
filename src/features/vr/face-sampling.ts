@@ -214,10 +214,10 @@ export const drawSampleBoxes = (
   const freshFaces = state.faces.filter(face => time - face.lastSeenAt < 1200)
   state.faces = freshFaces
   context.save()
-  context.fillStyle = "rgba(0, 0, 0, 0.58)"
+  context.fillStyle = "rgba(7, 16, 18, 0.82)"
   context.fillRect(0, 0, Math.min(110, canvas.width), 22)
-  context.fillStyle = "#fff"
-  context.font = "bold 12px monospace"
+  context.fillStyle = "#8ddde3"
+  context.font = "600 11px monospace"
   context.fillText(label, 8, 15)
   context.restore()
   freshFaces.forEach((face) => {
@@ -226,9 +226,9 @@ export const drawSampleBoxes = (
     const width = face.width * canvas.width
     const height = face.height * canvas.height
     context.save()
-    context.strokeStyle = "#38ff8b"
+    context.strokeStyle = "#62cfd8"
     context.lineWidth = Math.max(2, canvas.width / 420)
-    context.shadowColor = "rgba(56, 255, 139, 0.6)"
+    context.shadowColor = "rgba(98, 207, 216, 0.46)"
     context.shadowBlur = canvas.width / 80
     context.strokeRect(x, y, width, height)
     context.shadowBlur = 0
@@ -238,11 +238,32 @@ export const drawSampleBoxes = (
     const label = `${Math.round(face.score * 100)}%${poseLabel}`
     const labelY = Math.max(0, y - 18)
     const labelWidth = Math.min(canvas.width - x, Math.max(42, label.length * 7 + 10))
-    context.fillStyle = "rgba(10, 132, 255, 0.9)"
+    context.fillStyle = "rgba(7, 34, 37, 0.92)"
     context.fillRect(x, labelY, labelWidth, 18)
-    context.fillStyle = "#fff"
-    context.font = "bold 12px monospace"
+    context.fillStyle = "#b7edf0"
+    context.font = "600 11px monospace"
     context.fillText(label, x + 5, Math.max(12, y - 5))
     context.restore()
   })
+}
+
+export const drawSampleStatus = (
+  canvas: HTMLCanvasElement,
+  context: CanvasRenderingContext2D,
+  label: string,
+) => {
+  if (canvas.width <= 1 || canvas.height <= 1) resizeCanvas(canvas, 320, 180)
+  context.save()
+  const labelWidth = Math.min(160, canvas.width - 16)
+  const labelHeight = 28
+  const labelX = (canvas.width - labelWidth) / 2
+  const labelY = (canvas.height - labelHeight) / 2
+  context.fillStyle = "rgba(7, 16, 18, 0.84)"
+  context.fillRect(labelX, labelY, labelWidth, labelHeight)
+  context.fillStyle = "#b7edf0"
+  context.font = "600 12px monospace"
+  context.textAlign = "center"
+  context.textBaseline = "middle"
+  context.fillText(label, canvas.width / 2, canvas.height / 2)
+  context.restore()
 }

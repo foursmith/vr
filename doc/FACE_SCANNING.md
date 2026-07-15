@@ -22,6 +22,8 @@ MediaPipe viewport search uses the BlazeFace short-range model, which is optimiz
 
 Only one inference may be in flight. The next inference time is measured from the start of the previous inference, with the completed capture and inference time subtracted from the remaining delay.
 
+The reusable inference canvas is kept offscreen. When the debug panel is open, a separate visible preview shows every viewport inference frame. A viewport miss overlays **No face detected** on that current frame. During panorama recovery, missed recovery tiles stay offscreen and the preview keeps the latest missed viewport frame, so the scanner can continue searching without flashing panorama tiles through the debug UI. A successful viewport or panorama result replaces the preview with its inference frame and detected box.
+
 ## Recovery state machine
 
 1. Viewport detection succeeds:
@@ -196,7 +198,7 @@ The configured playback render rate limits ordinary video presentation, but it d
 
 The debug panel exposes the inputs needed for tuning:
 
-- the movement hint reports every active axis together: left/right and up/down angular correction plus forward/backward positional correction; its screen position follows the active horizontal and vertical direction;
+- the movement hint presents each active axis as its own compact group: horizontal arrow plus angle, vertical arrow plus angle, and depth rings plus positional distance. Its screen position follows the active horizontal and vertical direction. Forward motion expands the cyan target ring around a fixed reference ring, while backward motion contracts it;
 
 - current activity (`stable`, `active`, `searching`, or `recovery`);
 - tracking frequency and inference duration;

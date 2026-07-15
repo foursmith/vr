@@ -49,7 +49,15 @@ export interface FaceCenteringError {
   forwardOffset: number
   needsMovement: boolean
 }
-export interface FaceMovementHint { left: number, top: number, text: string }
+export interface FaceMovementHint {
+  left: number
+  top: number
+  text: string
+  horizontal?: { direction: "left" | "right", value: string }
+  vertical?: { direction: "up" | "down", value: string }
+  depth?: "nearer" | "farther"
+  depthValue?: string
+}
 interface FaceSelectionAnchor { x: number, y: number, weight: number, wrapX: boolean }
 export interface PerspectivePanoramaView { yaw: number, pitch: number, fov: number, aspect: number, yawSpan: 180 | 360 }
 export interface PanoramaSample {
@@ -257,12 +265,20 @@ export const getFaceMovementHint = (error: FaceCenteringError): FaceMovementHint
   const labels: string[] = []
   if (error.yawOffset) labels.push(`${error.yaw > 0 ? "→" : "←"} ${Math.round(Math.abs(error.yaw))}°`)
   if (error.pitchOffset) labels.push(`${error.pitch > 0 ? "↑" : "↓"} ${Math.round(Math.abs(error.pitch))}°`)
-  if (error.forwardOffset) labels.push(`${error.forward > 0 ? "FORWARD" : "BACK"} ${Math.abs(error.forward).toFixed(1)}`)
-  if (!labels.length) return undefined
+  if (error.forwardOffset) labels.push(`${error.forward > 0 ? "nearer" : "farther"} ${Math.abs(error.forward).toFixed(1)}`)
+  if (!labels.length && !error.forwardOffset) return undefined
   return {
     left: error.yawOffset ? (error.yaw > 0 ? 88 : 12) : 50,
     top: error.pitchOffset ? (error.pitch > 0 ? 14 : 86) : 50,
     text: labels.join(" · "),
+    horizontal: error.yawOffset
+      ? { direction: error.yaw > 0 ? "right" : "left", value: `${Math.round(Math.abs(error.yaw))}°` }
+      : undefined,
+    vertical: error.pitchOffset
+      ? { direction: error.pitch > 0 ? "up" : "down", value: `${Math.round(Math.abs(error.pitch))}°` }
+      : undefined,
+    depth: error.forwardOffset ? (error.forward > 0 ? "nearer" : "farther") : undefined,
+    depthValue: error.forwardOffset ? Math.abs(error.forward).toFixed(1) : undefined,
   }
 }
 

@@ -184,7 +184,7 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
                 type="button"
                 aria-pressed={debug.panelOpen() ? "true" : "false"}
                 title={debug.panelOpen() ? "Hide debug info" : "Show debug info"}
-                class={`flex items-center gap-1.5 rounded-lg border-0 px-1.5 py-1 font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent/40 ${debug.panelOpen() ? "bg-accent/10 text-accent/78" : "bg-transparent text-white/42 hover:bg-white/7 hover:text-white/72"}`}
+                class={`flex items-center gap-1.5 rounded-full border px-2 py-1 font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent/40 ${debug.panelOpen() ? "border-accent/18 bg-accent/10 text-accent/82" : "border-transparent bg-transparent text-white/42 hover:border-white/7 hover:bg-white/7 hover:text-white/72"}`}
                 onClick={() => debug.setPanelOpen(!debug.panelOpen())}
               >
                 <Icon name="bug" class="h-3.5 w-3.5" />

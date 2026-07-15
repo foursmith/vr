@@ -88,26 +88,50 @@ export function PlayerStage(props: { controller: PlayerController }) {
       >
         <div ref={setVrMount} id="vr-mount" class="h-full w-full"></div>
         <div class="pointer-events-none absolute inset-0 z-10">
-          <div
-            ref={debug.setFpsMeter}
-            id="fps-meter"
-            class="absolute left-3 top-3 hidden whitespace-pre rounded-md border border-white/16 bg-black/68 px-3 py-2 font-mono text-[11px] font-semibold leading-[1.55] text-white/78 shadow-[0_8px_24px_rgba(0,0,0,0.42)] backdrop-blur-md"
-            aria-label="Performance metrics"
-          >
-            FPS --  P95 -- ms
+          <div class="absolute right-3 top-3 flex w-[min(16rem,24vw)] max-w-[calc(100vw-24px)] flex-col gap-2">
+            <canvas
+              ref={debug.setSampleCanvas}
+              id="sample-canvas"
+              class="hidden aspect-video w-full object-contain overflow-hidden rounded-xl border border-accent/18 bg-[#070a0c] shadow-[0_12px_32px_rgba(0,0,0,0.34),inset_0_0_0_1px_rgba(255,255,255,0.025)]"
+            >
+            </canvas>
+            <div
+              ref={debug.setFpsMeter}
+              id="fps-meter"
+              class="hidden overflow-hidden rounded-xl border border-white/10 bg-[#090d0f]/88 shadow-[0_10px_28px_rgba(0,0,0,0.3)] backdrop-blur-xl"
+              aria-label="Performance metrics"
+            >
+              <div class="flex items-center gap-2 border-b border-white/7 px-3 py-2">
+                <span class="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_8px_rgba(98,207,216,0.62)]"></span>
+                <span class="text-[9px] font-semibold uppercase tracking-[0.12em] text-white/68">Tracking monitor</span>
+                <span class="ml-auto font-mono text-[8px] font-semibold tracking-[0.1em] text-accent/72">LIVE</span>
+              </div>
+              <div data-debug-metrics class="whitespace-pre px-3 py-2.5 font-mono text-[9px] font-medium leading-[1.7] text-white/54">
+                Waiting for frames…
+              </div>
+            </div>
           </div>
-          <canvas
-            ref={debug.setSampleCanvas}
-            id="sample-canvas"
-            class="absolute right-3 top-3 hidden aspect-auto w-[min(16rem,24vw)] max-w-[calc(100vw-24px)] rounded-md border border-white/22 bg-black shadow-[0_12px_34px_rgba(0,0,0,0.48),0_0_0_1px_rgba(0,0,0,0.55)]"
-          >
-          </canvas>
           <div
             ref={debug.setFaceHint}
             id="face-hint"
-            class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border border-[#38ff8b]/44 bg-black/58 px-3 py-2.5 font-mono text-sm text-white font-extrabold leading-none shadow-[0_10px_30px_rgba(0,0,0,0.42),0_0_20px_rgba(56,255,139,0.22)] [text-shadow:0_1px_1px_rgba(0,0,0,0.55)]"
+            class="absolute top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 whitespace-nowrap font-mono text-[10px] font-semibold leading-none text-accent/88"
             hidden
           >
+            <span data-face-horizontal-group class="hidden items-center gap-1 rounded-md bg-white/6 px-1.5 py-1.5">
+              <span data-face-horizontal-icon class="text-xs text-accent"></span>
+              <span data-face-horizontal-value class="tabular-nums text-white/72"></span>
+            </span>
+            <span data-face-vertical-group class="hidden items-center gap-1 rounded-md bg-white/6 px-1.5 py-1.5">
+              <span data-face-vertical-icon class="text-xs text-accent"></span>
+              <span data-face-vertical-value class="tabular-nums text-white/72"></span>
+            </span>
+            <span data-face-depth-group class="hidden items-center gap-1 rounded-md bg-white/6 px-1.5 py-1" aria-hidden="true">
+              <span class="relative h-5 w-5 shrink-0">
+                <span class="absolute inset-1 rounded-full border border-white/22"></span>
+                <span data-face-depth-target class="absolute inset-1 rounded-full border border-accent/88 shadow-[0_0_8px_rgba(98,207,216,0.32)] transition-transform duration-150"></span>
+              </span>
+              <span data-face-depth-value class="font-mono text-[10px] font-semibold tabular-nums text-white/72"></span>
+            </span>
           </div>
         </div>
       </section>

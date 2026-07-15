@@ -1,6 +1,6 @@
 import type { CameraView, ProjectionMode, ProjectionQuality } from "@foursmith/player-core"
 import type { FaceCenteringMode, FaceInferenceMode, FaceInferenceResult, FacePose } from "../face-tracking/protocol"
-import type { DetectionMode, FaceAutoCenterState, PanoramaSample } from "./face-auto-center"
+import type { DetectionMode, FaceAutoCenterState, FaceMovementHint, PanoramaSample } from "./face-auto-center"
 import type { FaceInferenceActivity } from "./frame-scheduler"
 import { createVrPlayerCore, DEFAULT_FOV, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS } from "@foursmith/player-core"
 import { MathUtils, Vector3 } from "three"
@@ -28,6 +28,7 @@ import {
 import {
   createPerspectivePanoramaSample,
   drawSampleBoxes,
+  drawSampleStatus,
   drawViewportInferenceSample,
   getPanoramaScanTile,
   getPanoramaScanTileCount,
@@ -57,7 +58,7 @@ const FLAT_SURFACE_DISTANCE = 65
 interface RenderViewport { x: number, y: number, width: number, height: number }
 
 interface OverlayState {
-  hint?: { left: number, top: number, text: string }
+  hint?: FaceMovementHint
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
@@ -112,8 +113,18 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
 
   const mount = initialOptions.mount
   const sampleCanvas = initialOptions.sampleCanvas
+  const inferenceCanvas = sampleCanvas.ownerDocument.createElement("canvas")
   const video = initialOptions.video
   const options = { ...initialOptions, video }
+  const horizontalGroup = options.hintElement.querySelector<HTMLElement>("[data-face-horizontal-group]")
+  const horizontalIcon = options.hintElement.querySelector<HTMLElement>("[data-face-horizontal-icon]")
+  const horizontalValue = options.hintElement.querySelector<HTMLElement>("[data-face-horizontal-value]")
+  const verticalGroup = options.hintElement.querySelector<HTMLElement>("[data-face-vertical-group]")
+  const verticalIcon = options.hintElement.querySelector<HTMLElement>("[data-face-vertical-icon]")
+  const verticalValue = options.hintElement.querySelector<HTMLElement>("[data-face-vertical-value]")
+  const depthGroup = options.hintElement.querySelector<HTMLElement>("[data-face-depth-group]")
+  const depthTarget = options.hintElement.querySelector<HTMLElement>("[data-face-depth-target]")
+  const depthValue = options.hintElement.querySelector<HTMLElement>("[data-face-depth-value]")
   let disposed = false
   let frameId = 0
   let videoFrameCallbackId = 0
@@ -136,7 +147,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   let lastInputSize = "--"
   let skippedInferenceFrames = 0
   let overlayVisible = !options.hintElement.hidden
-  let lastOverlayText = options.hintElement.textContent ?? ""
+  let lastOverlayText = options.hintElement.getAttribute("aria-label") ?? ""
+  let lastOverlayDepth: "nearer" | "farther" | undefined
   let lastOverlayLeft = Number.NaN
   let lastOverlayTop = Number.NaN
   const initialViewport = getRenderViewports(
@@ -181,6 +193,9 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     lastErrorAt: 0,
   }
   const sampleContext = sampleCanvas.getContext("2d", { alpha: false, willReadFrequently: true })
+  const inferenceContext = inferenceCanvas.getContext("2d", { alpha: false, willReadFrequently: true })
+  const getFpsMetricsElement = () =>
+    options.fpsElement.querySelector<HTMLElement>("[data-debug-metrics]") ?? options.fpsElement
   const cameraForward = new Vector3()
   const getFaceSurfaceDistance = (projection: ProjectionMode) =>
     projection === "flat_2d" ? FLAT_SURFACE_DISTANCE : SPHERE_SURFACE_DISTANCE
@@ -238,6 +253,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     faceDetector?.destroy()
     faceDetector = undefined
     faceDetectorPromise = undefined
+    inferenceCanvas.width = 1
+    inferenceCanvas.height = 1
     sampleCanvas.width = 1
     sampleCanvas.height = 1
   }
@@ -263,9 +280,26 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     const hint = options.debugPanelOpen ? overlay.hint : undefined
     if (hint) {
       if (lastOverlayText !== hint.text) {
-        options.hintElement.textContent = hint.text
+        options.hintElement.setAttribute("aria-label", hint.text)
         lastOverlayText = hint.text
       }
+      horizontalGroup?.classList.toggle("hidden", !hint.horizontal)
+      horizontalGroup?.classList.toggle("flex", Boolean(hint.horizontal))
+      if (horizontalIcon) horizontalIcon.textContent = hint.horizontal?.direction === "right" ? "→" : "←"
+      if (horizontalValue) horizontalValue.textContent = hint.horizontal?.value ?? ""
+      verticalGroup?.classList.toggle("hidden", !hint.vertical)
+      verticalGroup?.classList.toggle("flex", Boolean(hint.vertical))
+      if (verticalIcon) verticalIcon.textContent = hint.vertical?.direction === "up" ? "↑" : "↓"
+      if (verticalValue) verticalValue.textContent = hint.vertical?.value ?? ""
+      if (lastOverlayDepth !== hint.depth) {
+        depthGroup?.classList.toggle("hidden", !hint.depth)
+        depthGroup?.classList.toggle("flex", Boolean(hint.depth))
+        if (depthTarget && hint.depth) {
+          depthTarget.style.transform = `scale(${hint.depth === "nearer" ? 1.45 : 0.62})`
+        }
+        lastOverlayDepth = hint.depth
+      }
+      if (depthValue) depthValue.textContent = hint.depthValue ?? ""
       if (!Number.isFinite(lastOverlayLeft) || Math.abs(lastOverlayLeft - hint.left) >= 0.1) {
         options.hintElement.style.left = `${hint.left}%`
         lastOverlayLeft = hint.left
@@ -292,7 +326,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     options.fpsElement.classList.toggle("hidden", !options.debugPanelOpen)
     if (!options.debugPanelOpen) {
       setOverlay({})
-      options.fpsElement.textContent = "FPS --  P95 -- ms"
+      getFpsMetricsElement().textContent = "Waiting for frames…"
       fpsFrameCount = 0
       fpsSampleStartedAt = performance.now()
       recentFrameTimes.length = 0
@@ -336,14 +370,15 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       ? "Single view"
       : `Split ${splitCount} · render ${splitCount}×`
 
-    options.fpsElement.textContent = [
-      `FPS ${fps}  P95 ${p95.toFixed(1)} ms`,
-      renderStrategy,
-      `Render CPU ${lastRenderMs.toFixed(2)} ms  P95 ${renderP95.toFixed(2)} ms`,
-      `Track ${trackingHz.toFixed(1)} Hz  Infer ${lastInferenceMs.toFixed(1)} ms  ${inferenceActivity}`,
-      `Motion ${(faceState.motion?.speed ?? 0).toFixed(2)}/s  Away ${Math.max(0, faceState.motion?.recedingSpeed ?? 0).toFixed(2)}/s  Size ${(faceState.motion?.size ?? 0).toFixed(2)}`,
-      `Capture ${lastCaptureMs.toFixed(1)} ms  Skipped ${skippedInferenceFrames}`,
-      `${faceDetector ? options.faceCenteringMode === "system" ? "System Worker" : "MediaPipe Worker" : "Face detector idle"}  Input ${lastInputSize}`,
+    getFpsMetricsElement().textContent = [
+      `RENDER   ${fps} fps · ${p95.toFixed(1)} ms p95`,
+      `VIEW     ${renderStrategy}`,
+      `CPU      ${lastRenderMs.toFixed(2)} ms · ${renderP95.toFixed(2)} p95`,
+      `TRACK    ${trackingHz.toFixed(1)} Hz · ${lastInferenceMs.toFixed(1)} ms · ${inferenceActivity}`,
+      `MOTION   ${(faceState.motion?.speed ?? 0).toFixed(2)}/s`,
+      `DEPTH    away ${Math.max(0, faceState.motion?.recedingSpeed ?? 0).toFixed(2)} · size ${(faceState.motion?.size ?? 0).toFixed(2)}`,
+      `CAPTURE  ${lastCaptureMs.toFixed(1)} ms · skip ${skippedInferenceFrames}`,
+      `ENGINE   ${faceDetector ? options.faceCenteringMode === "system" ? "System" : "MediaPipe" : "Idle"} · ${lastInputSize}`,
     ].join("\n")
     fpsFrameCount = 0
     fpsSampleStartedAt = now
@@ -671,8 +706,18 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     }
 
     updateTrackingResult(foundFace, time, detectionMode)
-    if (options.debugPanelOpen) {
-      drawSampleBoxes(faceState, sampleCanvas, sampleContext!, performance.now(), faceState.detectionMode)
+    if (options.debugPanelOpen && sampleContext) {
+      if (foundFace) {
+        sampleCanvas.width = inferenceCanvas.width
+        sampleCanvas.height = inferenceCanvas.height
+        sampleContext.drawImage(inferenceCanvas, 0, 0)
+        drawSampleBoxes(faceState, sampleCanvas, sampleContext, performance.now(), faceState.detectionMode)
+      } else if (detectionMode === "viewport") {
+        sampleCanvas.width = inferenceCanvas.width
+        sampleCanvas.height = inferenceCanvas.height
+        sampleContext.drawImage(inferenceCanvas, 0, 0)
+        drawSampleStatus(sampleCanvas, sampleContext, "No face detected")
+      }
     }
     return !foundFace && detectionMode === "viewport" && faceState.consecutiveViewportMisses === 1
   }
@@ -725,8 +770,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       renderer.render(scene, camera)
 
       size = drawViewportInferenceSample(
-        sampleCanvas,
-        sampleContext!,
+        inferenceCanvas,
+        inferenceContext!,
         renderer.domElement,
         0,
         renderer.domElement.height - sidePixels,
@@ -748,7 +793,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   }
 
   const submitInference = (now: number) => {
-    if (!sampleContext || inferenceInFlight) return
+    if (!inferenceContext || inferenceInFlight) return
 
     const captureStartedAt = performance.now()
     let detectionMode: DetectionMode = "viewport"
@@ -764,8 +809,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         detectionMode = "panorama"
         panoramaSample = capturePanoramaInferenceSample(projection)
         if (!panoramaSample) return
-        inputWidth = sampleCanvas.width
-        inputHeight = sampleCanvas.height
+        inputWidth = inferenceCanvas.width
+        inputHeight = inferenceCanvas.height
       } else {
         const renderViewports = getRenderViewports(renderer.domElement.width, renderer.domElement.height, options.splitScreen)
         const sourceRect = renderViewports[Math.floor(renderViewports.length / 2)]
@@ -773,8 +818,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         // ImageBitmap directly from the WebGL canvas can retain its full-size
         // backing buffer until the asynchronous capture has completed.
         const size = drawViewportInferenceSample(
-          sampleCanvas,
-          sampleContext,
+          inferenceCanvas,
+          inferenceContext,
           renderer.domElement,
           sourceRect.x,
           sourceRect.y,
@@ -808,7 +853,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
           detectionMode,
           Boolean(faceState.target?.mode === "viewport" && faceState.consecutiveMisses === 0),
         )
-        return detector.detect(sampleCanvas, getFaceDetectionRange(detectionMode), inferenceMode)
+        return detector.detect(inferenceCanvas, getFaceDetectionRange(detectionMode), inferenceMode)
           .then(faces => ({ faces, inferenceMode }))
       })
       .then(({ faces, inferenceMode }) => {
@@ -1039,7 +1084,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         lastCaptureMs = 0
         lastInputSize = "--"
         skippedInferenceFrames = 0
-        options.fpsElement.textContent = "FPS --  P95 -- ms"
+        getFpsMetricsElement().textContent = "Waiting for frames…"
       }
       if (nextOptions.quality !== undefined) {
         applyRenderQuality()

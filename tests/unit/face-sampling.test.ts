@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest"
 import {
   drawPanoramaInferenceSample,
   drawSampleBoxes,
+  drawSampleStatus,
   drawViewportInferenceSample,
   getPanoramaScanTile,
   getPanoramaScanTileCount,
@@ -144,5 +145,21 @@ describe("face sampling", () => {
     expect(value.faces).toHaveLength(1)
     expect(context.strokeRect).toHaveBeenCalledWith(20, 20, 60, 40)
     expect(context.fillText).toHaveBeenCalledWith("91% Y12° P-4° R7°", 25, 15)
+  })
+
+  it("overlays a stable status without clearing the current debug preview", () => {
+    const context = {
+      save: vi.fn(),
+      restore: vi.fn(),
+      fillRect: vi.fn(),
+      fillText: vi.fn(),
+    } as unknown as CanvasRenderingContext2D
+    const canvas = { width: 1, height: 1 } as HTMLCanvasElement
+
+    drawSampleStatus(canvas, context, "No face detected")
+
+    expect(canvas).toMatchObject({ width: 320, height: 180 })
+    expect(context.fillRect).toHaveBeenCalledWith(80, 76, 160, 28)
+    expect(context.fillText).toHaveBeenCalledWith("No face detected", 160, 90)
   })
 })

@@ -187,7 +187,15 @@ describe("face auto-center", () => {
       pitchOffset: 2,
       forwardOffset: -3.25,
       needsMovement: true,
-    })).toEqual({ left: 12, top: 14, text: "← 14° · ↑ 9° · BACK 6.3" })
+    })).toEqual({
+      left: 12,
+      top: 14,
+      text: "← 14° · ↑ 9° · farther 6.3",
+      horizontal: { direction: "left", value: "14°" },
+      vertical: { direction: "up", value: "9°" },
+      depth: "farther",
+      depthValue: "6.3",
+    })
     expect(getFaceMovementHint({
       yaw: 0,
       pitch: -8,
@@ -196,7 +204,32 @@ describe("face auto-center", () => {
       pitchOffset: -1,
       forwardOffset: 2,
       needsMovement: true,
-    })).toEqual({ left: 50, top: 86, text: "↓ 8° · FORWARD 5.0" })
+    })).toEqual({
+      left: 50,
+      top: 86,
+      text: "↓ 8° · nearer 5.0",
+      horizontal: undefined,
+      vertical: { direction: "down", value: "8°" },
+      depth: "nearer",
+      depthValue: "5.0",
+    })
+    expect(getFaceMovementHint({
+      yaw: 0,
+      pitch: 0,
+      forward: -4,
+      yawOffset: 0,
+      pitchOffset: 0,
+      forwardOffset: -1,
+      needsMovement: true,
+    })).toEqual({
+      left: 50,
+      top: 50,
+      text: "farther 4.0",
+      horizontal: undefined,
+      vertical: undefined,
+      depth: "farther",
+      depthValue: "4.0",
+    })
     expect(getFaceMovementHint({
       yaw: 2,
       pitch: 1,
