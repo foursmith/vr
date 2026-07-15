@@ -1,8 +1,7 @@
 import type { RepeatMode } from "../../features/player/playback-state"
 import type { PlaylistStateNode } from "../../features/playlist/model"
-import { For, Show, untrack } from "solid-js"
+import { createSignal, For, Show, untrack } from "solid-js"
 import { PlaylistTreeNode } from "../playlist/PlaylistTreeNode"
-import { Icon } from "../ui/Icon"
 import { IconButton } from "../ui/IconButton"
 import { LiquidGlass } from "../ui/LiquidGlass"
 import { MediaPickerButtons } from "../ui/MediaPickerButtons"
@@ -48,6 +47,7 @@ export interface PlaylistPanelController {
 
 export function PlaylistPanel(props: { controller: PlaylistPanelController }) {
   const controller = untrack(() => props.controller)
+  const [playlistExpanded, setPlaylistExpanded] = createSignal(true)
   const { registerUiSurface, setControlsHold } = controller.controls
   const { repeatMode, setRepeatMode } = controller.playback
   const { scanDlna, state: serverState } = controller.server
@@ -70,7 +70,9 @@ export function PlaylistPanel(props: { controller: PlaylistPanelController }) {
   return (
     <div
       ref={registerUiSurface}
-      class={`pointer-events-auto absolute left-3 top-3 z-30 max-h-[calc(100dvh-14.75rem)] w-[min(18rem,calc(100vw-1.5rem))] transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:left-6 sm:top-6 sm:max-h-[calc(100dvh-13.5rem)] sm:w-72 ${
+      class={`pointer-events-auto absolute left-1 top-1 z-30 max-h-[calc(100dvh-14.75rem)] transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:left-4 sm:top-4 sm:max-h-[calc(100dvh-13.5rem)] ${
+        playlistExpanded() ? "w-[min(18rem,calc(100vw-1.5rem))] sm:w-72" : "h-12 w-12"
+      } ${
         visible() ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-[calc(100%+1.5rem)] opacity-0"
       }`}
       aria-hidden={visible() ? "false" : "true"}
@@ -83,83 +85,86 @@ export function PlaylistPanel(props: { controller: PlaylistPanelController }) {
         setControlsHold("focus", false)
       }}
     >
-      <LiquidGlass
-        class="min-h-0 w-full rounded-[20px] text-white"
-        cornerRadius={20}
-        elasticity={0}
-        castShadow
-      >
-        <aside
-          class="flex max-h-[calc(100dvh-14.75rem)] w-full flex-col overflow-hidden rounded-[20px] text-white sm:max-h-[calc(100dvh-13.5rem)]"
-          aria-label="Playlist"
+      <IconButton
+        label={playlistExpanded() ? "Close playlist" : "Open playlist"}
+        icon="playlist"
+        iconClass="h-4 w-4"
+        class={`!h-8 !w-8 ${playlistExpanded() ? "!absolute left-2 top-2 z-1" : "ml-2 mt-2"}`}
+        pressed={playlistExpanded()}
+        expanded={playlistExpanded()}
+        controls="playlist-panel-content"
+        onClick={() => setPlaylistExpanded(expanded => !expanded)}
+      />
+      <Show when={playlistExpanded()}>
+        <LiquidGlass
+          class="min-h-0 w-full rounded-[20px] text-white"
+          cornerRadius={20}
+          elasticity={0}
+          castShadow
         >
-          <header class="flex shrink-0 items-center gap-2 p-2">
-            <LiquidGlass
-              class="pointer-events-none h-8 w-8 shrink-0 rounded-full text-white/92"
-              cornerRadius={999}
-              elasticity={0.18}
-              castShadow={false}
-            >
-              <span aria-hidden="true" class="grid h-full w-full place-items-center rounded-full">
-                <Icon name="playlist" />
-              </span>
-            </LiquidGlass>
-            <div class="min-w-0 flex-1 text-sm font-semibold tracking-tight text-white/94">Playlist</div>
-            <IconButton
-              label={`Playback mode: ${currentRepeatMode().label}`}
-              icon={currentRepeatMode().icon}
-              iconClass="h-4 w-4"
-              class="!h-8 !w-8"
-              onClick={cycleRepeatMode}
-            />
-            <Show when={serverState.status === "connected"}>
+          <aside
+            id="playlist-panel-content"
+            class="flex max-h-[calc(100dvh-14.75rem)] w-full flex-col overflow-hidden rounded-[20px] text-white sm:max-h-[calc(100dvh-13.5rem)]"
+            aria-label="Playlist"
+          >
+            <header class="flex shrink-0 items-center gap-2 p-2 pl-12">
+              <div class="min-w-0 flex-1 text-sm font-semibold tracking-tight text-white/94">Playlist</div>
               <IconButton
-                label={serverState.scanningDlna ? "Scanning for DLNA devices" : "Scan for DLNA devices"}
-                icon="dlna-scan"
-                iconClass={`h-4 w-4 ${serverState.scanningDlna ? "animate-pulse" : ""}`}
+                label={`Playback mode: ${currentRepeatMode().label}`}
+                icon={currentRepeatMode().icon}
+                iconClass="h-4 w-4"
                 class="!h-8 !w-8"
-                disabled={serverState.scanningDlna}
-                onClick={() => void scanDlna().catch(() => {})}
+                onClick={cycleRepeatMode}
               />
+              <Show when={serverState.status === "connected"}>
+                <IconButton
+                  label={serverState.scanningDlna ? "Scanning for DLNA devices" : "Scan for DLNA devices"}
+                  icon="dlna-scan"
+                  iconClass={`h-4 w-4 ${serverState.scanningDlna ? "animate-pulse" : ""}`}
+                  class="!h-8 !w-8"
+                  disabled={serverState.scanningDlna}
+                  onClick={() => void scanDlna().catch(() => {})}
+                />
+              </Show>
+              <IconButton
+                label="Clear playlist"
+                icon="trash"
+                iconClass="h-3.5 w-3.5"
+                class={`!h-8 !w-8 ${hasBrowserPlaylistItems() ? "" : "pointer-events-none opacity-25"}`}
+                disabled={!hasBrowserPlaylistItems()}
+                onClick={clearPlaylist}
+              />
+            </header>
+
+            <Show when={serverState.error}>
+              {message => <p role="alert" class="shrink-0 border-y border-white/7 px-4 py-2 text-[10px] text-red-300/85">{message()}</p>}
             </Show>
-            <IconButton
-              label="Clear playlist"
-              icon="trash"
-              iconClass="h-3.5 w-3.5"
-              class={`!h-8 !w-8 ${hasBrowserPlaylistItems() ? "" : "pointer-events-none opacity-25"}`}
-              disabled={!hasBrowserPlaylistItems()}
-              onClick={clearPlaylist}
-            />
-          </header>
 
-          <Show when={serverState.error}>
-            {message => <p role="alert" class="shrink-0 border-y border-white/7 px-4 py-2 text-[10px] text-red-300/85">{message()}</p>}
-          </Show>
+            <div class="playlist-scroll min-h-0 flex-1 overflow-y-auto px-2">
+              <ul role="tree" aria-label="Video folders" class="m-0 list-none p-0">
+                <For each={state.nodes}>
+                  {node => (
+                    <PlaylistTreeNode
+                      node={node}
+                      depth={0}
+                      expanded={expandedFolders()}
+                      selectedId={state.selectedId}
+                      onToggle={togglePlaylistFolder}
+                      onSelect={selected => playPlaylistNode(selected.id)}
+                    />
+                  )}
+                </For>
+              </ul>
+            </div>
 
-          <div class="playlist-scroll min-h-0 flex-1 overflow-y-auto px-2">
-            <ul role="tree" aria-label="Video folders" class="m-0 list-none p-0">
-              <For each={state.nodes}>
-                {node => (
-                  <PlaylistTreeNode
-                    node={node}
-                    depth={0}
-                    expanded={expandedFolders()}
-                    selectedId={state.selectedId}
-                    onToggle={togglePlaylistFolder}
-                    onSelect={selected => playPlaylistNode(selected.id)}
-                  />
-                )}
-              </For>
-            </ul>
-          </div>
-
-          <Show when={state.nodes.length}>
-            <footer class="flex shrink-0 items-center justify-center p-2">
-              <MediaPickerButtons fullWidth onChooseFiles={chooseFiles} onChooseFolder={chooseFolder} />
-            </footer>
-          </Show>
-        </aside>
-      </LiquidGlass>
+            <Show when={state.nodes.length}>
+              <footer class="flex shrink-0 items-center justify-center p-2">
+                <MediaPickerButtons fullWidth onChooseFiles={chooseFiles} onChooseFolder={chooseFolder} />
+              </footer>
+            </Show>
+          </aside>
+        </LiquidGlass>
+      </Show>
     </div>
   )
 }

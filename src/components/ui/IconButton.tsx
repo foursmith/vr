@@ -19,6 +19,7 @@ export function IconButton(props: {
   title?: string
   hasPopup?: "menu" | "listbox"
   expanded?: boolean
+  controls?: string
   onClick?: () => void
   onKeyDown?: JSX.EventHandlerUnion<HTMLButtonElement, KeyboardEvent>
 }) {
@@ -37,6 +38,7 @@ export function IconButton(props: {
         aria-pressed={props.pressed === undefined ? undefined : props.pressed ? "true" : "false"}
         aria-haspopup={props.hasPopup}
         aria-expanded={props.expanded === undefined ? undefined : props.expanded ? "true" : "false"}
+        aria-controls={props.controls}
         title={props.title}
         class="relative grid h-full w-full place-items-center rounded-full border-0 bg-transparent p-0 text-inherit disabled:cursor-wait"
         onClick={props.onClick}
