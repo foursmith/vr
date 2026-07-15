@@ -67,14 +67,17 @@ Within the same mode and a gap of at most 1.5 seconds, a new detection is classi
 2. A viewport detection misses:
    - after the first consecutive miss, stay in viewport mode and retry with the detector;
    - preserve the activity and adaptive frequency used by the missed inference for that retry;
-   - after the second consecutive miss, store the current camera yaw and pitch, reset the recovery tile index, and enter panorama recovery.
-3. A recovery tile succeeds:
+   - after the second consecutive miss, store the current camera yaw and pitch, freeze the current motion prediction, order the five recovery tiles by proximity to that predicted direction, and enter panorama recovery.
+3. A recovery tile returns a candidate:
    - map the local face coordinates back to panorama coordinates;
-   - create a panorama yaw/pitch target;
-   - stop scanning and move the camera toward that target.
+   - accept it immediately only when confidence is at least `0.7`, its center stays inside the middle 64% of both tile axes, and its complete box stays at least 8% from every tile edge;
+   - otherwise, if the pass has not refined a candidate yet, insert one 70° tile centered on the mapped candidate and run that next;
+   - a reliable coarse or refined candidate creates the panorama yaw/pitch target, stops scanning immediately, and moves the camera toward that target.
 4. A recovery tile misses:
    - advance to the next tile;
-   - after the final tile, clear the viewport-miss counter and return to viewport detection before another recovery pass.
+   - a failed or still-unreliable refinement also advances past its originating coarse tile;
+   - only one refinement is permitted per recovery pass, limiting five coarse tiles to at most six inferences;
+   - after the final coarse tile, clear the viewport-miss counter and return to viewport detection before another recovery pass.
 
 Only viewport misses count toward the two-miss recovery threshold. A successful detection clears both miss counters. Face continuity remains active across short misses so one failed inference does not immediately discard the subject.
 
@@ -94,11 +97,11 @@ Pitch adjusts vertical composition. Magnitudes up to 6° are ignored. Beyond tha
 
 ### Perspective scan tiles
 
-All spherical projections use five recovery tiles. Flat 2D content uses one view and does not require a sphere-wide scan.
+All spherical projections use five coarse recovery tiles. Flat 2D content uses one view and does not require a sphere-wide scan. The tables define the coverage set, not its runtime order.
 
 #### 360-degree projections
 
-| Index | Yaw | Pitch | Vertical FOV | Purpose |
+| Candidate | Yaw | Pitch | Vertical FOV | Purpose |
 | ---: | --- | --- | ---: | --- |
 | 0 | Lost-view yaw | Lost-view pitch, clamped to ±45° | 130° | Reacquire near the last visible direction |
 | 1 | Lost-view yaw + 120° | Same scan-ring pitch | 130° | First horizontal remainder |
@@ -110,13 +113,23 @@ Yaw wraps into `[-180°, 180°)`. The 130° horizontal FOV overlaps neighboring 
 
 #### 180-degree projections
 
-| Index | Yaw | Pitch | Vertical FOV | Purpose |
+| Candidate | Yaw | Pitch | Vertical FOV | Purpose |
 | ---: | ---: | --- | ---: | --- |
 | 0 | Lost-view yaw, clamped to ±86° | Lost-view pitch, clamped to ±45° | 130° | Reacquire near the last visible direction |
 | 1 | -60° | Same scan-ring pitch | 130° | Left half-sphere |
 | 2 | +60° | Same scan-ring pitch | 130° | Right half-sphere |
 | 3 | Lost-view yaw | +70° | 110° | Upper-cap fallback |
 | 4 | Lost-view yaw | -70° | 110° | Lower-cap fallback |
+
+### Motion-prioritized order
+
+Before a recovery pass, the player projects the last reliable viewport face into world yaw and pitch, predicts its direction at the expected first scan time, and sorts the fixed five-tile coverage set by spherical angular distance to that prediction. The ordered plan is frozen for the pass so asynchronous results cannot reshuffle tiles in flight.
+
+The prediction uses the last world-direction velocity, the age of that observation, and a 160 ms scan lead. Total extrapolation time is capped at 600 ms, yaw extrapolation at 45°, and pitch extrapolation at 30°. Direction history must contain at least two samples and be no older than 900 ms. Predictions wrap across the 360° seam, clamp to ±86° yaw for half-sphere projections, and clamp to ±85° pitch. Missing or stale history preserves the table order.
+
+### Conditional refinement
+
+Selection and recovery reliability are separate thresholds. A face with confidence at least `0.5` can participate in subject selection, but a panorama candidate is accepted without refinement only when confidence reaches `0.7` and it is sufficiently far from distorted tile edges. The first edge or lower-confidence candidate in a pass receives one 70° square perspective tile centered on its mapped panorama direction. No later candidate in the same pass can add another refinement, bounding the pass at six inferences. A refined result must satisfy the same reliability test; otherwise scanning resumes at the next coarse tile.
 
 ### Capture path
 
@@ -205,13 +218,14 @@ This section defines state behavior only; the UI used to expose these actions is
 
 ## Motion model
 
-Motion prediction is updated only from viewport detections, where consecutive coordinates share the same screen-space meaning.
+Motion prediction is updated only from viewport detections.
 
 - `size = sqrt(face.width * face.height)` approximates subject proximity.
 - `speed` is normalized face-center displacement per second.
 - `recedingSpeed` is the decrease in `size` per second; positive values mean the subject appears to be moving away.
+- Each viewport face center is also converted to world yaw and pitch by combining its perspective ray with the camera view. Differencing these world directions removes camera-follow rotation from subject-direction velocity and unwraps yaw at the 360° seam.
 - Measurements use exponential smoothing with a 350 ms time constant.
-- The raw viewport face size supplies the forward/backward target; smoothed metrics are used only for adaptive inference scheduling.
+- The raw viewport face size supplies the forward/backward target. Smoothed size, screen speed, and recession feed adaptive inference scheduling; smoothed world yaw/pitch velocity feeds recovery tile ordering.
 - Motion history resets after a reliable-detection gap longer than 1.5 seconds, a subject switch, media changes, playback pause, disabled centering, or loss of the scene.
 
 ## Adaptive inference scheduling
@@ -266,6 +280,7 @@ Primary implementation files:
 
 - `src/features/vr/face-sampling.ts`
 - `src/features/vr/face-auto-center.ts`
+- `src/features/vr/panorama-recovery.ts`
 - `src/features/vr/frame-scheduler.ts`
 - `src/features/vr/scene.ts`
 - `src/features/face-tracking/pose.ts`
@@ -274,6 +289,7 @@ Primary tests:
 
 - `tests/unit/face-sampling.test.ts`
 - `tests/unit/face-auto-center.test.ts`
+- `tests/unit/panorama-recovery.test.ts`
 - `tests/unit/frame-scheduler.test.ts`
 - `tests/unit/face-pose.test.ts`
 

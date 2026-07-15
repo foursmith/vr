@@ -1,7 +1,7 @@
 import type { FaceAutoCenterState, FaceBox, FaceTarget } from "../../src/features/vr/face-auto-center"
 import { PerspectiveCamera } from "three"
 import { describe, expect, it } from "vitest"
-import { applyDetections, constrainFaceAutoCenterView, FACE_CENTER_EDGE_MARGIN_DEGREES, FACE_CENTER_FORWARD_ACTIVATION_DISTANCE, FACE_CENTER_FORWARD_MAX_SPEED, FACE_CENTER_FORWARD_SETTLE_DISTANCE, FACE_CENTER_MAX_FORWARD, FACE_CENTER_MIN_FORWARD, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_TARGET_SIZE, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, FACE_IDENTITY_SWITCH_POSITION_SPEED, FACE_IDENTITY_SWITCH_SIZE_SPEED, FACE_PITCH_LOOK_DEAD_ZONE_DEGREES, FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET, getFaceCenter, getFaceCenteringError, getFaceCenteringVelocity, getFaceDetectionRange, getFaceForwardTarget, getFaceForwardVelocity, getFaceInferenceMode, getFaceMovementHint, getFacePitchAdjustedCenter, getManualZoomForwardTarget, getProjectionCoverageMargin, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, shouldEnterPanoramaRecovery, updateFaceMotion, VIEWPORT_MISSES_BEFORE_PANORAMA } from "../../src/features/vr/face-auto-center"
+import { applyDetections, constrainFaceAutoCenterView, FACE_CENTER_EDGE_MARGIN_DEGREES, FACE_CENTER_FORWARD_ACTIVATION_DISTANCE, FACE_CENTER_FORWARD_MAX_SPEED, FACE_CENTER_FORWARD_SETTLE_DISTANCE, FACE_CENTER_MAX_FORWARD, FACE_CENTER_MIN_FORWARD, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_TARGET_SIZE, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, FACE_DIRECTION_MAX_AGE_MS, FACE_IDENTITY_SWITCH_POSITION_SPEED, FACE_IDENTITY_SWITCH_SIZE_SPEED, FACE_PITCH_LOOK_DEAD_ZONE_DEGREES, FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET, getFaceCenter, getFaceCenteringError, getFaceCenteringVelocity, getFaceDetectionRange, getFaceForwardTarget, getFaceForwardVelocity, getFaceInferenceMode, getFaceMovementHint, getFacePitchAdjustedCenter, getManualZoomForwardTarget, getPredictedFaceDirection, getProjectionCoverageMargin, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, shouldEnterPanoramaRecovery, updateFaceMotion, VIEWPORT_MISSES_BEFORE_PANORAMA } from "../../src/features/vr/face-auto-center"
 
 const state = (): FaceAutoCenterState => ({
   faces: [],
@@ -272,6 +272,53 @@ describe("face auto-center", () => {
     expect(motion.speed).toBeGreaterThan(0)
     expect(motion.recedingSpeed).toBeGreaterThan(0)
     expect(motion.size).toBeCloseTo(Math.sqrt(0.06))
+  })
+
+  it("tracks world direction across the 360-degree seam and predicts ahead", () => {
+    const value = state()
+    const camera = new PerspectiveCamera(80, 1)
+    const centered = face({ x: 0.4, y: 0.4, width: 0.2, height: 0.2 })
+    updateFaceMotion(value, centered, 100, camera, { yaw: 170, pitch: 0 })
+    const motion = updateFaceMotion(value, centered, 600, camera, { yaw: -170, pitch: 0 })
+    const predicted = getPredictedFaceDirection(value, 700, "mono_360_eqr")
+
+    expect(motion.worldYawVelocity).toBeGreaterThan(0)
+    expect(predicted?.yaw).toBeGreaterThan(-170)
+    expect(predicted?.yaw).toBeLessThan(-150)
+  })
+
+  it("removes camera rotation from the observed face direction", () => {
+    const value = state()
+    const camera = new PerspectiveCamera(80, 1)
+    const centered = face({ x: 0.4, y: 0.4, width: 0.2, height: 0.2 })
+    const compensatedCenterX = (1 - Math.tan(-10 * Math.PI / 180) / Math.tan(40 * Math.PI / 180)) / 2
+    const shifted = face({ x: compensatedCenterX - 0.1, y: 0.4, width: 0.2, height: 0.2 })
+
+    updateFaceMotion(value, centered, 100, camera, { yaw: 0, pitch: 0 })
+    const motion = updateFaceMotion(value, shifted, 600, camera, { yaw: 10, pitch: 0 })
+
+    expect(motion.worldYaw).toBeCloseTo(0)
+    expect(motion.worldYawVelocity).toBeCloseTo(0)
+  })
+
+  it("drops stale direction predictions and clamps 180-degree predictions", () => {
+    const value = state()
+    value.motion = {
+      centerX: 0.5,
+      centerY: 0.5,
+      size: 0.2,
+      speed: 0.2,
+      recedingSpeed: 0,
+      lastSeenAt: 100,
+      worldYaw: 80,
+      worldPitch: 70,
+      worldYawVelocity: 100,
+      worldPitchVelocity: 100,
+      directionSamples: 3,
+    }
+
+    expect(getPredictedFaceDirection(value, 200, "m_180_eqr")).toEqual({ yaw: 86, pitch: 85 })
+    expect(getPredictedFaceDirection(value, 100 + FACE_DIRECTION_MAX_AGE_MS + 1, "m_180_eqr")).toBeUndefined()
   })
 
   it("holds manual view changes until portrait centering is explicitly resumed", () => {

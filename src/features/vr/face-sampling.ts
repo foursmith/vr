@@ -1,6 +1,7 @@
 import type { CameraView, ProjectionMode } from "@foursmith/player-core"
 import type { PerspectiveCamera } from "three"
-import type { FaceAutoCenterState, PanoramaSample } from "./face-auto-center"
+import type { NormalizedFace } from "../face-tracking/protocol"
+import type { FaceAutoCenterState, FaceBox, FaceWorldDirection, PanoramaSample } from "./face-auto-center"
 import { MathUtils } from "three"
 
 // Keep doc/PORTRAIT_CENTERING.md synchronized with scan geometry and sampling changes.
@@ -13,6 +14,10 @@ const PANORAMA_HORIZONTAL_TILE_FOV = 130
 const PANORAMA_CAP_TILE_FOV = 110
 const PANORAMA_SCAN_TILE_COUNT = 5
 const PANORAMA_RING_PITCH_LIMIT = 45
+export const PANORAMA_RELIABLE_FACE_SCORE = 0.7
+export const PANORAMA_RELIABLE_CENTER_MARGIN = 0.18
+export const PANORAMA_RELIABLE_BOX_MARGIN = 0.08
+export const PANORAMA_REFINEMENT_FOV = 70
 
 export interface PanoramaScanTile { yaw: number, pitch: number, fov: number }
 
@@ -63,6 +68,67 @@ export const getPanoramaScanTile = (
     case 2: return { yaw: shortestAngle(originYaw - 120), pitch: ringPitch, fov: PANORAMA_HORIZONTAL_TILE_FOV }
     case 3: return { yaw: shortestAngle(originYaw), pitch: 70, fov: PANORAMA_CAP_TILE_FOV }
     default: return { yaw: shortestAngle(originYaw), pitch: -70, fov: PANORAMA_CAP_TILE_FOV }
+  }
+}
+
+const sphericalDistance = (first: FaceWorldDirection, second: FaceWorldDirection) => {
+  const firstPitch = MathUtils.degToRad(first.pitch)
+  const secondPitch = MathUtils.degToRad(second.pitch)
+  const yawDelta = MathUtils.degToRad(shortestAngle(first.yaw - second.yaw))
+  return MathUtils.radToDeg(Math.acos(clamp(
+    Math.sin(firstPitch) * Math.sin(secondPitch)
+    + Math.cos(firstPitch) * Math.cos(secondPitch) * Math.cos(yawDelta),
+    -1,
+    1,
+  )))
+}
+
+export const getPanoramaScanTiles = (
+  projection: ProjectionMode,
+  originYaw: number,
+  originPitch = 0,
+  predictedDirection?: FaceWorldDirection,
+) => {
+  const tiles = Array.from(
+    { length: getPanoramaScanTileCount(projection) },
+    (_, index) => ({ tile: getPanoramaScanTile(projection, index, originYaw, originPitch), index }),
+  )
+  if (!predictedDirection) return tiles.map(item => item.tile)
+  return tiles
+    .sort((first, second) => {
+      const distance = sphericalDistance(first.tile, predictedDirection) - sphericalDistance(second.tile, predictedDirection)
+      return Math.abs(distance) > 0.0001 ? distance : first.index - second.index
+    })
+    .map(item => item.tile)
+}
+
+export const isPanoramaCandidateReliable = (face: NormalizedFace | undefined) => {
+  if (!face || face.score < PANORAMA_RELIABLE_FACE_SCORE) return false
+  const centerX = face.x + face.width / 2
+  const centerY = face.y + face.height / 2
+  return centerX >= PANORAMA_RELIABLE_CENTER_MARGIN
+    && centerX <= 1 - PANORAMA_RELIABLE_CENTER_MARGIN
+    && centerY >= PANORAMA_RELIABLE_CENTER_MARGIN
+    && centerY <= 1 - PANORAMA_RELIABLE_CENTER_MARGIN
+    && face.x >= PANORAMA_RELIABLE_BOX_MARGIN
+    && face.y >= PANORAMA_RELIABLE_BOX_MARGIN
+    && face.x + face.width <= 1 - PANORAMA_RELIABLE_BOX_MARGIN
+    && face.y + face.height <= 1 - PANORAMA_RELIABLE_BOX_MARGIN
+}
+
+export const getPanoramaRefinementTile = (
+  projection: ProjectionMode,
+  face: FaceBox,
+): PanoramaScanTile => {
+  const centerX = face.x + face.width / 2
+  const centerY = face.y + face.height / 2
+  const yawSpan = getProjectionYawSpan(projection)
+  const yawLimit = getProjectionYawLimit(projection)
+  const yaw = shortestAngle((0.5 - centerX) * yawSpan)
+  return {
+    yaw: yawLimit === undefined ? yaw : clamp(yaw, -yawLimit, yawLimit),
+    pitch: clamp((0.5 - centerY) * 180, -85, 85),
+    fov: PANORAMA_REFINEMENT_FOV,
   }
 }
 

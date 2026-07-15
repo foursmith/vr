@@ -22,6 +22,11 @@ export const FACE_PITCH_LOOK_DEAD_ZONE_DEGREES = 6
 export const FACE_PITCH_LOOK_FULL_SCALE_DEGREES = 30
 export const FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET = 0.12
 export const VIEWPORT_MISSES_BEFORE_PANORAMA = 2
+export const FACE_DIRECTION_MAX_AGE_MS = 900
+export const FACE_DIRECTION_SCAN_LEAD_MS = 160
+export const FACE_DIRECTION_MAX_PREDICTION_MS = 600
+export const FACE_DIRECTION_MAX_YAW_PREDICTION = 45
+export const FACE_DIRECTION_MAX_PITCH_PREDICTION = 30
 const FACE_CENTER_VIEWPORT_DISTANCE_SCALE = 22
 const FACE_CENTER_PANORAMA_DISTANCE_SCALE = 45
 const FACE_CENTER_FORWARD_DISTANCE_SCALE = 18
@@ -74,7 +79,14 @@ export interface FaceMotionState {
   speed: number
   recedingSpeed: number
   lastSeenAt: number
+  worldYaw?: number
+  worldPitch?: number
+  worldYawVelocity?: number
+  worldPitchVelocity?: number
+  directionSamples?: number
 }
+
+export interface FaceWorldDirection { yaw: number, pitch: number }
 
 export interface FaceAutoCenterState {
   faces: FaceBox[]
@@ -290,6 +302,18 @@ export const getFaceCenter = (face: FaceBox) => ({
   y: face.y + face.height / 2,
 })
 
+export const getFaceWorldDirection = (
+  face: FaceBox,
+  camera: PerspectiveCamera,
+  view: { yaw: number, pitch: number },
+): FaceWorldDirection => {
+  const center = getFaceCenter(face)
+  return {
+    yaw: shortestAngle(view.yaw + getViewportYawOffset(camera, center.x)),
+    pitch: clamp(view.pitch + getViewportPitchOffset(camera, center.y), -90, 90),
+  }
+}
+
 export const getFacePitchAdjustedCenter = (
   center: { x: number, y: number },
   pitch: number | undefined,
@@ -309,13 +333,32 @@ export const getFacePitchAdjustedCenter = (
   }
 }
 
-export const updateFaceMotion = (state: FaceAutoCenterState, face: FaceBox, time: number) => {
+export const updateFaceMotion = (
+  state: FaceAutoCenterState,
+  face: FaceBox,
+  time: number,
+  camera?: PerspectiveCamera,
+  view?: { yaw: number, pitch: number },
+) => {
   const center = getFaceCenter(face)
   const size = Math.sqrt(Math.max(0, face.width * face.height))
+  const direction = camera && view ? getFaceWorldDirection(face, camera, view) : undefined
   const previous = state.motion
   const elapsedMs = previous ? time - previous.lastSeenAt : 0
   if (!previous || elapsedMs <= 0 || elapsedMs > 1500) {
-    state.motion = { centerX: center.x, centerY: center.y, size, speed: 0, recedingSpeed: 0, lastSeenAt: time }
+    state.motion = {
+      centerX: center.x,
+      centerY: center.y,
+      size,
+      speed: 0,
+      recedingSpeed: 0,
+      lastSeenAt: time,
+      worldYaw: direction?.yaw,
+      worldPitch: direction?.pitch,
+      worldYawVelocity: direction ? 0 : undefined,
+      worldPitchVelocity: direction ? 0 : undefined,
+      directionSamples: direction ? 1 : undefined,
+    }
     return state.motion
   }
 
@@ -323,6 +366,17 @@ export const updateFaceMotion = (state: FaceAutoCenterState, face: FaceBox, time
   const measuredSpeed = clamp(Math.hypot(center.x - previous.centerX, center.y - previous.centerY) / elapsedSeconds, 0, 4)
   const measuredRecedingSpeed = clamp((previous.size - size) / elapsedSeconds, -2, 2)
   const blend = 1 - Math.exp(-elapsedMs / 350)
+  const hasPreviousDirection = direction
+    && previous.worldYaw !== undefined
+    && previous.worldPitch !== undefined
+    && previous.worldYawVelocity !== undefined
+    && previous.worldPitchVelocity !== undefined
+  const measuredYawVelocity = hasPreviousDirection
+    ? clamp(shortestAngle(direction.yaw - previous.worldYaw!) / elapsedSeconds, -180, 180)
+    : undefined
+  const measuredPitchVelocity = hasPreviousDirection
+    ? clamp((direction.pitch - previous.worldPitch!) / elapsedSeconds, -120, 120)
+    : undefined
   state.motion = {
     centerX: center.x,
     centerY: center.y,
@@ -330,8 +384,57 @@ export const updateFaceMotion = (state: FaceAutoCenterState, face: FaceBox, time
     speed: previous.speed + (measuredSpeed - previous.speed) * blend,
     recedingSpeed: previous.recedingSpeed + (measuredRecedingSpeed - previous.recedingSpeed) * blend,
     lastSeenAt: time,
+    worldYaw: direction?.yaw,
+    worldPitch: direction?.pitch,
+    worldYawVelocity: measuredYawVelocity === undefined
+      ? direction ? 0 : undefined
+      : previous.worldYawVelocity! + (measuredYawVelocity - previous.worldYawVelocity!) * blend,
+    worldPitchVelocity: measuredPitchVelocity === undefined
+      ? direction ? 0 : undefined
+      : previous.worldPitchVelocity! + (measuredPitchVelocity - previous.worldPitchVelocity!) * blend,
+    directionSamples: direction ? (hasPreviousDirection ? (previous.directionSamples ?? 1) + 1 : 1) : undefined,
   }
   return state.motion
+}
+
+export const getPredictedFaceDirection = (
+  state: FaceAutoCenterState,
+  time: number,
+  projection: ProjectionMode,
+): FaceWorldDirection | undefined => {
+  const motion = state.motion
+  if (
+    !motion
+    || (motion.directionSamples ?? 0) < 2
+    || motion.worldYaw === undefined
+    || motion.worldPitch === undefined
+    || motion.worldYawVelocity === undefined
+    || motion.worldPitchVelocity === undefined
+  ) {
+    return undefined
+  }
+  const ageMs = time - motion.lastSeenAt
+  if (ageMs < 0 || ageMs > FACE_DIRECTION_MAX_AGE_MS) return undefined
+  const predictionSeconds = Math.min(
+    FACE_DIRECTION_MAX_PREDICTION_MS,
+    ageMs + FACE_DIRECTION_SCAN_LEAD_MS,
+  ) / 1000
+  const yawOffset = clamp(
+    motion.worldYawVelocity * predictionSeconds,
+    -FACE_DIRECTION_MAX_YAW_PREDICTION,
+    FACE_DIRECTION_MAX_YAW_PREDICTION,
+  )
+  const pitchOffset = clamp(
+    motion.worldPitchVelocity * predictionSeconds,
+    -FACE_DIRECTION_MAX_PITCH_PREDICTION,
+    FACE_DIRECTION_MAX_PITCH_PREDICTION,
+  )
+  const yawLimit = getProjectionYawLimit(projection)
+  const yaw = shortestAngle(motion.worldYaw + yawOffset)
+  return {
+    yaw: yawLimit === undefined ? yaw : clamp(yaw, -yawLimit, yawLimit),
+    pitch: clamp(motion.worldPitch + pitchOffset, -85, 85),
+  }
 }
 
 export const pauseFaceAutoCenter = (state: FaceAutoCenterState) => {
