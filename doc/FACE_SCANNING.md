@@ -16,9 +16,9 @@ The algorithm balances four competing goals:
 The player alternates between two detection modes:
 
 - **Viewport detection** copies the currently visible render into the reusable inference canvas. MediaPipe uses the short-range face detector while searching, then switches to the face landmarker after a reliable target is established. The landmarker supplies a feature-based center and head pose while it continues to see the target.
-- **Panorama recovery** renders one perspective view of the sphere per inference. It starts after viewport detection misses a face and continues until a face is found or all recovery tiles have been checked.
+- **Panorama recovery** renders one perspective view of the sphere per inference. It starts after two consecutive viewport detections miss a face and continues until a face is found or all recovery tiles have been checked.
 
-MediaPipe viewport search uses the BlazeFace short-range model, which is optimized for larger, nearby faces. A successful search enables the face landmarker on subsequent viewport samples. A detector or landmarker miss proceeds directly to panorama recovery without retrying the same sample with another model. Panorama recovery uses the full-range model because faces occupy fewer pixels in the wide-FOV scan tiles. The system face detector backend accepts the same scheduling choice but uses its platform-provided model and does not provide pose.
+MediaPipe viewport search uses the BlazeFace short-range model, which is optimized for larger, nearby faces. A successful search enables the face landmarker on subsequent viewport samples. After the first detector or landmarker miss, the player retries the viewport with the detector; only a second consecutive viewport miss starts panorama recovery. Panorama recovery uses the full-range model because faces occupy fewer pixels in the wide-FOV scan tiles. The system face detector backend accepts the same scheduling choice but uses its platform-provided model and does not provide pose.
 
 Only one inference may be in flight. The next inference time is measured from the start of the previous inference, with the completed capture and inference time subtracted from the remaining delay.
 
@@ -29,18 +29,18 @@ Only one inference may be in flight. The next inference time is measured from th
    - clear the recovery tile index;
    - continue viewport tracking, using MediaPipe landmarks while the target remains reliable.
 2. Viewport detection misses:
-   - remember the current camera yaw and pitch;
-   - set the recovery tile index to zero;
-   - enter panorama recovery.
+   - after the first consecutive miss, remain in viewport mode and retry once;
+   - preserve the activity and adaptive frequency used by the missed inference for that retry;
+   - after the second consecutive miss, remember the current camera yaw and pitch, reset the recovery tile index, and enter panorama recovery.
 3. A recovery tile succeeds:
    - map its local face coordinates back to panorama coordinates;
    - create a panorama yaw/pitch target;
    - stop scanning and let the camera move toward the target.
 4. A recovery tile misses:
    - advance to the next tile;
-   - after the final tile, return to viewport detection before starting another recovery pass.
+   - after the final tile, clear the viewport-miss counter and return to viewport detection before starting another recovery pass.
 
-The target grace period and stable-face selection logic remain active across short misses so a single failed detection does not immediately discard the subject.
+Only viewport misses count toward the two-miss recovery threshold; misses from individual panorama tiles do not. Any successful detection clears both miss counters. The target grace period and stable-face selection logic remain active across short misses so a single failed detection does not immediately discard the subject.
 
 ## Face pose
 
@@ -54,7 +54,7 @@ The decomposition removes uniform scale from the matrix before reading the rotat
 
 Pitch contributes a bounded viewport-composition offset so the view follows the subject's vertical look direction. Pitch magnitude up to 6° is ignored. Beyond that dead zone, the offset grows linearly and reaches its maximum at 30°. Negative pitch (looking up) moves the target upward; positive pitch (looking down) moves it downward. The offset is capped at 8% of viewport height and passes through the existing 480 ms target smoothing. Yaw and roll remain diagnostic only and do not affect camera motion. Pose never changes motion prediction, face identity selection, or panorama mapping.
 
-The debug face-box label shows rounded signed degrees as `Y…° P…° R…°`. The system detector and panorama detector do not output pose, so their labels continue to show confidence only. A landmarker miss enters panorama recovery; the player does not keep retrying landmarks without a reliable target.
+The debug face-box label shows rounded signed degrees as `Y…° P…° R…°`. The system detector and panorama detector do not output pose, so their labels continue to show confidence only. A landmarker miss drops the unreliable landmark target and performs the single viewport detector retry before panorama recovery.
 
 ### Centering dead zones
 
@@ -179,6 +179,8 @@ period = max(targetPeriod, processingFloor)
 ```
 
 Activity headroom is 1.15 for stable, 1.10 for active, 1.08 for searching, and 1.03 for recovery.
+
+The first consecutive viewport miss does not immediately reclassify the retry as `searching`: its next deadline retains the activity, adaptive maximum frequency, motion adjustment, and processing headroom from the missed inference. If that retry also misses, panorama recovery begins and subsequent tile scans use the `recovery` schedule.
 
 ## Render cadence isolation
 

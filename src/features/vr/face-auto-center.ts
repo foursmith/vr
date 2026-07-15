@@ -20,6 +20,7 @@ export const FACE_CENTER_FORWARD_MAX_SPEED = 16
 export const FACE_PITCH_LOOK_DEAD_ZONE_DEGREES = 6
 export const FACE_PITCH_LOOK_FULL_SCALE_DEGREES = 30
 export const FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET = 0.08
+export const VIEWPORT_MISSES_BEFORE_PANORAMA = 2
 const FACE_CENTER_VIEWPORT_DISTANCE_SCALE = 22
 const FACE_CENTER_PANORAMA_DISTANCE_SCALE = 45
 const FACE_CENTER_FORWARD_DISTANCE_SCALE = 18
@@ -74,6 +75,7 @@ export interface FaceAutoCenterState {
   lastDetectionAt: number
   recoveryMode?: DetectionMode
   consecutiveMisses: number
+  consecutiveViewportMisses: number
   isMoving: boolean
   offCenterSince?: number
   target?: FaceTarget
@@ -236,6 +238,7 @@ export const pauseFaceAutoCenter = (state: FaceAutoCenterState) => {
   state.motion = undefined
   state.recoveryMode = undefined
   state.consecutiveMisses = 0
+  state.consecutiveViewportMisses = 0
   state.offCenterSince = undefined
   state.yawVelocity = 0
   state.pitchVelocity = 0
@@ -243,6 +246,9 @@ export const pauseFaceAutoCenter = (state: FaceAutoCenterState) => {
   state.isMoving = false
   state.nextDetectionAt = Number.POSITIVE_INFINITY
 }
+
+export const shouldEnterPanoramaRecovery = (consecutiveViewportMisses: number) =>
+  consecutiveViewportMisses >= VIEWPORT_MISSES_BEFORE_PANORAMA
 
 export const resumeFaceAutoCenter = (state: FaceAutoCenterState) => {
   state.manuallyPaused = false

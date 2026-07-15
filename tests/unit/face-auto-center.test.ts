@@ -1,7 +1,7 @@
 import type { FaceAutoCenterState, FaceBox, FaceTarget } from "../../src/features/vr/face-auto-center"
 import { PerspectiveCamera } from "three"
 import { describe, expect, it } from "vitest"
-import { applyDetections, FACE_CENTER_FORWARD_ACTIVATION_DISTANCE, FACE_CENTER_FORWARD_MAX_SPEED, FACE_CENTER_FORWARD_SETTLE_DISTANCE, FACE_CENTER_MAX_FORWARD, FACE_CENTER_MIN_FORWARD, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_TARGET_SIZE, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, FACE_IDENTITY_SWITCH_POSITION_SPEED, FACE_IDENTITY_SWITCH_SIZE_SPEED, FACE_PITCH_LOOK_DEAD_ZONE_DEGREES, FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET, getFaceCenter, getFaceCenteringError, getFaceCenteringVelocity, getFaceDetectionRange, getFaceForwardTarget, getFaceForwardVelocity, getFaceInferenceMode, getFaceMovementHint, getFacePitchAdjustedCenter, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, updateFaceMotion } from "../../src/features/vr/face-auto-center"
+import { applyDetections, FACE_CENTER_FORWARD_ACTIVATION_DISTANCE, FACE_CENTER_FORWARD_MAX_SPEED, FACE_CENTER_FORWARD_SETTLE_DISTANCE, FACE_CENTER_MAX_FORWARD, FACE_CENTER_MIN_FORWARD, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_TARGET_SIZE, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, FACE_IDENTITY_SWITCH_POSITION_SPEED, FACE_IDENTITY_SWITCH_SIZE_SPEED, FACE_PITCH_LOOK_DEAD_ZONE_DEGREES, FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET, getFaceCenter, getFaceCenteringError, getFaceCenteringVelocity, getFaceDetectionRange, getFaceForwardTarget, getFaceForwardVelocity, getFaceInferenceMode, getFaceMovementHint, getFacePitchAdjustedCenter, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, shouldEnterPanoramaRecovery, updateFaceMotion, VIEWPORT_MISSES_BEFORE_PANORAMA } from "../../src/features/vr/face-auto-center"
 
 const state = (): FaceAutoCenterState => ({
   faces: [],
@@ -9,6 +9,7 @@ const state = (): FaceAutoCenterState => ({
   nextDetectionAt: 0,
   lastDetectionAt: 0,
   consecutiveMisses: 0,
+  consecutiveViewportMisses: 0,
   isMoving: false,
   yawVelocity: 0,
   pitchVelocity: 0,
@@ -21,6 +22,12 @@ describe("face auto-center", () => {
   it("uses short-range detection for the viewport and full-range detection for panorama recovery", () => {
     expect(getFaceDetectionRange("viewport")).toBe("short")
     expect(getFaceDetectionRange("panorama")).toBe("full")
+  })
+
+  it("enters panorama recovery only after two consecutive viewport misses", () => {
+    expect(VIEWPORT_MISSES_BEFORE_PANORAMA).toBe(2)
+    expect(shouldEnterPanoramaRecovery(1)).toBe(false)
+    expect(shouldEnterPanoramaRecovery(2)).toBe(true)
   })
 
   it("uses landmarks only for a reliable MediaPipe viewport target", () => {
@@ -159,6 +166,9 @@ describe("face auto-center", () => {
     value.selectedFace = { ...face(), mode: "viewport" }
     value.target = { x: 0.2, y: -0.1, mode: "viewport", lastSeenAt: 100 }
     value.motion = { centerX: 0.3, centerY: 0.25, size: 0.2, speed: 1, recedingSpeed: 0, lastSeenAt: 100 }
+    value.recoveryMode = "panorama"
+    value.consecutiveMisses = 2
+    value.consecutiveViewportMisses = 1
     value.isMoving = true
     value.yawVelocity = 2
     value.forwardVelocity = 4
@@ -168,6 +178,9 @@ describe("face auto-center", () => {
     expect(value).toMatchObject({ manuallyPaused: true, faces: [], isMoving: false, yawVelocity: 0, forwardVelocity: 0 })
     expect(value.target).toBeUndefined()
     expect(value.motion).toBeUndefined()
+    expect(value.recoveryMode).toBeUndefined()
+    expect(value.consecutiveMisses).toBe(0)
+    expect(value.consecutiveViewportMisses).toBe(0)
     expect(value.nextDetectionAt).toBe(Number.POSITIVE_INFINITY)
 
     resumeFaceAutoCenter(value)
