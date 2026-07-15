@@ -1,5 +1,4 @@
 import type { CameraView } from "@foursmith/player-core/config"
-import type { FaceCenteringMode } from "./playback-state"
 import { DEFAULT_FORWARD, DEFAULT_ZOOM, QUALITY_OPTIONS } from "@foursmith/player-core/config"
 import { createSignal, createStore } from "solid-js"
 
@@ -19,7 +18,6 @@ export function createDisplay(options: {
     renderFrameRateId: number
     splitScreen: boolean
     faceAutoCenter: boolean
-    faceCenteringMode: FaceCenteringMode
   }>
 }) {
   const [state, setState] = createStore({
@@ -28,7 +26,6 @@ export function createDisplay(options: {
     renderFrameRateId: options.initialState?.renderFrameRateId ?? 3,
     splitScreen: options.initialState?.splitScreen ?? true,
     faceAutoCenter: options.initialState?.faceAutoCenter ?? true,
-    faceCenteringMode: options.initialState?.faceCenteringMode ?? "mediapipe",
   })
   const [zoom, setZoomSignal] = createSignal(DEFAULT_ZOOM)
   const [fullscreen, setFullscreen] = createSignal(false)
@@ -50,7 +47,6 @@ export function createDisplay(options: {
   }
   const setSplitScreen = (update: ValueUpdate<boolean>) => setValue("splitScreen", update)
   const setFaceAutoCenter = (update: ValueUpdate<boolean>) => setValue("faceAutoCenter", update)
-  const setFaceCenteringMode = (update: ValueUpdate<FaceCenteringMode>) => setValue("faceCenteringMode", update)
 
   const setZoom = (next: number) => {
     if (!options.resourcesReady()) return
@@ -112,7 +108,6 @@ export function createDisplay(options: {
     fullscreen,
     resetView,
     setFaceAutoCenter,
-    setFaceCenteringMode,
     setProjectionId,
     setQualityId,
     setRenderFrameRateId,
@@ -127,7 +122,6 @@ export function createDisplay(options: {
     changeQualityBy,
     controller,
     faceAutoCenter: () => state.faceAutoCenter,
-    faceCenteringMode: () => state.faceCenteringMode,
     projectionId: () => state.projectionId,
     qualityId: () => state.qualityId,
     renderFrameRateId: () => state.renderFrameRateId,

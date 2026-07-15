@@ -34,7 +34,7 @@ The next inference time is measured from the start of the previous inference. Co
 The player alternates between two spatial detection modes:
 
 - **Viewport detection** copies the currently rendered view into a reusable inference canvas. MediaPipe uses the BlazeFace short-range detector while searching because the viewport normally contains larger, nearby faces. After a reliable target is established, it uses the face landmarker to obtain a feature-based center and head pose.
-- **Panorama recovery** renders one perspective view of the projection sphere per inference. It uses the MediaPipe full-range detector because a face occupies fewer pixels in a wide-FOV recovery tile. The system face detector backend follows the same spatial mode and schedule, but uses its platform-provided model and does not provide pose.
+- **Panorama recovery** renders one perspective view of the projection sphere per inference. It uses the MediaPipe full-range detector because a face occupies fewer pixels in a wide-FOV recovery tile.
 
 A landmarker miss falls back to the viewport detector for the single viewport retry before recovery. Panorama recovery always uses face detection rather than landmarks.
 

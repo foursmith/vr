@@ -48,22 +48,21 @@ describe("player state persistence", () => {
       renderFrameRateId: 3,
       splitScreen: false,
       faceAutoCenter: false,
-      faceCenteringMode: "system",
       subtitlesEnabled: false,
       repeatMode: "folder",
     })
   })
 
-  it("uses MediaPipe when migrating preferences without a detector mode", () => {
+  it("ignores the removed detector mode when migrating preferences", () => {
     localStorage.setItem("foursmith-vr:preferences", JSON.stringify({
       ...DEFAULT_GLOBAL_PREFERENCES,
       faceAutoCenter: true,
-      faceCenteringMode: undefined,
+      faceCenteringMode: "system",
     }))
     expect(loadGlobalPreferences()).toMatchObject({
       faceAutoCenter: true,
-      faceCenteringMode: "mediapipe",
     })
+    expect(loadGlobalPreferences()).not.toHaveProperty("faceCenteringMode")
   })
 
   it("saves global preferences as one value", () => {

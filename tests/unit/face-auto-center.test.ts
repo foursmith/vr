@@ -31,10 +31,9 @@ describe("face auto-center", () => {
   })
 
   it("uses landmarks only for a reliable MediaPipe viewport target", () => {
-    expect(getFaceInferenceMode("mediapipe", "viewport", true)).toBe("landmarks")
-    expect(getFaceInferenceMode("mediapipe", "viewport", false)).toBe("detection")
-    expect(getFaceInferenceMode("mediapipe", "panorama", true)).toBe("detection")
-    expect(getFaceInferenceMode("system", "viewport", true)).toBe("detection")
+    expect(getFaceInferenceMode("viewport", true)).toBe("landmarks")
+    expect(getFaceInferenceMode("viewport", false)).toBe("detection")
+    expect(getFaceInferenceMode("panorama", true)).toBe("detection")
   })
 
   it("follows face pitch vertically without applying yaw or roll", () => {

@@ -1,6 +1,6 @@
 import type { ProjectionMode } from "@foursmith/player-core"
 import type { PerspectiveCamera } from "three"
-import type { FaceCenteringMode, FaceDetectionRange, FaceInferenceMode, NormalizedFace } from "../face-tracking/protocol"
+import type { FaceDetectionRange, FaceInferenceMode, NormalizedFace } from "../face-tracking/protocol"
 import { Euler, MathUtils, Vector3 } from "three"
 
 const VIEWPORT_TARGET_X = 0.5
@@ -35,10 +35,9 @@ export type FaceBox = NormalizedFace & { lastSeenAt: number }
 export type DetectionMode = "viewport" | "panorama"
 export const getFaceDetectionRange = (mode: DetectionMode): FaceDetectionRange => mode === "viewport" ? "short" : "full"
 export const getFaceInferenceMode = (
-  backend: FaceCenteringMode,
   mode: DetectionMode,
   hasReliableTarget: boolean,
-): FaceInferenceMode => backend === "mediapipe" && mode === "viewport" && hasReliableTarget ? "landmarks" : "detection"
+): FaceInferenceMode => mode === "viewport" && hasReliableTarget ? "landmarks" : "detection"
 export interface FaceTarget { x: number, y: number, yaw?: number, pitch?: number, forward?: number, mode: DetectionMode, lastSeenAt: number }
 export interface FaceCenteringError {
   yaw: number

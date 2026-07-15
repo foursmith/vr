@@ -1,7 +1,5 @@
 export type FaceInferenceMode = "landmarks" | "detection"
 export type FaceDetectionRange = "short" | "full"
-export type FaceCenteringMode = "system" | "mediapipe"
-
 export interface FacePose {
   yaw: number
   pitch: number

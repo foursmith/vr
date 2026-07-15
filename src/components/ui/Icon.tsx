@@ -6,7 +6,6 @@ const ICONS = {
   "corners-out": "i-ph-corners-out",
   "cube-focus": "i-ph-cube-focus",
   "columns": "i-ph-columns",
-  "cpu": "i-ph-cpu",
   "dlna-scan": "i-ph-broadcast-duotone",
   "download": "i-ph-download-simple",
   "fast-forward": "i-ph-fast-forward",

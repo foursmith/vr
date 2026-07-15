@@ -171,7 +171,6 @@ describe("player controller", () => {
       quality: "sharp",
       frameRate: 60,
       faceAutoCenter: true,
-      faceCenteringMode: "mediapipe",
     }))
     dispose()
     expect(mocks.sceneController.destroy).toHaveBeenCalledOnce()
@@ -598,7 +597,6 @@ describe("player controller", () => {
     controller.display.setRenderFrameRateId(1)
     controller.display.setSplitScreen(false)
     controller.display.setFaceAutoCenter(false)
-    controller.display.setFaceCenteringMode("mediapipe")
     controller.subtitles.toggle()
     await settle()
     expect(loadGlobalPreferences()).toMatchObject({
@@ -609,7 +607,6 @@ describe("player controller", () => {
       renderFrameRateId: 1,
       splitScreen: false,
       faceAutoCenter: false,
-      faceCenteringMode: "mediapipe",
       subtitlesEnabled: false,
     })
     dispose()

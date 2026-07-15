@@ -14,7 +14,6 @@ describe("player display state", () => {
     expect(display.qualityId()).toBe(2)
     expect(display.renderFrameRateId()).toBe(3)
     expect(display.faceAutoCenter()).toBe(true)
-    expect(display.faceCenteringMode()).toBe("mediapipe")
     display.controller.setZoom(3)
     expect(display.controller.zoom()).toBe(1)
     ready = true

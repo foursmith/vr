@@ -1,5 +1,5 @@
 import type { CameraView, ProjectionMode, ProjectionQuality } from "@foursmith/player-core"
-import type { FaceCenteringMode, FaceInferenceMode, FaceInferenceResult, FacePose } from "../face-tracking/protocol"
+import type { FaceInferenceMode, FaceInferenceResult, FacePose } from "../face-tracking/protocol"
 import type { DetectionMode, FaceAutoCenterState, FaceMovementHint, PanoramaSample } from "./face-auto-center"
 import type { FaceInferenceActivity } from "./frame-scheduler"
 import { createVrPlayerCore, DEFAULT_FOV, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS } from "@foursmith/player-core"
@@ -91,7 +91,6 @@ export interface VrSceneOptions {
   hidden: boolean
   splitScreen: boolean
   faceAutoCenter: boolean
-  faceCenteringMode: FaceCenteringMode
   debugPanelOpen: boolean
   viewRef: MutableRefObject<CameraView>
   onZoomChange: (zoom: number) => void
@@ -99,7 +98,7 @@ export interface VrSceneOptions {
 }
 
 export interface VrSceneController {
-  update: (nextOptions: Partial<Pick<VrSceneOptions, "projection" | "quality" | "frameRate" | "hidden" | "splitScreen" | "faceAutoCenter" | "faceCenteringMode" | "debugPanelOpen">>) => void
+  update: (nextOptions: Partial<Pick<VrSceneOptions, "projection" | "quality" | "frameRate" | "hidden" | "splitScreen" | "faceAutoCenter" | "debugPanelOpen">>) => void
   getOutputCanvas: () => HTMLCanvasElement
   setFrameCapture: (capture?: (canvas: HTMLCanvasElement) => void) => void
   pauseFaceAutoCenter: () => void
@@ -231,9 +230,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     if (faceDetector) return Promise.resolve(faceDetector)
     if (faceDetectorPromise) return faceDetectorPromise
     const generation = faceDetectorGeneration
-    const loading: Promise<FaceDetectorBackend> = options.faceCenteringMode === "system"
-      ? import("../../system-face-detector-client").then(module => module.createSystemFaceDetectorWorkerClient())
-      : import("../../mediapipe-face-detector-client").then(module => module.createMediaPipeFaceDetectorClient())
+    const loading: Promise<FaceDetectorBackend> = import("../../mediapipe-face-detector-client")
+      .then(module => module.createMediaPipeFaceDetectorClient())
     faceDetectorPromise = loading.then((detector) => {
       if (disposed || generation !== faceDetectorGeneration) {
         detector.destroy()
@@ -378,7 +376,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       `MOTION   ${(faceState.motion?.speed ?? 0).toFixed(2)}/s`,
       `DEPTH    away ${Math.max(0, faceState.motion?.recedingSpeed ?? 0).toFixed(2)} · size ${(faceState.motion?.size ?? 0).toFixed(2)}`,
       `CAPTURE  ${lastCaptureMs.toFixed(1)} ms · skip ${skippedInferenceFrames}`,
-      `ENGINE   ${faceDetector ? options.faceCenteringMode === "system" ? "System" : "MediaPipe" : "Idle"} · ${lastInputSize}`,
+      `ENGINE   ${faceDetector ? "MediaPipe" : "Idle"} · ${lastInputSize}`,
     ].join("\n")
     fpsFrameCount = 0
     fpsSampleStartedAt = now
@@ -849,7 +847,6 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       .then((detector) => {
         lastCaptureMs = performance.now() - captureStartedAt
         const inferenceMode = getFaceInferenceMode(
-          options.faceCenteringMode,
           detectionMode,
           Boolean(faceState.target?.mode === "viewport" && faceState.consecutiveMisses === 0),
         )
@@ -1065,11 +1062,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         = nextOptions.projection !== undefined
           || nextOptions.hidden !== undefined
           || nextOptions.faceAutoCenter !== undefined
-          || nextOptions.faceCenteringMode !== undefined
       if (invalidatesInference) inferenceGeneration += 1
-      const releasesFaceDetector
-        = nextOptions.faceAutoCenter === false
-          || (nextOptions.faceCenteringMode !== undefined && nextOptions.faceCenteringMode !== options.faceCenteringMode)
+      const releasesFaceDetector = nextOptions.faceAutoCenter === false
       if (releasesFaceDetector) releaseFaceDetector()
       Object.assign(options, nextOptions)
       if (!options.faceAutoCenter && faceState.manuallyPaused) setManualFaceCenterPaused(false)
