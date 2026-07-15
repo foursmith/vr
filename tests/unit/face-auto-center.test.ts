@@ -1,7 +1,7 @@
 import type { FaceAutoCenterState, FaceBox, FaceTarget } from "../../src/features/vr/face-auto-center"
 import { PerspectiveCamera } from "three"
 import { describe, expect, it } from "vitest"
-import { applyDetections, FACE_CENTER_FORWARD_ACTIVATION_DISTANCE, FACE_CENTER_FORWARD_MAX_SPEED, FACE_CENTER_FORWARD_SETTLE_DISTANCE, FACE_CENTER_MAX_FORWARD, FACE_CENTER_MIN_FORWARD, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_TARGET_SIZE, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, getFaceCenter, getFaceCenteringError, getFaceCenteringVelocity, getFaceDetectionRange, getFaceForwardTarget, getFaceForwardVelocity, getFaceMovementHint, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, updateFaceMotion } from "../../src/features/vr/face-auto-center"
+import { applyDetections, FACE_CENTER_FORWARD_ACTIVATION_DISTANCE, FACE_CENTER_FORWARD_MAX_SPEED, FACE_CENTER_FORWARD_SETTLE_DISTANCE, FACE_CENTER_MAX_FORWARD, FACE_CENTER_MIN_FORWARD, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_TARGET_SIZE, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, FACE_IDENTITY_SWITCH_POSITION_SPEED, FACE_IDENTITY_SWITCH_SIZE_SPEED, getFaceCenter, getFaceCenteringError, getFaceCenteringVelocity, getFaceDetectionRange, getFaceForwardTarget, getFaceForwardVelocity, getFaceMovementHint, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, updateFaceMotion } from "../../src/features/vr/face-auto-center"
 
 const state = (): FaceAutoCenterState => ({
   faces: [],
@@ -220,6 +220,44 @@ describe("face auto-center", () => {
       "panorama",
     )
     expect(selected?.x).toBe(0.01)
+  })
+
+  it("starts a new identity when position and size change too quickly together", () => {
+    const value = state()
+    applyDetections(value, [face({ x: 0.1, y: 0.1, width: 0.2, height: 0.2 })], 100, "viewport")
+    value.target = { x: -0.3, y: -0.1, forward: 10, mode: "viewport", lastSeenAt: 100 }
+    value.motion = { centerX: 0.2, centerY: 0.2, size: 0.2, speed: 0.2, recedingSpeed: 0.1, lastSeenAt: 100 }
+    value.yawVelocity = 5
+    value.forwardVelocity = 4
+    value.isMoving = true
+
+    const selected = applyDetections(
+      value,
+      [face({ x: 0.6, y: 0.1, width: 0.4, height: 0.4 })],
+      200,
+      "viewport",
+    )
+
+    expect(FACE_IDENTITY_SWITCH_POSITION_SPEED).toBe(0.8)
+    expect(FACE_IDENTITY_SWITCH_SIZE_SPEED).toBe(1.2)
+    expect(selected?.x).toBe(0.6)
+    expect(value.target).toBeUndefined()
+    expect(value.motion).toBeUndefined()
+    expect(value).toMatchObject({ yawVelocity: 0, forwardVelocity: 0, isMoving: false })
+  })
+
+  it("keeps identity history when only position or only size changes quickly", () => {
+    const positionOnly = state()
+    applyDetections(positionOnly, [face({ x: 0.1, width: 0.2, height: 0.2 })], 100, "viewport")
+    positionOnly.target = { x: -0.3, y: -0.1, mode: "viewport", lastSeenAt: 100 }
+    applyDetections(positionOnly, [face({ x: 0.6, width: 0.2, height: 0.2 })], 200, "viewport")
+    expect(positionOnly.target).toBeDefined()
+
+    const sizeOnly = state()
+    applyDetections(sizeOnly, [face({ x: 0.1, width: 0.2, height: 0.2 })], 100, "viewport")
+    sizeOnly.target = { x: -0.3, y: -0.1, mode: "viewport", lastSeenAt: 100 }
+    applyDetections(sizeOnly, [face({ x: 0, y: 0, width: 0.4, height: 0.4 })], 200, "viewport")
+    expect(sizeOnly.target).toBeDefined()
   })
 
   it("sets viewport and clamped panorama targets", () => {

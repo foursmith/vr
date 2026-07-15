@@ -22,6 +22,9 @@ const FACE_CENTER_PANORAMA_DISTANCE_SCALE = 45
 const FACE_CENTER_FORWARD_DISTANCE_SCALE = 18
 const MIN_FACE_SCORE = 0.5
 const TARGET_SMOOTHING_TIME_MS = 480
+const FACE_IDENTITY_SWITCH_MAX_GAP_MS = 1500
+export const FACE_IDENTITY_SWITCH_POSITION_SPEED = 0.8
+export const FACE_IDENTITY_SWITCH_SIZE_SPEED = 1.2
 
 export type FaceBox = NormalizedFace & { lastSeenAt: number }
 export type DetectionMode = "viewport" | "panorama"
@@ -268,6 +271,34 @@ const getFaceDistance = (face: FaceBox, previous: FaceBox, wrapX: boolean) => {
   return Math.hypot(wrapX ? Math.min(rawX, 1 - rawX) : rawX, Math.abs(currentCenter.y - previousCenter.y))
 }
 
+const isFaceIdentitySwitch = (
+  previous: FaceBox & { mode: DetectionMode },
+  next: FaceBox,
+  mode: DetectionMode,
+  time: number,
+) => {
+  const elapsedMs = time - previous.lastSeenAt
+  if (previous.mode !== mode || elapsedMs <= 0 || elapsedMs > FACE_IDENTITY_SWITCH_MAX_GAP_MS) return false
+  const elapsedSeconds = elapsedMs / 1000
+  const positionSpeed = getFaceDistance(next, previous, mode === "panorama") / elapsedSeconds
+  const previousSize = Math.sqrt(Math.max(0, previous.width * previous.height))
+  const nextSize = Math.sqrt(Math.max(0, next.width * next.height))
+  if (!previousSize || !nextSize) return false
+  const sizeSpeed = Math.abs(Math.log(nextSize / previousSize)) / elapsedSeconds
+  return positionSpeed >= FACE_IDENTITY_SWITCH_POSITION_SPEED
+    && sizeSpeed >= FACE_IDENTITY_SWITCH_SIZE_SPEED
+}
+
+const resetFaceIdentityHistory = (state: FaceAutoCenterState) => {
+  state.target = undefined
+  state.motion = undefined
+  state.offCenterSince = undefined
+  state.yawVelocity = 0
+  state.pitchVelocity = 0
+  state.forwardVelocity = 0
+  state.isMoving = false
+}
+
 const getAnchorDistance = (face: FaceBox, anchor: FaceSelectionAnchor) => {
   const center = getFaceCenter(face)
   const rawX = Math.abs(center.x - anchor.x)
@@ -309,6 +340,9 @@ export const applyDetections = (
   state.lastDetectionAt = time
   state.faces = faces.map(face => ({ ...face, lastSeenAt: time }))
   const selectedFace = selectStableFace(state, state.faces.map(transformFace), mode, time, anchor)
+  if (selectedFace && state.selectedFace && isFaceIdentitySwitch(state.selectedFace, selectedFace, mode, time)) {
+    resetFaceIdentityHistory(state)
+  }
   state.selectedFace = selectedFace ? { ...selectedFace, mode } : state.selectedFace
   return selectedFace
 }

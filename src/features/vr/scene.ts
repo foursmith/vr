@@ -574,12 +574,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     let foundFace = false
 
     if (result.mode === "landmarks") {
-      const normalizedFace = result.faces[0]
-      const face = normalizedFace ? { ...normalizedFace, lastSeenAt: time } : undefined
-      faceState.lastDetectionAt = time
+      const face = applyDetections(faceState, result.faces, time, "viewport")
       faceState.detectionMode = "viewport"
-      faceState.faces = face ? [face] : []
-      faceState.selectedFace = face ? { ...face, mode: "viewport" } : faceState.selectedFace
       if (face) updateFaceMotion(faceState, face, time)
       foundFace = setViewportTarget(
         faceState,

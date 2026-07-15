@@ -133,6 +133,8 @@ Motion prediction is updated only from viewport detections, where consecutive co
 - `speed` is the normalized face-center displacement per second.
 - `recedingSpeed` is the decrease in `size` per second; positive values mean the subject appears to be moving away.
 - Measurements use exponential smoothing with a 350 ms time constant.
+- Consecutive detections are treated as a new subject when, within 1.5 seconds, center motion reaches `0.8` normalized image units per second and logarithmic apparent-size change reaches `1.2/s`. Both conditions must be present so fast translation or detector scale jitter alone does not discard identity continuity.
+- A subject switch clears target smoothing, motion history, and accumulated camera velocity before tracking starts from the new face. This prevents the previous subject's position, distance, or motion from being blended into the new subject.
 - The raw viewport face size also supplies the forward/backward camera target; the smoothed motion metrics remain dedicated to adaptive inference scheduling.
 - Motion history resets when the gap between reliable detections exceeds 1.5 seconds, media changes, playback pauses, tracking is disabled, or the scene becomes unavailable.
 
