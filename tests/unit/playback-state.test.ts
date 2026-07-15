@@ -35,6 +35,7 @@ describe("player state persistence", () => {
       renderFrameRateId: 99,
       splitScreen: false,
       faceAutoCenter: false,
+      faceCenteringMode: "system",
       subtitlesEnabled: false,
       repeatMode: "folder",
       exportFrameRateId: 0,
@@ -47,8 +48,21 @@ describe("player state persistence", () => {
       renderFrameRateId: 3,
       splitScreen: false,
       faceAutoCenter: false,
+      faceCenteringMode: "system",
       subtitlesEnabled: false,
       repeatMode: "folder",
+    })
+  })
+
+  it("disables face centering when migrating preferences without a detector mode", () => {
+    localStorage.setItem("foursmith-vr:preferences", JSON.stringify({
+      ...DEFAULT_GLOBAL_PREFERENCES,
+      faceAutoCenter: true,
+      faceCenteringMode: undefined,
+    }))
+    expect(loadGlobalPreferences()).toMatchObject({
+      faceAutoCenter: false,
+      faceCenteringMode: "system",
     })
   })
 

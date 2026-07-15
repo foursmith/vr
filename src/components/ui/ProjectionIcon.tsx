@@ -1,4 +1,4 @@
-import type { PROJECTION_OPTIONS } from "../../features/vr/scene"
+import type { PROJECTION_OPTIONS } from "@foursmith/player-core/config"
 
 type ProjectionMode = (typeof PROJECTION_OPTIONS)[number]["component"]
 

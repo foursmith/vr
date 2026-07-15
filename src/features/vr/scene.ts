@@ -1,14 +1,9 @@
-import type { FaceInferenceMode, FaceInferenceResult } from "../face-tracking/protocol"
-import type { CameraView, ProjectionMode, ProjectionQuality } from "./config"
+import type { CameraView, ProjectionMode, ProjectionQuality } from "@foursmith/player-core"
+import type { PerspectiveCamera } from "three"
+import type { FaceCenteringMode, FaceInferenceResult } from "../face-tracking/protocol"
 import type { DetectionMode, FaceAutoCenterState, PanoramaSample } from "./face-auto-center"
-import { Color, MathUtils, PerspectiveCamera, Scene, SRGBColorSpace, VideoTexture, WebGLRenderer } from "three"
-import { getFaceTrackerClient } from "../face-tracking/client"
-import {
-
-  DEFAULT_FOV,
-
-  projectionPixelRatio,
-} from "./config"
+import { createVrPlayerCore, DEFAULT_FOV, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS } from "@foursmith/player-core"
+import { MathUtils } from "three"
 import {
   applyDetections,
 
@@ -20,11 +15,9 @@ import {
 } from "./face-auto-center"
 import { drawPanoramaInferenceSample, drawSampleBoxes, drawViewportInferenceSample } from "./face-sampling"
 import { faceInferencePeriod, scheduleFrame } from "./frame-scheduler"
-import { createProjectionGroup, disposeObject } from "./projection"
 
-export { downloadFaceTrackingResources, preloadFaceAutoCenterResources } from "../face-tracking/client"
-export { DEFAULT_FOV, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS } from "./config"
-export type { CameraView, ProjectionMode, ProjectionQuality } from "./config"
+export { DEFAULT_FOV, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS }
+export type { CameraView, ProjectionMode, ProjectionQuality }
 
 export interface MutableRefObject<T> { current: T }
 
@@ -89,13 +82,14 @@ export interface VrSceneOptions {
   hidden: boolean
   splitScreen: boolean
   faceAutoCenter: boolean
+  faceCenteringMode: FaceCenteringMode
   debugPanelOpen: boolean
   viewRef: MutableRefObject<CameraView>
   onZoomChange: (zoom: number) => void
 }
 
 export interface VrSceneController {
-  update: (nextOptions: Partial<Pick<VrSceneOptions, "projection" | "quality" | "frameRate" | "hidden" | "splitScreen" | "faceAutoCenter" | "debugPanelOpen">>) => void
+  update: (nextOptions: Partial<Pick<VrSceneOptions, "projection" | "quality" | "frameRate" | "hidden" | "splitScreen" | "faceAutoCenter" | "faceCenteringMode" | "debugPanelOpen">>) => void
   getOutputCanvas: () => HTMLCanvasElement
   setFrameCapture: (capture?: (canvas: HTMLCanvasElement) => void) => void
   resetMedia: () => void
@@ -130,39 +124,33 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   let lastOverlayText = options.hintElement.textContent ?? ""
   let lastOverlaySide = options.hintElement.dataset.side
   let lastOverlayTop = Number.NaN
-  const scene = new Scene()
-  scene.background = new Color("#000")
   const initialViewport = getRenderViewports(
     Math.max(1, mount.clientWidth),
     Math.max(1, mount.clientHeight),
     options.splitScreen,
   )[0]
-  const camera = new PerspectiveCamera(DEFAULT_FOV, initialViewport.width / initialViewport.height, 0.1, 1000)
+  const core = createVrPlayerCore({
+    video,
+    projection: options.projection,
+    quality: options.quality,
+    width: mount.clientWidth,
+    height: mount.clientHeight,
+    aspect: initialViewport.width / initialViewport.height,
+    devicePixelRatio: window.devicePixelRatio || 1,
+  })
+  const { camera, renderer, scene, texture } = core
   camera.zoom = options.viewRef.current.zoom
   camera.updateProjectionMatrix()
-  const renderer = new WebGLRenderer({
-    antialias: true,
-    precision: "highp",
-    powerPreference: "high-performance",
-  })
-  renderer.outputColorSpace = SRGBColorSpace
   renderer.domElement.className = "block h-dvh w-full touch-none saturate-105 contrast-102"
   const applyRenderQuality = () => {
-    const pixelRatio = projectionPixelRatio(options.quality, window.devicePixelRatio || 1)
-    renderer.setPixelRatio(pixelRatio)
-    renderer.setSize(mount.clientWidth, mount.clientHeight, false)
+    core.setQuality(options.quality, window.devicePixelRatio || 1)
+    core.setSize(mount.clientWidth, mount.clientHeight, camera.aspect)
     renderer.domElement.style.imageRendering = "auto"
     renderer.domElement.dataset.quality = options.quality
-    renderer.domElement.dataset.pixelRatio = pixelRatio.toFixed(2)
+    renderer.domElement.dataset.pixelRatio = renderer.getPixelRatio().toFixed(2)
   }
   applyRenderQuality()
   mount.appendChild(renderer.domElement)
-
-  const texture = new VideoTexture(video)
-  texture.colorSpace = SRGBColorSpace
-  texture.needsUpdate = true
-  let projection = createProjectionGroup(video, texture, options.projection, options.quality)
-  scene.add(projection)
 
   const faceState: FaceAutoCenterState = {
     faces: [],
@@ -176,9 +164,42 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     lastErrorAt: 0,
   }
   const sampleContext = sampleCanvas.getContext("2d", { alpha: false, willReadFrequently: true })
-  const faceTracker = getFaceTrackerClient()
+  type FaceDetectorBackend = ReturnType<(typeof import("../../system-face-detector-client"))["createSystemFaceDetectorWorkerClient"]>
+  let faceDetector: FaceDetectorBackend | undefined
+  let faceDetectorPromise: Promise<FaceDetectorBackend> | undefined
+  let faceDetectorGeneration = 0
   let inferenceInFlight = false
   let inferenceGeneration = 0
+
+  const ensureFaceDetector = () => {
+    if (faceDetector) return Promise.resolve(faceDetector)
+    if (faceDetectorPromise) return faceDetectorPromise
+    const generation = faceDetectorGeneration
+    const loading = options.faceCenteringMode === "system"
+      ? import("../../system-face-detector-client").then(module => module.createSystemFaceDetectorWorkerClient())
+      : import("../../mediapipe-face-detector-client").then(module => module.createMediaPipeFaceDetectorClient())
+    faceDetectorPromise = loading.then((detector) => {
+      if (disposed || generation !== faceDetectorGeneration) {
+        detector.destroy()
+        throw new Error("Face detector initialization was superseded")
+      }
+      faceDetector = detector
+      return detector
+    }).catch((error) => {
+      if (generation === faceDetectorGeneration) faceDetectorPromise = undefined
+      throw error
+    })
+    return faceDetectorPromise
+  }
+
+  const releaseFaceDetector = () => {
+    faceDetectorGeneration += 1
+    faceDetector?.destroy()
+    faceDetector = undefined
+    faceDetectorPromise = undefined
+    sampleCanvas.width = 1
+    sampleCanvas.height = 1
+  }
 
   const hasCurrentVideoFrame = () =>
     video.videoWidth > 0
@@ -282,7 +303,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       `Render CPU ${lastRenderMs.toFixed(2)} ms  P95 ${renderP95.toFixed(2)} ms`,
       `Track ${trackingHz.toFixed(1)} Hz  Infer ${lastInferenceMs.toFixed(1)} ms`,
       `Capture ${lastCaptureMs.toFixed(1)} ms  Skipped ${skippedInferenceFrames}`,
-      `${faceTracker.getBackendLabel()}  Input ${lastInputSize}`,
+      `${faceDetector ? options.faceCenteringMode === "system" ? "System Worker" : "MediaPipe Worker" : "Face detector idle"}  Input ${lastInputSize}`,
     ].join("\n")
     fpsFrameCount = 0
     fpsSampleStartedAt = now
@@ -292,17 +313,12 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     const width = Math.max(1, mount.clientWidth)
     const height = Math.max(1, mount.clientHeight)
     const primaryViewport = getRenderViewports(width, height, options.splitScreen)[0]
-    camera.aspect = primaryViewport.width / primaryViewport.height
-    camera.updateProjectionMatrix()
-    renderer.setSize(width, height, false)
+    core.setSize(width, height, primaryViewport.width / primaryViewport.height)
     requestRender()
   }
 
   const rebuildProjection = () => {
-    scene.remove(projection)
-    disposeObject(projection)
-    projection = createProjectionGroup(video, texture, options.projection, options.quality)
-    scene.add(projection)
+    core.setProjection(options.projection)
   }
 
   const onMetadata = () => {
@@ -555,7 +571,6 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     if (!sampleContext || inferenceInFlight) return
 
     const captureStartedAt = performance.now()
-    let mode: FaceInferenceMode = "landmarks"
     let detectionMode: DetectionMode = "viewport"
     let panoramaSample: PanoramaSample | undefined
     let inputWidth = 0
@@ -565,7 +580,6 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
 
     try {
       if (faceState.recoveryMode === "panorama") {
-        mode = "detection"
         detectionMode = "panorama"
         panoramaSample = drawPanoramaInferenceSample(
           sampleCanvas,
@@ -580,7 +594,6 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         inputWidth = sampleCanvas.width
         inputHeight = sampleCanvas.height
       } else {
-        mode = faceState.recoveryMode === "viewport" ? "detection" : "landmarks"
         const renderViewports = getRenderViewports(renderer.domElement.width, renderer.domElement.height, options.splitScreen)
         const sourceRect = renderViewports[Math.floor(renderViewports.length / 2)]
         // Copy synchronously into the small reusable canvas. Creating an
@@ -613,14 +626,28 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     lastInputSize = `${inputWidth}×${inputHeight}`
     inferenceInFlight = true
     updateInferenceSchedule(now)
-    void createImageBitmap(sampleCanvas)
-      .then((bitmap) => {
+    void ensureFaceDetector()
+      .then((detector) => {
         lastCaptureMs = performance.now() - captureStartedAt
-        return faceTracker.infer(mode, bitmap, now, detectionMode === "viewport" ? "short" : "full")
+        return detector.detect(sampleCanvas)
       })
-      .then((result) => {
-        completedInferenceMs = result.inferenceMs
+      .then((faces) => {
+        completedInferenceMs = performance.now() - captureStartedAt
         if (disposed || generation !== inferenceGeneration || video.paused || !options.faceAutoCenter || options.hidden) return
+        const result: FaceInferenceResult = {
+          id: 0,
+          type: "result",
+          mode: "detection",
+          timestamp: now,
+          faces: faces.map(face => ({
+            x: face.boundingBox.x / inputWidth,
+            y: face.boundingBox.y / inputHeight,
+            width: face.boundingBox.width / inputWidth,
+            height: face.boundingBox.height / inputHeight,
+            score: 1,
+          })),
+          inferenceMs: completedInferenceMs,
+        }
         applyInferenceResult(result, detectionMode, panoramaSample, projection)
       })
       .catch((error) => {
@@ -824,7 +851,12 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         = nextOptions.projection !== undefined
           || nextOptions.hidden !== undefined
           || nextOptions.faceAutoCenter !== undefined
+          || nextOptions.faceCenteringMode !== undefined
       if (invalidatesInference) inferenceGeneration += 1
+      const releasesFaceDetector
+        = nextOptions.faceAutoCenter === false
+          || (nextOptions.faceCenteringMode !== undefined && nextOptions.faceCenteringMode !== options.faceCenteringMode)
+      if (releasesFaceDetector) releaseFaceDetector()
       Object.assign(options, nextOptions)
       if (opensDebugPanel) {
         fpsFrameCount = 0
@@ -875,11 +907,12 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       sampleCanvas.width = 1
       sampleCanvas.height = 1
       texture.needsUpdate = true
-      renderer.renderLists.dispose()
+      core.resetMedia()
     },
     destroy() {
       disposed = true
       inferenceGeneration += 1
+      releaseFaceDetector()
       stopScheduledRender()
       if (videoFrameCallbackId) video.cancelVideoFrameCallback(videoFrameCallbackId)
       video.removeEventListener("loadedmetadata", onMetadata)
@@ -895,10 +928,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       renderer.domElement.removeEventListener("wheel", onWheel)
       touchPoints.clear()
       pinch = undefined
-      scene.remove(projection)
-      disposeObject(projection)
-      texture.dispose()
-      renderer.dispose()
+      core.destroy()
       renderer.domElement.remove()
     },
   }

@@ -161,14 +161,19 @@ describe("player controller", () => {
     const { controller, dispose, video } = setupController()
     await controller.playback.startInitialLoad()
     await settle()
-    expect(mocks.download).toHaveBeenCalledOnce()
-    expect(mocks.preload).toHaveBeenCalledOnce()
+    expect(mocks.download).not.toHaveBeenCalled()
+    expect(mocks.preload).not.toHaveBeenCalled()
     expect(controller.playback.loadingState).toMatchObject({ resourcesReady: true, progress: 100, label: "Ready" })
     expect(mocks.createVrScene).toHaveBeenCalledOnce()
-    expect(mocks.createVrScene).toHaveBeenCalledWith(expect.objectContaining({ quality: "sharp", frameRate: 60 }))
+    expect(mocks.createVrScene).toHaveBeenCalledWith(expect.objectContaining({
+      quality: "sharp",
+      frameRate: 60,
+      faceAutoCenter: false,
+      faceCenteringMode: "system",
+    }))
     dispose()
     expect(mocks.sceneController.destroy).toHaveBeenCalledOnce()
-    expect(mocks.releaseResources).toHaveBeenCalledOnce()
+    expect(mocks.releaseResources).not.toHaveBeenCalled()
     expect(video.pause).toHaveBeenCalled()
   })
 
@@ -570,6 +575,7 @@ describe("player controller", () => {
     controller.display.setRenderFrameRateId(1)
     controller.display.setSplitScreen(false)
     controller.display.setFaceAutoCenter(false)
+    controller.display.setFaceCenteringMode("mediapipe")
     controller.subtitles.toggle()
     await settle()
     expect(loadGlobalPreferences()).toMatchObject({
@@ -580,6 +586,7 @@ describe("player controller", () => {
       renderFrameRateId: 1,
       splitScreen: false,
       faceAutoCenter: false,
+      faceCenteringMode: "mediapipe",
       subtitlesEnabled: false,
     })
     dispose()
@@ -607,11 +614,13 @@ describe("player controller", () => {
 
   it("reports initialization failures and allows retry", async () => {
     const warning = vi.spyOn(console, "warn").mockImplementation(() => {})
-    mocks.preload.mockRejectedValueOnce(new Error("model unavailable"))
+    mocks.createVrScene.mockImplementationOnce(() => {
+      throw new Error("renderer unavailable")
+    })
     const { controller, dispose } = setupController()
     await controller.playback.startInitialLoad()
     await settle()
-    expect(warning).toHaveBeenCalledWith("initial resource loading failed", expect.objectContaining({ message: "model unavailable" }))
+    expect(warning).toHaveBeenCalledWith("initial resource loading failed", expect.objectContaining({ message: "renderer unavailable" }))
     expect(controller.playback.loadingState.error).toBe("Couldn’t get the player ready")
     expect(controller.playback.loadingState.resourcesReady).toBe(false)
     await controller.playback.startInitialLoad()

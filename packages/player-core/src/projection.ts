@@ -9,16 +9,12 @@ import type {
 import type { ProjectionMode, ProjectionQuality } from "./config"
 import {
   BackSide,
-
   FrontSide,
   Group,
   Mesh,
   MeshBasicMaterial,
-
   PlaneGeometry,
-
   SphereGeometry,
-
 } from "three"
 
 const PROJECTION_SEGMENTS = { eqrHalfWidth: 96, eqrFullWidth: 128, eqrHeight: 64, fisheye: 96 }

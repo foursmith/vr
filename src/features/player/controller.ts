@@ -3,9 +3,9 @@ import type { DlnaDevice } from "../sources/fsvr-client"
 import type { SubtitleCue } from "../subtitles/parser"
 import type { CameraView, VrSceneController } from "../vr/scene"
 import type { LastPlayback, RepeatMode } from "./playback-state"
+import { DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS } from "@foursmith/player-core/config"
 import { createEffect, createMemo, createSignal, createStore, onSettled } from "solid-js"
 import { createMotionPhoto } from "../../lib/motion-photo"
-import { releaseFaceAutoCenterResources } from "../face-tracking/client"
 import {
   applyPlaylistSource,
   buildPlaylistTree,
@@ -19,15 +19,6 @@ import {
 import { authenticateFsvr, detectFsvr, discoverFsvrDlna, hasFsvrAuth, loadFsvrDlnaDevices, loadFsvrEntries, loadFsvrPlaylist } from "../sources/fsvr-client"
 import { isFsvrHostMode } from "../sources/fsvr-runtime"
 import { activeSubtitleText, parseSubtitle } from "../subtitles/parser"
-import {
-  createVrScene,
-  DEFAULT_ZOOM,
-  downloadFaceTrackingResources,
-  preloadFaceAutoCenterResources,
-  PROJECTION_OPTIONS,
-  QUALITY_OPTIONS,
-} from "../vr/scene"
-
 import { createControls } from "./controls"
 import { createDisplay } from "./display"
 import { DEFAULT_GLOBAL_PREFERENCES, fsvrMediaIdentity, loadGlobalPreferences, loadLastPlayback, loadVideoPlaybackState, saveGlobalPreferences, saveLastPlayback, saveVideoPlaybackState, videoStateKey } from "./playback-state"
@@ -329,6 +320,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   const {
     changeQualityBy,
     faceAutoCenter,
+    faceCenteringMode,
     projectionId,
     qualityId,
     renderFrameRateId,
@@ -462,6 +454,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     hidden: false,
     splitScreen: splitScreen(),
     faceAutoCenter: faceAutoCenter(),
+    faceCenteringMode: faceCenteringMode(),
     debugPanelOpen: debugPanelOpen(),
   })
 
@@ -743,10 +736,18 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     activeVideoKey = undefined
     pendingResumeTime = undefined
     autoplayPending = false
-    scene?.resetMedia()
+    scene?.destroy()
+    scene = undefined
+    resourcesInitialized = false
+    setResourcesReady(true)
+    setLoadingProgress(100)
+    setLoadingLabel("Ready")
     video.pause()
     video.removeAttribute("src")
     video.load()
+    video.classList.add("hidden")
+    video.classList.remove("block", "opacity-[0.01]", "pointer-events-none")
+    delete video.dataset.displayMode
     if (fileUrl) URL.revokeObjectURL(fileUrl)
     fileUrl = undefined
     setHasVideo(false)
@@ -1435,30 +1436,17 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   }
 
   const startInitialLoad = () => {
-    if (loadingPromise || resourcesInitialized) return
+    if (loadingPromise || resourcesInitialized) return loadingPromise
+    const loadGeneration = videoLoadGeneration
 
     loadingPromise = (async () => {
       setResourcesReady(false)
       setLoadingError(undefined)
-      setLoadingLabel("Downloading face tracking resources")
-      setLoadingProgress(4)
-
       try {
-        await downloadFaceTrackingResources(({ loaded, total }) => {
-          if (appDisposed) return
-          setLoadingProgress(4 + (loaded / total) * 56)
-        })
-        if (appDisposed) return
-
-        setLoadingLabel("Loading face tracking")
-        await preloadFaceAutoCenterResources(({ loaded, total }) => {
-          if (appDisposed) return
-          setLoadingProgress(60 + (loaded / total) * 32)
-        })
-        if (appDisposed) return
-
         setLoadingLabel("Starting VR player")
-        setLoadingProgress(96)
+        setLoadingProgress(75)
+        const { createVrScene } = await import("../vr/scene")
+        if (appDisposed || loadGeneration !== videoLoadGeneration) return
         scene = createVrScene({
           root: vrRoot,
           mount: vrMount,
@@ -1488,6 +1476,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     })().finally(() => {
       loadingPromise = undefined
     })
+    return loadingPromise
   }
 
   onSettled(() => {
@@ -1544,7 +1533,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       playlistImportGeneration += 1
       disposeControls()
       scene?.destroy()
-      releaseFaceAutoCenterResources()
       persistActiveVideoState()
       videoLoadGeneration += 1
       video.pause()
@@ -1585,6 +1573,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       renderFrameRateId: renderFrameRateId(),
       splitScreen: splitScreen(),
       faceAutoCenter: faceAutoCenter(),
+      faceCenteringMode: faceCenteringMode(),
       subtitlesEnabled: subtitlesEnabled(),
       repeatMode: repeatMode(),
     }),

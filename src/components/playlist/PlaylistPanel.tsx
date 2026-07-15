@@ -1,4 +1,5 @@
-import type { PlayerController } from "../../features/player/controller"
+import type { RepeatMode } from "../../features/player/playback-state"
+import type { PlaylistStateNode } from "../../features/playlist/model"
 import { For, Show, untrack } from "solid-js"
 import { PlaylistTreeNode } from "../playlist/PlaylistTreeNode"
 import { Icon } from "../ui/Icon"
@@ -12,7 +13,40 @@ const REPEAT_MODES = [
   { value: "file", label: "Repeat video", icon: "repeat-once" },
 ] as const
 
-export function PlaylistPanel(props: { controller: PlayerController }) {
+export interface PlaylistPanelController {
+  controls: {
+    registerUiSurface: (element: HTMLElement) => void
+    setControlsHold: (reason: "focus", held: boolean) => void
+  }
+  playback: {
+    repeatMode: () => RepeatMode
+    setRepeatMode: (mode: RepeatMode) => void
+  }
+  server: {
+    scanDlna: () => Promise<void>
+    state: {
+      status: string
+      scanningDlna: boolean
+      error?: string
+    }
+  }
+  playlist: {
+    chooseFiles: () => void
+    chooseFolder: () => void
+    clearPlaylist: () => void
+    expandedFolders: () => Set<string>
+    hasBrowserPlaylistItems: () => boolean
+    playPlaylistNode: (id: string) => void
+    state: {
+      nodes: PlaylistStateNode[]
+      selectedId?: string
+    }
+    togglePlaylistFolder: (id: string) => void
+    visible: () => boolean
+  }
+}
+
+export function PlaylistPanel(props: { controller: PlaylistPanelController }) {
   const controller = untrack(() => props.controller)
   const { registerUiSurface, setControlsHold } = controller.controls
   const { repeatMode, setRepeatMode } = controller.playback
