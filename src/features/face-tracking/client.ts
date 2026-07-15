@@ -6,6 +6,7 @@ import type {
   FaceWorkerResponse,
   NormalizedFace,
 } from "./protocol"
+import { readFacePose } from "./pose"
 
 const WASM_URL = "/mediapipe/tasks-vision/wasm"
 const VISION_WASM_FILESET = {
@@ -189,7 +190,7 @@ class MainThreadFaceBackend {
         minFacePresenceConfidence: 0.5,
         minTrackingConfidence: 0.55,
         outputFaceBlendshapes: false,
-        outputFacialTransformationMatrixes: false,
+        outputFacialTransformationMatrixes: true,
       })
     })
     const landmarker = await this.landmarkerPromise
@@ -207,8 +208,12 @@ class MainThreadFaceBackend {
       this.assertActive()
       if (mode === "landmarks") {
         const landmarker = await this.getLandmarker()
-        const landmarks = landmarker.detectForVideo(bitmap, timestamp).faceLandmarks[0]
-        const face = landmarks ? readLandmarkFace(landmarks) : undefined
+        const landmarkResult = landmarker.detectForVideo(bitmap, timestamp)
+        const landmarks = landmarkResult.faceLandmarks[0]
+        const readFace = landmarks ? readLandmarkFace(landmarks) : undefined
+        const face = readFace
+          ? { ...readFace, pose: readFacePose(landmarkResult.facialTransformationMatrixes[0]) }
+          : undefined
         return {
           id,
           type: "result",

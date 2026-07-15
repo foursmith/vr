@@ -232,11 +232,17 @@ export const drawSampleBoxes = (
     context.shadowBlur = canvas.width / 80
     context.strokeRect(x, y, width, height)
     context.shadowBlur = 0
+    const poseLabel = face.pose
+      ? ` Y${Math.round(face.pose.yaw)}° P${Math.round(face.pose.pitch)}° R${Math.round(face.pose.roll)}°`
+      : ""
+    const label = `${Math.round(face.score * 100)}%${poseLabel}`
+    const labelY = Math.max(0, y - 18)
+    const labelWidth = Math.min(canvas.width - x, Math.max(42, label.length * 7 + 10))
     context.fillStyle = "rgba(10, 132, 255, 0.9)"
-    context.fillRect(x, Math.max(0, y - 18), 42, 18)
+    context.fillRect(x, labelY, labelWidth, 18)
     context.fillStyle = "#fff"
     context.font = "bold 12px monospace"
-    context.fillText(`${Math.round(face.score * 100)}%`, x + 5, Math.max(12, y - 5))
+    context.fillText(label, x + 5, Math.max(12, y - 5))
     context.restore()
   })
 }

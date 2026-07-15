@@ -15,10 +15,10 @@ The algorithm balances four competing goals:
 
 The player alternates between two detection modes:
 
-- **Viewport detection** copies the currently visible render into the reusable inference canvas. This is the normal tracking path.
+- **Viewport detection** copies the currently visible render into the reusable inference canvas. MediaPipe uses the short-range face detector while searching, then switches to the face landmarker after a reliable target is established. The landmarker supplies a feature-based center and head pose while it continues to see the target.
 - **Panorama recovery** renders one perspective view of the sphere per inference. It starts after viewport detection misses a face and continues until a face is found or all recovery tiles have been checked.
 
-MediaPipe viewport detection uses the BlazeFace short-range model, which is optimized for larger, nearby faces. A viewport miss proceeds directly to panorama recovery without retrying the same sample with another model. Panorama recovery uses the full-range model because faces occupy fewer pixels in the wide-FOV scan tiles. The system face detector backend accepts the same scheduling choice but uses its platform-provided model.
+MediaPipe viewport search uses the BlazeFace short-range model, which is optimized for larger, nearby faces. A successful search enables the face landmarker on subsequent viewport samples. A detector or landmarker miss proceeds directly to panorama recovery without retrying the same sample with another model. Panorama recovery uses the full-range model because faces occupy fewer pixels in the wide-FOV scan tiles. The system face detector backend accepts the same scheduling choice but uses its platform-provided model and does not provide pose.
 
 Only one inference may be in flight. The next inference time is measured from the start of the previous inference, with the completed capture and inference time subtracted from the remaining delay.
 
@@ -27,7 +27,7 @@ Only one inference may be in flight. The next inference time is measured from th
 1. Viewport detection succeeds:
    - update the selected face and motion model;
    - clear the recovery tile index;
-   - continue viewport tracking.
+   - continue viewport tracking, using MediaPipe landmarks while the target remains reliable.
 2. Viewport detection misses:
    - remember the current camera yaw and pitch;
    - set the recovery tile index to zero;
@@ -41,6 +41,20 @@ Only one inference may be in flight. The next inference time is measured from th
    - after the final tile, return to viewport detection before starting another recovery pass.
 
 The target grace period and stable-face selection logic remain active across short misses so a single failed detection does not immediately discard the subject.
+
+## Face pose
+
+Once MediaPipe establishes a reliable viewport target, the face landmarker returns 478 normalized landmarks and a canonical-face transformation matrix. The player uses the eye and nose landmarks for the viewport center and decomposes the column-major 4×4 transformation matrix into signed YXZ Euler angles:
+
+- `yaw` is rotation around the vertical Y axis;
+- `pitch` is rotation around the horizontal X axis;
+- `roll` is rotation around the forward Z axis.
+
+The decomposition removes uniform scale from the matrix before reading the rotation and handles the YXZ gimbal-lock case by fixing roll to zero. Invalid, non-finite, or non-4×4 transforms are ignored.
+
+Pitch contributes a bounded viewport-composition offset so the view follows the subject's vertical look direction. Pitch magnitude up to 6° is ignored. Beyond that dead zone, the offset grows linearly and reaches its maximum at 30°. Negative pitch (looking up) moves the target upward; positive pitch (looking down) moves it downward. The offset is capped at 8% of viewport height and passes through the existing 480 ms target smoothing. Yaw and roll remain diagnostic only and do not affect camera motion. Pose never changes motion prediction, face identity selection, or panorama mapping.
+
+The debug face-box label shows rounded signed degrees as `Y…° P…° R…°`. The system detector and panorama detector do not output pose, so their labels continue to show confidence only. A landmarker miss enters panorama recovery; the player does not keep retrying landmarks without a reliable target.
 
 ### Centering dead zones
 
@@ -178,6 +192,7 @@ The debug panel exposes the inputs needed for tuning:
 
 - current activity (`stable`, `active`, `searching`, or `recovery`);
 - tracking frequency and inference duration;
+- MediaPipe viewport face pose (`Y`, `P`, and `R`) on the debug face-box label when landmarks are available;
 - `Motion`, normalized center speed per second;
 - `Away`, positive receding speed per second;
 - `Size`, normalized proximity estimate;
@@ -203,11 +218,13 @@ Primary implementation files:
 - `src/features/vr/face-auto-center.ts`
 - `src/features/vr/frame-scheduler.ts`
 - `src/features/vr/scene.ts`
+- `src/features/face-tracking/pose.ts`
 
 Primary tests:
 
 - `tests/unit/face-sampling.test.ts`
 - `tests/unit/face-auto-center.test.ts`
 - `tests/unit/frame-scheduler.test.ts`
+- `tests/unit/face-pose.test.ts`
 
 When changing the algorithm, update the relevant unit tests, run `bun run typecheck`, `bun run test`, and `bun run lint`, and verify that this document still describes the shipped constants and state transitions.

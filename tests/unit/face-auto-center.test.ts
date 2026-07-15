@@ -1,7 +1,7 @@
 import type { FaceAutoCenterState, FaceBox, FaceTarget } from "../../src/features/vr/face-auto-center"
 import { PerspectiveCamera } from "three"
 import { describe, expect, it } from "vitest"
-import { applyDetections, FACE_CENTER_FORWARD_ACTIVATION_DISTANCE, FACE_CENTER_FORWARD_MAX_SPEED, FACE_CENTER_FORWARD_SETTLE_DISTANCE, FACE_CENTER_MAX_FORWARD, FACE_CENTER_MIN_FORWARD, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_TARGET_SIZE, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, FACE_IDENTITY_SWITCH_POSITION_SPEED, FACE_IDENTITY_SWITCH_SIZE_SPEED, getFaceCenter, getFaceCenteringError, getFaceCenteringVelocity, getFaceDetectionRange, getFaceForwardTarget, getFaceForwardVelocity, getFaceMovementHint, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, updateFaceMotion } from "../../src/features/vr/face-auto-center"
+import { applyDetections, FACE_CENTER_FORWARD_ACTIVATION_DISTANCE, FACE_CENTER_FORWARD_MAX_SPEED, FACE_CENTER_FORWARD_SETTLE_DISTANCE, FACE_CENTER_MAX_FORWARD, FACE_CENTER_MIN_FORWARD, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_TARGET_SIZE, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, FACE_IDENTITY_SWITCH_POSITION_SPEED, FACE_IDENTITY_SWITCH_SIZE_SPEED, FACE_PITCH_LOOK_DEAD_ZONE_DEGREES, FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET, getFaceCenter, getFaceCenteringError, getFaceCenteringVelocity, getFaceDetectionRange, getFaceForwardTarget, getFaceForwardVelocity, getFaceInferenceMode, getFaceMovementHint, getFacePitchAdjustedCenter, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, updateFaceMotion } from "../../src/features/vr/face-auto-center"
 
 const state = (): FaceAutoCenterState => ({
   faces: [],
@@ -21,6 +21,28 @@ describe("face auto-center", () => {
   it("uses short-range detection for the viewport and full-range detection for panorama recovery", () => {
     expect(getFaceDetectionRange("viewport")).toBe("short")
     expect(getFaceDetectionRange("panorama")).toBe("full")
+  })
+
+  it("uses landmarks only for a reliable MediaPipe viewport target", () => {
+    expect(getFaceInferenceMode("mediapipe", "viewport", true)).toBe("landmarks")
+    expect(getFaceInferenceMode("mediapipe", "viewport", false)).toBe("detection")
+    expect(getFaceInferenceMode("mediapipe", "panorama", true)).toBe("detection")
+    expect(getFaceInferenceMode("system", "viewport", true)).toBe("detection")
+  })
+
+  it("follows face pitch vertically without applying yaw or roll", () => {
+    const center = { x: 0.4, y: 0.35 }
+    expect(getFacePitchAdjustedCenter(center, FACE_PITCH_LOOK_DEAD_ZONE_DEGREES)).toBe(center)
+    expect(getFacePitchAdjustedCenter(center, -18)).toEqual({ x: 0.4, y: 0.31 })
+    expect(getFacePitchAdjustedCenter(center, 18)).toEqual({ x: 0.4, y: 0.38999999999999996 })
+    expect(getFacePitchAdjustedCenter(center, -90)).toEqual({
+      x: 0.4,
+      y: 0.35 - FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET,
+    })
+    expect(getFacePitchAdjustedCenter(center, 90)).toEqual({
+      x: 0.4,
+      y: 0.35 + FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET,
+    })
   })
 
   it("computes centers and projection yaw limits", () => {

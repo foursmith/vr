@@ -1,5 +1,5 @@
 import type { CameraView, ProjectionMode, ProjectionQuality } from "@foursmith/player-core"
-import type { FaceCenteringMode, FaceInferenceResult } from "../face-tracking/protocol"
+import type { FaceCenteringMode, FaceInferenceMode, FaceInferenceResult, FacePose } from "../face-tracking/protocol"
 import type { DetectionMode, FaceAutoCenterState, PanoramaSample } from "./face-auto-center"
 import type { FaceInferenceActivity } from "./frame-scheduler"
 import { createVrPlayerCore, DEFAULT_FOV, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS } from "@foursmith/player-core"
@@ -12,7 +12,9 @@ import {
   getFaceCenteringVelocity,
   getFaceDetectionRange,
   getFaceForwardVelocity,
+  getFaceInferenceMode,
   getFaceMovementHint,
+  getFacePitchAdjustedCenter,
   getProjectionYawLimit,
   mapSampleFaceToPanorama,
   pauseFaceAutoCenter,
@@ -187,7 +189,20 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       .multiplyScalar(options.viewRef.current.forward)
     camera.position.copy(cameraForward)
   }
-  type FaceDetectorBackend = ReturnType<(typeof import("../../system-face-detector-client"))["createSystemFaceDetectorWorkerClient"]>
+  interface DetectedFace {
+    boundingBox: { x: number, y: number, width: number, height: number }
+    score?: number
+    pose?: FacePose
+    center?: { x: number, y: number }
+  }
+  interface FaceDetectorBackend {
+    detect: (
+      source: ImageBitmapSource,
+      detectionRange?: ReturnType<typeof getFaceDetectionRange>,
+      inferenceMode?: FaceInferenceMode,
+    ) => Promise<DetectedFace[]>
+    destroy: () => void
+  }
   let faceDetector: FaceDetectorBackend | undefined
   let faceDetectorPromise: Promise<FaceDetectorBackend> | undefined
   let faceDetectorGeneration = 0
@@ -198,7 +213,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     if (faceDetector) return Promise.resolve(faceDetector)
     if (faceDetectorPromise) return faceDetectorPromise
     const generation = faceDetectorGeneration
-    const loading = options.faceCenteringMode === "system"
+    const loading: Promise<FaceDetectorBackend> = options.faceCenteringMode === "system"
       ? import("../../system-face-detector-client").then(module => module.createSystemFaceDetectorWorkerClient())
       : import("../../mediapipe-face-detector-client").then(module => module.createMediaPipeFaceDetectorClient())
     faceDetectorPromise = loading.then((detector) => {
@@ -577,15 +592,26 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       const face = applyDetections(faceState, result.faces, time, "viewport")
       faceState.detectionMode = "viewport"
       if (face) updateFaceMotion(faceState, face, time)
+      const pitchAdjustedCenter = result.center
+        ? getFacePitchAdjustedCenter(result.center, face?.pose?.pitch)
+        : undefined
       foundFace = setViewportTarget(
         faceState,
         face,
         time,
-        result.center,
+        pitchAdjustedCenter,
         options.viewRef.current.forward,
         getFaceSurfaceDistance(projection),
       )
-      faceState.recoveryMode = foundFace ? undefined : "viewport"
+      if (foundFace) {
+        panoramaScanIndex = 0
+        faceState.recoveryMode = undefined
+      } else {
+        panoramaScanIndex = 0
+        panoramaScanOriginYaw = options.viewRef.current.yaw
+        panoramaScanOriginPitch = options.viewRef.current.pitch
+        faceState.recoveryMode = "panorama"
+      }
     } else if (detectionMode === "panorama" && panoramaSample) {
       faceState.detectionMode = "panorama"
       const face = applyDetections(faceState, result.faces, time, "panorama", {
@@ -758,23 +784,33 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     void ensureFaceDetector()
       .then((detector) => {
         lastCaptureMs = performance.now() - captureStartedAt
-        return detector.detect(sampleCanvas, getFaceDetectionRange(detectionMode))
+        const inferenceMode = getFaceInferenceMode(
+          options.faceCenteringMode,
+          detectionMode,
+          Boolean(faceState.target?.mode === "viewport" && faceState.consecutiveMisses === 0),
+        )
+        return detector.detect(sampleCanvas, getFaceDetectionRange(detectionMode), inferenceMode)
+          .then(faces => ({ faces, inferenceMode }))
       })
-      .then((faces) => {
+      .then(({ faces, inferenceMode }) => {
         completedInferenceMs = performance.now() - captureStartedAt
         if (disposed || generation !== inferenceGeneration || video.paused || !options.faceAutoCenter || options.hidden) return
         const result: FaceInferenceResult = {
           id: 0,
           type: "result",
-          mode: "detection",
+          mode: inferenceMode,
           timestamp: now,
           faces: faces.map(face => ({
             x: face.boundingBox.x / inputWidth,
             y: face.boundingBox.y / inputHeight,
             width: face.boundingBox.width / inputWidth,
             height: face.boundingBox.height / inputHeight,
-            score: 1,
+            score: face.score ?? 1,
+            pose: face.pose,
           })),
+          center: faces[0]?.center
+            ? { x: faces[0].center.x / inputWidth, y: faces[0].center.y / inputHeight }
+            : undefined,
           inferenceMs: completedInferenceMs,
         }
         applyInferenceResult(result, detectionMode, panoramaSample, projection)

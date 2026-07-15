@@ -1,7 +1,10 @@
 /// <reference lib="webworker" />
 
+import { readFacePose } from "./pose"
+
 interface NormalizedLandmark { x: number, y: number }
-interface NormalizedFace { x: number, y: number, width: number, height: number, score: number }
+interface FacePose { yaw: number, pitch: number, roll: number }
+interface NormalizedFace { x: number, y: number, width: number, height: number, score: number, pose?: FacePose }
 type FaceInferenceMode = "landmarks" | "detection"
 type FaceDetectionRange = "short" | "full"
 interface FaceInferenceResult {
@@ -33,6 +36,7 @@ interface FaceDetectorBackend {
 interface FaceLandmarkerBackend {
   detectForVideo: (image: ImageBitmap, timestamp: number) => {
     faceLandmarks: NormalizedLandmark[][]
+    facialTransformationMatrixes: Array<{ rows: number, columns: number, data: number[] }>
   }
   close: () => void
 }
@@ -104,7 +108,7 @@ const getLandmarker = async () => {
     minFacePresenceConfidence: 0.5,
     minTrackingConfidence: 0.55,
     outputFaceBlendshapes: false,
-    outputFacialTransformationMatrixes: false,
+    outputFacialTransformationMatrixes: true,
   }) as Promise<FaceLandmarkerBackend>
   landmarker ??= await landmarkerPromise
   return landmarker
@@ -168,8 +172,12 @@ const infer = async (request: Extract<FaceWorkerRequest, { type: "infer" }>) => 
   try {
     if (request.mode === "landmarks") {
       const landmarkBackend = await getLandmarker()
-      const landmarks = landmarkBackend.detectForVideo(request.bitmap, request.timestamp).faceLandmarks[0]
-      const face = landmarks ? readLandmarkFace(landmarks) : undefined
+      const landmarkResult = landmarkBackend.detectForVideo(request.bitmap, request.timestamp)
+      const landmarks = landmarkResult.faceLandmarks[0]
+      const readFace = landmarks ? readLandmarkFace(landmarks) : undefined
+      const face = readFace
+        ? { ...readFace, pose: readFacePose(landmarkResult.facialTransformationMatrixes[0]) }
+        : undefined
       response = {
         id: request.id,
         type: "result",
