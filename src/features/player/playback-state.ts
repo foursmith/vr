@@ -7,6 +7,7 @@ export interface GlobalPreferences {
   renderFrameRateId: number
   splitScreen: boolean
   faceAutoCenter: boolean
+  resumeFaceAutoCenterAfterViewChange: boolean
   autoResumePlayback: boolean
   subtitlesEnabled: boolean
   repeatMode: RepeatMode
@@ -29,6 +30,7 @@ export const DEFAULT_GLOBAL_PREFERENCES: GlobalPreferences = {
   renderFrameRateId: 3,
   splitScreen: true,
   faceAutoCenter: true,
+  resumeFaceAutoCenterAfterViewChange: true,
   autoResumePlayback: false,
   subtitlesEnabled: true,
   repeatMode: "file",
@@ -71,6 +73,10 @@ export function loadGlobalPreferences(storage: Storage = localStorage): GlobalPr
       renderFrameRateId: Math.round(numberInRange(parsed.renderFrameRateId, DEFAULT_GLOBAL_PREFERENCES.renderFrameRateId, 1, 3)),
       splitScreen: booleanOr(parsed.splitScreen, DEFAULT_GLOBAL_PREFERENCES.splitScreen),
       faceAutoCenter: booleanOr(parsed.faceAutoCenter, DEFAULT_GLOBAL_PREFERENCES.faceAutoCenter),
+      resumeFaceAutoCenterAfterViewChange: booleanOr(
+        parsed.resumeFaceAutoCenterAfterViewChange,
+        DEFAULT_GLOBAL_PREFERENCES.resumeFaceAutoCenterAfterViewChange,
+      ),
       autoResumePlayback: booleanOr(parsed.autoResumePlayback, DEFAULT_GLOBAL_PREFERENCES.autoResumePlayback),
       subtitlesEnabled: booleanOr(parsed.subtitlesEnabled, DEFAULT_GLOBAL_PREFERENCES.subtitlesEnabled),
       repeatMode: repeatModeFromStorage(parsed.repeatMode),

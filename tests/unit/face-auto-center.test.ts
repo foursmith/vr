@@ -2,7 +2,7 @@ import type { FaceAutoCenterState, FaceBox } from "../../src/features/vr/face-au
 import { PerspectiveCamera } from "three"
 import { describe, expect, it } from "vitest"
 import { MIN_FACE_CONFIDENCE } from "../../src/features/face-tracking/protocol"
-import { applyDetections, constrainFaceAutoCenterView, estimateFaceCenteringDuration, FACE_CENTER_EDGE_MARGIN_DEGREES, FACE_CENTER_FORWARD_ACTIVATION_DISTANCE, FACE_CENTER_FORWARD_MAX_SPEED, FACE_CENTER_FORWARD_SETTLE_DISTANCE, FACE_CENTER_MAX_FORWARD, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_SIZE_DEAD_ZONE, FACE_CENTER_STOP_SPEED, FACE_CENTER_TARGET_SIZE, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, FACE_DIRECTION_MAX_AGE_MS, FACE_IDENTITY_SWITCH_POSITION_SPEED, FACE_IDENTITY_SWITCH_SIZE_SPEED, getFaceCenter, getFaceCenteringError, getFaceCenteringPlan, getFaceCenteringVelocity, getFaceDetectionRange, getFaceForwardTarget, getFaceForwardVelocity, getFaceMovementHint, getManualZoomForwardTarget, getPredictedFaceDirection, getProjectionCoverageMargin, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, shouldEnterPanoramaRecovery, smoothFaceCenteringVelocity, updateFaceMotion, VIEWPORT_MISSES_BEFORE_PANORAMA } from "../../src/features/vr/face-auto-center"
+import { applyDetections, constrainFaceAutoCenterView, estimateFaceCenteringDuration, FACE_CENTER_EDGE_MARGIN_DEGREES, FACE_CENTER_FORWARD_ACTIVATION_DISTANCE, FACE_CENTER_FORWARD_MAX_SPEED, FACE_CENTER_FORWARD_SETTLE_DISTANCE, FACE_CENTER_MANUAL_INPUT_RESUME_DELAY_MS, FACE_CENTER_MAX_FORWARD, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_SIZE_DEAD_ZONE, FACE_CENTER_STOP_SPEED, FACE_CENTER_TARGET_SIZE, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, FACE_DIRECTION_MAX_AGE_MS, FACE_IDENTITY_SWITCH_POSITION_SPEED, FACE_IDENTITY_SWITCH_SIZE_SPEED, getFaceAutoCenterManualResumeAt, getFaceCenter, getFaceCenteringError, getFaceCenteringPlan, getFaceCenteringVelocity, getFaceDetectionRange, getFaceForwardTarget, getFaceForwardVelocity, getFaceMovementHint, getManualZoomForwardTarget, getPredictedFaceDirection, getProjectionCoverageMargin, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, shouldEnterPanoramaRecovery, smoothFaceCenteringVelocity, updateFaceMotion, VIEWPORT_MISSES_BEFORE_PANORAMA } from "../../src/features/vr/face-auto-center"
 
 const state = (): FaceAutoCenterState => ({
   faces: [],
@@ -329,6 +329,12 @@ describe("face auto-center", () => {
     resumeFaceAutoCenter(value)
     expect(value.manuallyPaused).toBe(false)
     expect(value.nextDetectionAt).toBe(0)
+  })
+
+  it("resumes manual view pauses after one second only when enabled", () => {
+    expect(getFaceAutoCenterManualResumeAt(250, false)).toBe(Number.POSITIVE_INFINITY)
+    expect(getFaceAutoCenterManualResumeAt(250, true)).toBe(250 + FACE_CENTER_MANUAL_INPUT_RESUME_DELAY_MS)
+    expect(FACE_CENTER_MANUAL_INPUT_RESUME_DELAY_MS).toBe(1000)
   })
 
   it("maps wrapped samples back onto panorama coordinates", () => {

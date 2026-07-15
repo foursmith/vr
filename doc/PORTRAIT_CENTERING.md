@@ -253,6 +253,12 @@ The first viewport miss preserves the missed inference's activity, adaptive maxi
 
 The configured playback render rate limits ordinary video presentation but does not limit camera interaction. While manual interaction or portrait centering moves the camera, rendering follows display animation-frame cadence. Returning to ordinary playback starts a fresh playback deadline so an old deadline cannot delay the first settled frame.
 
+## Manual view interaction
+
+By default, a manual three-dimensional view change temporarily pauses portrait centering. Manual changes include pointer or touch rotation, wheel or pinch depth movement, keyboard depth movement, and resetting the view. Entering this pause clears the selected face, centering target, motion history, recovery state, accumulated camera velocity, and pending inference schedule so automatic movement cannot fight the manual camera position.
+
+The resume-after-view-movement preference is enabled by default. Every applied manual view change restarts a 1-second quiet period, so continuous interaction keeps extending the deadline. When the quiet period ends, the controller clears the temporary pause, sets the next detection time to zero, and requests a frame so viewport face scanning resumes immediately from the manually chosen view. Disabling the preference makes future pauses require an explicit resume; disabling it during a temporary pause converts the current pause to that persistent behavior.
+
 ## Maintenance contract
 
 Changes to any of the following must update this document in the same change:

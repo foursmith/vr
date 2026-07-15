@@ -564,6 +564,11 @@ export const resumeFaceAutoCenter = (state: FaceAutoCenterState) => {
   state.nextDetectionAt = 0
 }
 
+export const FACE_CENTER_MANUAL_INPUT_RESUME_DELAY_MS = 1000
+
+export const getFaceAutoCenterManualResumeAt = (now: number, resumeAfterViewChange: boolean) =>
+  resumeAfterViewChange ? now + FACE_CENTER_MANUAL_INPUT_RESUME_DELAY_MS : Number.POSITIVE_INFINITY
+
 export const mapSampleFaceToPanorama = (face: FaceBox, sample: PanoramaSample): FaceBox => {
   if (sample.perspective) {
     const view = sample.perspective

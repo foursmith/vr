@@ -10,6 +10,7 @@ import {
   constrainFaceAutoCenterView,
   estimateFaceCenteringDuration,
   FACE_CENTER_MAX_FORWARD,
+  getFaceAutoCenterManualResumeAt,
   getFaceCenteringPlan,
   getFaceCenteringVelocity,
   getFaceDetectionRange,
@@ -94,6 +95,7 @@ export interface VrSceneOptions {
   hidden: boolean
   splitScreen: boolean
   faceAutoCenter: boolean
+  resumeFaceAutoCenterAfterViewChange: boolean
   debugPanelOpen: boolean
   viewRef: MutableRefObject<CameraView>
   onFaceAutoCenterPauseChange: (paused: boolean) => void
@@ -101,7 +103,7 @@ export interface VrSceneOptions {
 }
 
 export interface VrSceneController {
-  update: (nextOptions: Partial<Pick<VrSceneOptions, "projection" | "quality" | "frameRate" | "hidden" | "splitScreen" | "faceAutoCenter" | "debugPanelOpen">>) => void
+  update: (nextOptions: Partial<Pick<VrSceneOptions, "projection" | "quality" | "frameRate" | "hidden" | "splitScreen" | "faceAutoCenter" | "resumeFaceAutoCenterAfterViewChange" | "debugPanelOpen">>) => void
   getOutputCanvas: () => HTMLCanvasElement
   setFrameCapture: (capture?: (canvas: HTMLCanvasElement) => void) => void
   adjustForward: (direction: number) => void
@@ -129,6 +131,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   const depthTarget = options.hintElement.querySelector<HTMLElement>("[data-face-depth-target]")
   const depthValue = options.hintElement.querySelector<HTMLElement>("[data-face-depth-value]")
   let disposed = false
+  let temporaryManualPauseActive = false
+  let manualFaceCenterResumeTimer: number | undefined
   let frameId = 0
   let videoFrameCallbackId = 0
   let videoSourceFrameRate = 0
@@ -507,8 +511,45 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     requestRender()
   }
 
+  const clearManualFaceCenterResume = () => {
+    if (manualFaceCenterResumeTimer !== undefined) window.clearTimeout(manualFaceCenterResumeTimer)
+    manualFaceCenterResumeTimer = undefined
+    if (temporaryManualPauseActive) options.viewRef.current.pausedUntil = 0
+    temporaryManualPauseActive = false
+  }
+
   const pauseFaceCenterForManualInput = () => {
-    if (options.faceAutoCenter) setManualFaceCenterPaused(true)
+    if (!options.faceAutoCenter) return
+    const now = performance.now()
+    const resumeAt = getFaceAutoCenterManualResumeAt(now, options.resumeFaceAutoCenterAfterViewChange)
+    if (!Number.isFinite(resumeAt)) {
+      clearManualFaceCenterResume()
+      setManualFaceCenterPaused(true)
+      return
+    }
+
+    if (!temporaryManualPauseActive) {
+      temporaryManualPauseActive = true
+      const wasManuallyPaused = Boolean(faceState.manuallyPaused)
+      inferenceGeneration += 1
+      pauseFaceAutoCenter(faceState)
+      resumeFaceAutoCenter(faceState)
+      automaticProjectionBoundary = undefined
+      resetPanoramaScan()
+      if (wasManuallyPaused) options.onFaceAutoCenterPauseChange(false)
+      setOverlay({})
+    }
+    options.viewRef.current.pausedUntil = resumeAt
+    if (manualFaceCenterResumeTimer !== undefined) window.clearTimeout(manualFaceCenterResumeTimer)
+    manualFaceCenterResumeTimer = window.setTimeout(() => {
+      manualFaceCenterResumeTimer = undefined
+      if (disposed || !temporaryManualPauseActive) return
+      temporaryManualPauseActive = false
+      options.viewRef.current.pausedUntil = 0
+      faceState.nextDetectionAt = 0
+      requestRender()
+    }, Math.max(0, resumeAt - performance.now()))
+    requestRender()
   }
 
   const dragging = { active: false, pointerId: 0, x: 0, y: 0 }
@@ -1188,6 +1229,11 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       if (invalidatesInference) inferenceGeneration += 1
       if (nextOptions.faceAutoCenter === false) releaseFaceDetector()
       Object.assign(options, nextOptions)
+      if (nextOptions.resumeFaceAutoCenterAfterViewChange === false && temporaryManualPauseActive) {
+        clearManualFaceCenterResume()
+        setManualFaceCenterPaused(true)
+      }
+      if (nextOptions.faceAutoCenter === false) clearManualFaceCenterResume()
       if (!options.faceAutoCenter && faceState.manuallyPaused) setManualFaceCenterPaused(false)
       if (opensDebugPanel) {
         fpsFrameCount = 0
@@ -1221,6 +1267,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     },
     resetMedia() {
       inferenceGeneration += 1
+      clearManualFaceCenterResume()
       if (faceState.manuallyPaused) {
         resumeFaceAutoCenter(faceState)
         options.onFaceAutoCenterPauseChange(false)
@@ -1252,6 +1299,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     },
     destroy() {
       disposed = true
+      clearManualFaceCenterResume()
       inferenceGeneration += 1
       releaseFaceDetector()
       stopScheduledRender()

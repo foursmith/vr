@@ -336,6 +336,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     projectionId,
     qualityId,
     renderFrameRateId,
+    resumeFaceAutoCenterAfterViewChange,
     splitScreen,
     resetTransientView,
     restoreProjection,
@@ -463,6 +464,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     hidden: false,
     splitScreen: splitScreen(),
     faceAutoCenter: faceAutoCenter(),
+    resumeFaceAutoCenterAfterViewChange: resumeFaceAutoCenterAfterViewChange(),
     debugPanelOpen: debugPanelOpen(),
   })
 
@@ -1583,6 +1585,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       renderFrameRateId: renderFrameRateId(),
       splitScreen: splitScreen(),
       faceAutoCenter: faceAutoCenter(),
+      resumeFaceAutoCenterAfterViewChange: resumeFaceAutoCenterAfterViewChange(),
       autoResumePlayback: autoResumePlayback(),
       subtitlesEnabled: subtitlesEnabled(),
       repeatMode: repeatMode(),

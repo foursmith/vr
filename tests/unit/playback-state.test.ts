@@ -20,11 +20,17 @@ describe("player state persistence", () => {
 
   it("loads defaults when global preferences are absent or invalid", () => {
     expect(loadGlobalPreferences()).toEqual(DEFAULT_GLOBAL_PREFERENCES)
+    expect(loadGlobalPreferences().resumeFaceAutoCenterAfterViewChange).toBe(true)
     localStorage.setItem("foursmith-vr:preferences", "not-json")
     const warning = vi.spyOn(console, "warn").mockImplementation(() => {})
     expect(loadGlobalPreferences()).toEqual(DEFAULT_GLOBAL_PREFERENCES)
     expect(warning).toHaveBeenCalledOnce()
     warning.mockRestore()
+  })
+
+  it("enables resume after movement when stored preferences predate it", () => {
+    localStorage.setItem("foursmith-vr:preferences", JSON.stringify({ volume: 0.5 }))
+    expect(loadGlobalPreferences().resumeFaceAutoCenterAfterViewChange).toBe(true)
   })
 
   it("validates global preferences at the storage boundary", () => {
@@ -35,6 +41,7 @@ describe("player state persistence", () => {
       renderFrameRateId: 99,
       splitScreen: false,
       faceAutoCenter: false,
+      resumeFaceAutoCenterAfterViewChange: true,
       faceCenteringMode: "system",
       subtitlesEnabled: false,
       repeatMode: "folder",
@@ -48,6 +55,7 @@ describe("player state persistence", () => {
       renderFrameRateId: 3,
       splitScreen: false,
       faceAutoCenter: false,
+      resumeFaceAutoCenterAfterViewChange: true,
       autoResumePlayback: false,
       subtitlesEnabled: false,
       repeatMode: "folder",

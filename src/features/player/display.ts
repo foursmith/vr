@@ -18,6 +18,7 @@ export function createDisplay(options: {
     renderFrameRateId: number
     splitScreen: boolean
     faceAutoCenter: boolean
+    resumeFaceAutoCenterAfterViewChange: boolean
   }>
 }) {
   const [state, setState] = createStore({
@@ -26,6 +27,7 @@ export function createDisplay(options: {
     renderFrameRateId: options.initialState?.renderFrameRateId ?? 3,
     splitScreen: options.initialState?.splitScreen ?? true,
     faceAutoCenter: options.initialState?.faceAutoCenter ?? true,
+    resumeFaceAutoCenterAfterViewChange: options.initialState?.resumeFaceAutoCenterAfterViewChange ?? true,
   })
   const [fullscreen, setFullscreen] = createSignal(false)
 
@@ -46,6 +48,8 @@ export function createDisplay(options: {
   }
   const setSplitScreen = (update: ValueUpdate<boolean>) => setValue("splitScreen", update)
   const setFaceAutoCenter = (update: ValueUpdate<boolean>) => setValue("faceAutoCenter", update)
+  const setResumeFaceAutoCenterAfterViewChange = (update: ValueUpdate<boolean>) =>
+    setValue("resumeFaceAutoCenterAfterViewChange", update)
 
   const restoreProjection = (projectionId: number) => {
     setValue("projectionId", projectionId)
@@ -90,6 +94,7 @@ export function createDisplay(options: {
     fullscreen,
     resetView,
     setFaceAutoCenter,
+    setResumeFaceAutoCenterAfterViewChange,
     setProjectionId,
     setQualityId,
     setRenderFrameRateId,
@@ -105,6 +110,7 @@ export function createDisplay(options: {
     projectionId: () => state.projectionId,
     qualityId: () => state.qualityId,
     renderFrameRateId: () => state.renderFrameRateId,
+    resumeFaceAutoCenterAfterViewChange: () => state.resumeFaceAutoCenterAfterViewChange,
     splitScreen: () => state.splitScreen,
     resetTransientView,
     restoreProjection,
