@@ -72,7 +72,7 @@ export interface MatrixRangeColumn extends RangeOption {
 }
 
 /**
- * Origin from https://x.com/maria_rcks/status/2076176709221552447?s=20
+ * Inspired by https://x.com/maria_rcks/status/2076176709221552447
  */
 export function MatrixRange(props: {
   columns: readonly MatrixRangeColumn[]
