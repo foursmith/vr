@@ -13,6 +13,7 @@ export function createDisplay(options: {
   getPlayer: () => HTMLElement
   resourcesReady: () => boolean
   viewRef: ViewRef
+  onManualViewChange?: () => void
   initialState?: Partial<{
     qualityId: number
     renderFrameRateId: number
@@ -54,9 +55,11 @@ export function createDisplay(options: {
   const setZoom = (next: number) => {
     if (!options.resourcesReady()) return
     const clamped = Math.min(2.4, Math.max(0.8, next))
+    if (clamped === options.viewRef.current.zoom) return
     options.viewRef.current.zoom = clamped
     options.viewRef.current.pausedUntil = performance.now() + 900
     setZoomSignal(clamped)
+    options.onManualViewChange?.()
   }
 
   const syncZoom = (next: number) => {
@@ -79,6 +82,7 @@ export function createDisplay(options: {
   const resetView = () => {
     if (!options.resourcesReady()) return
     resetTransientView()
+    options.onManualViewChange?.()
   }
 
   const changeQualityBy = (amount: number) => {

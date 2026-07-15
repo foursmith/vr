@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
     update: vi.fn(),
     getOutputCanvas: vi.fn(),
     setFrameCapture: vi.fn(),
+    pauseFaceAutoCenter: vi.fn(),
+    resumeFaceAutoCenter: vi.fn(),
     resetMedia: vi.fn(),
     destroy: vi.fn(),
   },
@@ -175,6 +177,27 @@ describe("player controller", () => {
     expect(mocks.sceneController.destroy).toHaveBeenCalledOnce()
     expect(mocks.releaseResources).not.toHaveBeenCalled()
     expect(video.pause).toHaveBeenCalled()
+  })
+
+  it("exposes the scene's manual face-centering pause and resume action", async () => {
+    const { controller, dispose, host } = setupController()
+    await controller.playback.startInitialLoad()
+    const options = mocks.createVrScene.mock.calls[0]![0]
+
+    controller.display.setZoom(1.2)
+    expect(mocks.sceneController.pauseFaceAutoCenter).toHaveBeenCalledOnce()
+
+    options.onFaceAutoCenterPauseChange(true)
+    await settle()
+    host.querySelector<HTMLButtonElement>("button[aria-label='Resume face centering']")!.click()
+
+    expect(controller.frame.faceAutoCenterPaused()).toBe(true)
+    expect(mocks.sceneController.resumeFaceAutoCenter).toHaveBeenCalledOnce()
+
+    options.onFaceAutoCenterPauseChange(false)
+    await settle()
+    expect(host.querySelector("button[aria-label='Resume face centering']")).toBeNull()
+    dispose()
   })
 
   it("stops playback and restores the empty state when clearing the playlist", async () => {

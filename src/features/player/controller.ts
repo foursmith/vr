@@ -291,6 +291,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   const [subtitlesEnabled, setSubtitlesEnabled] = createSignal(initialPreferences.subtitlesEnabled)
   const [subtitleFileName, setSubtitleFileName] = createSignal<string>()
   const [debugPanelOpen, setDebugPanelOpen] = createSignal(false)
+  const [faceAutoCenterPaused, setFaceAutoCenterPaused] = createSignal(false)
   const [loadingState, setLoadingState] = createStore({
     resourcesReady: true,
     progress: 100,
@@ -315,6 +316,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     getPlayer: () => player,
     resourcesReady,
     viewRef,
+    onManualViewChange: () => scene?.pauseFaceAutoCenter(),
     initialState: initialPreferences,
   })
   const {
@@ -1456,6 +1458,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
           video,
           viewRef,
           onZoomChange: syncZoom,
+          onFaceAutoCenterPauseChange: setFaceAutoCenterPaused,
           ...sceneOptions(),
         })
         showVideoTranslationLayer()
@@ -1623,6 +1626,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
         if (canImportLocalMedia()) folderInput.click()
       },
       getPlayer: () => player,
+      faceAutoCenterPaused,
       handleFile,
       handleFolder,
       handlePlayerPointerMove,
@@ -1633,6 +1637,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       handleVideoDrop,
       hasVideo,
       openVideoFile,
+      resumeFaceAutoCenter: () => scene?.resumeFaceAutoCenter(),
       setFileInput: (element: HTMLInputElement) => (fileInput = element),
       setFolderInput: (element: HTMLInputElement) => (folderInput = element),
       setPlayer: (element: HTMLElement) => (player = element),

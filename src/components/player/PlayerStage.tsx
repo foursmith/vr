@@ -1,12 +1,14 @@
 import type { PlayerController } from "../../features/player/controller"
 import { onSettled, Show, untrack } from "solid-js"
+import { IconButton } from "../ui/IconButton"
 
 const SINGLE_CLICK_DELAY_MS = 250
 const CLICK_MOVE_THRESHOLD_PX = 8
 
 export function PlayerStage(props: { controller: PlayerController }) {
-  const { debug, display, frame, playback, subtitles } = untrack(() => props.controller)
-  const { handlePlayerPointerDown, handlePlayerPointerUp, setVideo, setVrMount, setVrRoot } = frame
+  const { controls, debug, display, frame, playback, subtitles } = untrack(() => props.controller)
+  const { controlsVisible, registerUiSurface, setControlsHold } = controls
+  const { faceAutoCenterPaused, handlePlayerPointerDown, handlePlayerPointerUp, resumeFaceAutoCenter, setVideo, setVrMount, setVrRoot } = frame
   let singleClickTimer: number | undefined
   let pointerStart: { id: number, x: number, y: number } | undefined
   let lastPointerType = ""
@@ -109,6 +111,33 @@ export function PlayerStage(props: { controller: PlayerController }) {
           </div>
         </div>
       </section>
+
+      <Show when={faceAutoCenterPaused()}>
+        <div
+          ref={registerUiSurface}
+          data-face-centering-resume
+          class={`absolute right-3 top-3 z-30 transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:right-6 sm:top-6 ${
+            controlsVisible() ? "pointer-events-auto translate-x-0 opacity-100" : "pointer-events-none translate-x-[calc(100%+1.5rem)] opacity-0"
+          }`}
+          aria-hidden={controlsVisible() ? "false" : "true"}
+          inert={!controlsVisible()}
+          onFocusIn={(event) => {
+            setControlsHold("focus", (event.target as HTMLElement).matches(":focus-visible"))
+          }}
+          onFocusOut={(event) => {
+            if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+            setControlsHold("focus", false)
+          }}
+        >
+          <IconButton
+            label="Resume face centering"
+            title="Resume face centering"
+            icon="scan-face"
+            iconClass="h-5 w-5"
+            onClick={resumeFaceAutoCenter}
+          />
+        </div>
+      </Show>
 
       <Show when={subtitles.text()}>
         <div

@@ -7,10 +7,10 @@ import { createVrPlayerCore, DEFAULT_FOV, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUAL
 import { MathUtils } from "three"
 import {
   applyDetections,
-
   getProjectionYawLimit,
   mapSampleFaceToPanorama,
-
+  pauseFaceAutoCenter,
+  resumeFaceAutoCenter,
   setPanoramaTarget,
   setViewportTarget,
   updateFaceMotion,
@@ -94,12 +94,15 @@ export interface VrSceneOptions {
   debugPanelOpen: boolean
   viewRef: MutableRefObject<CameraView>
   onZoomChange: (zoom: number) => void
+  onFaceAutoCenterPauseChange: (paused: boolean) => void
 }
 
 export interface VrSceneController {
   update: (nextOptions: Partial<Pick<VrSceneOptions, "projection" | "quality" | "frameRate" | "hidden" | "splitScreen" | "faceAutoCenter" | "faceCenteringMode" | "debugPanelOpen">>) => void
   getOutputCanvas: () => HTMLCanvasElement
   setFrameCapture: (capture?: (canvas: HTMLCanvasElement) => void) => void
+  pauseFaceAutoCenter: () => void
+  resumeFaceAutoCenter: () => void
   resetMedia: () => void
   destroy: () => void
 }
@@ -376,13 +379,18 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   const resizeObserver = new ResizeObserver(resize)
   resizeObserver.observe(mount)
 
-  const pauseFaceCenter = () => {
-    options.viewRef.current.pausedUntil = performance.now() + 1800
-    faceState.nextDetectionAt = options.viewRef.current.pausedUntil
-    faceState.yawVelocity = 0
-    faceState.pitchVelocity = 0
-    faceState.isMoving = false
+  const setManualFaceCenterPaused = (paused: boolean) => {
+    if (paused === Boolean(faceState.manuallyPaused)) return
+    inferenceGeneration += 1
+    if (paused) pauseFaceAutoCenter(faceState)
+    else resumeFaceAutoCenter(faceState)
+    options.onFaceAutoCenterPauseChange(paused)
+    setOverlay({})
     requestRender()
+  }
+
+  const pauseFaceCenterForManualInput = () => {
+    if (options.faceAutoCenter) setManualFaceCenterPaused(true)
   }
 
   const dragging = { active: false, pointerId: 0, x: 0, y: 0 }
@@ -394,7 +402,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     if (clampedZoom === options.viewRef.current.zoom) return
     options.viewRef.current.zoom = clampedZoom
     options.onZoomChange(clampedZoom)
-    pauseFaceCenter()
+    pauseFaceCenterForManualInput()
     requestRender()
   }
 
@@ -426,7 +434,6 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         dragging.x = event.clientX
         dragging.y = event.clientY
       }
-      pauseFaceCenter()
       requestRender()
       return
     }
@@ -435,7 +442,6 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     dragging.x = event.clientX
     dragging.y = event.clientY
     renderer.domElement.setPointerCapture?.(event.pointerId)
-    pauseFaceCenter()
     requestRender()
   }
   const onPointerMove = (event: PointerEvent) => {
@@ -465,6 +471,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     const dy = event.clientY - dragging.y
     dragging.x = event.clientX
     dragging.y = event.clientY
+    if (dx || dy) pauseFaceCenterForManualInput()
     options.viewRef.current.yaw += dx * 0.08
     options.viewRef.current.pitch = clamp(options.viewRef.current.pitch + dy * 0.08, -85, 85)
     requestRender()
@@ -801,7 +808,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       return
     }
 
-    if (now < options.viewRef.current.pausedUntil) return
+    if (faceState.manuallyPaused || now < options.viewRef.current.pausedUntil) return
 
     if (now >= faceState.nextDetectionAt) {
       if (inferenceInFlight) {
@@ -930,6 +937,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   return {
     getOutputCanvas: () => renderer.domElement,
     setFrameCapture: capture => (frameCapture = capture),
+    pauseFaceAutoCenter: pauseFaceCenterForManualInput,
+    resumeFaceAutoCenter: () => setManualFaceCenterPaused(false),
     update(nextOptions) {
       if (nextOptions.frameRate !== undefined && nextOptions.frameRate !== options.frameRate) {
         nextPlaybackFrameAt = undefined
@@ -948,6 +957,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
           || (nextOptions.faceCenteringMode !== undefined && nextOptions.faceCenteringMode !== options.faceCenteringMode)
       if (releasesFaceDetector) releaseFaceDetector()
       Object.assign(options, nextOptions)
+      if (!options.faceAutoCenter && faceState.manuallyPaused) setManualFaceCenterPaused(false)
       if (opensDebugPanel) {
         fpsFrameCount = 0
         fpsSampleStartedAt = performance.now()
@@ -980,6 +990,10 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     },
     resetMedia() {
       inferenceGeneration += 1
+      if (faceState.manuallyPaused) {
+        resumeFaceAutoCenter(faceState)
+        options.onFaceAutoCenterPauseChange(false)
+      }
       stopScheduledRender()
       faceState.faces = []
       faceState.target = undefined

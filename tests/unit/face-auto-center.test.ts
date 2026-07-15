@@ -1,7 +1,7 @@
 import type { FaceAutoCenterState, FaceBox } from "../../src/features/vr/face-auto-center"
 import { PerspectiveCamera } from "three"
 import { describe, expect, it } from "vitest"
-import { applyDetections, getFaceCenter, getProjectionYawLimit, mapSampleFaceToPanorama, setPanoramaTarget, setViewportTarget, updateFaceMotion } from "../../src/features/vr/face-auto-center"
+import { applyDetections, getFaceCenter, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, updateFaceMotion } from "../../src/features/vr/face-auto-center"
 
 const state = (): FaceAutoCenterState => ({
   faces: [],
@@ -31,6 +31,27 @@ describe("face auto-center", () => {
     expect(motion.speed).toBeGreaterThan(0)
     expect(motion.recedingSpeed).toBeGreaterThan(0)
     expect(motion.size).toBeCloseTo(Math.sqrt(0.06))
+  })
+
+  it("holds manual view changes until face centering is explicitly resumed", () => {
+    const value = state()
+    value.faces = [face()]
+    value.selectedFace = { ...face(), mode: "viewport" }
+    value.target = { x: 0.2, y: -0.1, mode: "viewport", lastSeenAt: 100 }
+    value.motion = { centerX: 0.3, centerY: 0.25, size: 0.2, speed: 1, recedingSpeed: 0, lastSeenAt: 100 }
+    value.isMoving = true
+    value.yawVelocity = 2
+
+    pauseFaceAutoCenter(value)
+
+    expect(value).toMatchObject({ manuallyPaused: true, faces: [], isMoving: false, yawVelocity: 0 })
+    expect(value.target).toBeUndefined()
+    expect(value.motion).toBeUndefined()
+    expect(value.nextDetectionAt).toBe(Number.POSITIVE_INFINITY)
+
+    resumeFaceAutoCenter(value)
+    expect(value.manuallyPaused).toBe(false)
+    expect(value.nextDetectionAt).toBe(0)
   })
 
   it("maps wrapped samples back onto panorama coordinates", () => {

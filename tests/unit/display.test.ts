@@ -64,4 +64,20 @@ describe("player display state", () => {
     expect(display.controller.state.projectionId).toBe(2)
     expect(display.controller.zoom()).toBe(1.5)
   })
+
+  it("reports effective manual zoom and reset-view changes", () => {
+    const onManualViewChange = vi.fn()
+    const display = createDisplay({
+      getPlayer: () => document.body,
+      resourcesReady: () => true,
+      viewRef: { current: { yaw: 8, pitch: -3, zoom: 1, pausedUntil: 0 } },
+      onManualViewChange,
+    })
+
+    display.controller.setZoom(1)
+    expect(onManualViewChange).not.toHaveBeenCalled()
+    display.controller.setZoom(1.4)
+    display.controller.resetView()
+    expect(onManualViewChange).toHaveBeenCalledTimes(2)
+  })
 })

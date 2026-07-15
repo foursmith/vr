@@ -40,6 +40,12 @@ Only one inference may be in flight. The next inference time is measured from th
 
 The target grace period and stable-face selection logic remain active across short misses so a single failed detection does not immediately discard the subject.
 
+### Manual view override
+
+Dragging the view, changing zoom, or explicitly resetting the view pauses face centering after the first effective change. The pause has no timeout: detections, recovery scanning, and camera motion remain stopped so the player does not undo the user's chosen view. Starting a gesture without moving does not pause centering.
+
+While paused, the player shows a **Resume face centering** button. Resuming clears the manual override and schedules an immediate viewport detection. Disabling face centering or resetting the media also clears the override and hides the button.
+
 ## Perspective scan tiles
 
 All spherical projections use five recovery tiles. Flat 2D content uses one view and does not require a sphere-wide scan.

@@ -1,9 +1,15 @@
 import type { PlayerController } from "../../src/features/player/controller"
 import { render } from "@solidjs/web"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { createSignal, flush } from "solid-js"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { PlayerStage } from "../../src/components/player/PlayerStage"
 
 const createController = () => ({
+  controls: {
+    controlsVisible: vi.fn(() => true),
+    registerUiSurface: vi.fn(),
+    setControlsHold: vi.fn(),
+  },
   debug: {
     setFaceHint: vi.fn(),
     setFpsMeter: vi.fn(),
@@ -13,8 +19,10 @@ const createController = () => ({
     toggleFullscreen: vi.fn(async () => {}),
   },
   frame: {
+    faceAutoCenterPaused: vi.fn(() => false),
     handlePlayerPointerDown: vi.fn(),
     handlePlayerPointerUp: vi.fn(),
+    resumeFaceAutoCenter: vi.fn(),
     setVideo: vi.fn(),
     setVrMount: vi.fn(),
     setVrRoot: vi.fn(),
@@ -42,12 +50,44 @@ const dispatchPointer = (target: Element, type: string, init: PointerEventInit) 
   target.dispatchEvent(event)
 }
 
+beforeEach(() => {
+  vi.stubGlobal("ResizeObserver", class {
+    observe() {}
+    disconnect() {}
+  })
+})
+
 afterEach(() => {
   vi.useRealTimers()
+  vi.unstubAllGlobals()
   document.body.replaceChildren()
 })
 
 describe("player stage gestures", () => {
+  it("shows a resume action while manual movement has paused face centering", () => {
+    const controller = createController()
+    const [paused, setPaused] = createSignal(false)
+    const [controlsVisible, setControlsVisible] = createSignal(true)
+    controller.frame.faceAutoCenterPaused = paused
+    controller.controls.controlsVisible = controlsVisible
+    const host = document.createElement("div")
+    document.body.append(host)
+    const dispose = render(() => <PlayerStage controller={controller} />, host)
+
+    expect(host.querySelector("button[aria-label='Resume face centering']")).toBeNull()
+    setPaused(true)
+    flush()
+    host.querySelector<HTMLButtonElement>("button[aria-label='Resume face centering']")!.click()
+
+    expect(controller.frame.resumeFaceAutoCenter).toHaveBeenCalledOnce()
+    const resumeSurface = host.querySelector<HTMLElement>("[data-face-centering-resume]")!
+    setControlsVisible(false)
+    flush()
+    expect(resumeSurface.getAttribute("aria-hidden")).toBe("true")
+    expect(resumeSurface.hasAttribute("inert")).toBe(true)
+    dispose()
+  })
+
   it("toggles playback on a single screen click", () => {
     vi.useFakeTimers()
     const controller = createController()

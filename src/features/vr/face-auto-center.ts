@@ -44,6 +44,7 @@ export interface FaceAutoCenterState {
   pitchVelocity: number
   lastErrorAt: number
   motion?: FaceMotionState
+  manuallyPaused?: boolean
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
@@ -85,6 +86,26 @@ export const updateFaceMotion = (state: FaceAutoCenterState, face: FaceBox, time
     lastSeenAt: time,
   }
   return state.motion
+}
+
+export const pauseFaceAutoCenter = (state: FaceAutoCenterState) => {
+  state.manuallyPaused = true
+  state.faces = []
+  state.selectedFace = undefined
+  state.target = undefined
+  state.motion = undefined
+  state.recoveryMode = undefined
+  state.consecutiveMisses = 0
+  state.offCenterSince = undefined
+  state.yawVelocity = 0
+  state.pitchVelocity = 0
+  state.isMoving = false
+  state.nextDetectionAt = Number.POSITIVE_INFINITY
+}
+
+export const resumeFaceAutoCenter = (state: FaceAutoCenterState) => {
+  state.manuallyPaused = false
+  state.nextDetectionAt = 0
 }
 
 export const mapSampleFaceToPanorama = (face: FaceBox, sample: PanoramaSample): FaceBox => {
