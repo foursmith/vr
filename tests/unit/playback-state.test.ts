@@ -54,15 +54,15 @@ describe("player state persistence", () => {
     })
   })
 
-  it("disables face centering when migrating preferences without a detector mode", () => {
+  it("uses MediaPipe when migrating preferences without a detector mode", () => {
     localStorage.setItem("foursmith-vr:preferences", JSON.stringify({
       ...DEFAULT_GLOBAL_PREFERENCES,
       faceAutoCenter: true,
       faceCenteringMode: undefined,
     }))
     expect(loadGlobalPreferences()).toMatchObject({
-      faceAutoCenter: false,
-      faceCenteringMode: "system",
+      faceAutoCenter: true,
+      faceCenteringMode: "mediapipe",
     })
   })
 

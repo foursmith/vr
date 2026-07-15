@@ -168,8 +168,8 @@ describe("player controller", () => {
     expect(mocks.createVrScene).toHaveBeenCalledWith(expect.objectContaining({
       quality: "sharp",
       frameRate: 60,
-      faceAutoCenter: false,
-      faceCenteringMode: "system",
+      faceAutoCenter: true,
+      faceCenteringMode: "mediapipe",
     }))
     dispose()
     expect(mocks.sceneController.destroy).toHaveBeenCalledOnce()
