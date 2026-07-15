@@ -1,6 +1,6 @@
 import type { CameraView } from "@foursmith/player-core/config"
 import type { FaceCenteringMode } from "./playback-state"
-import { DEFAULT_ZOOM, QUALITY_OPTIONS } from "@foursmith/player-core/config"
+import { DEFAULT_FORWARD, DEFAULT_ZOOM, QUALITY_OPTIONS } from "@foursmith/player-core/config"
 import { createSignal, createStore } from "solid-js"
 
 type ValueUpdate<T> = T | ((current: T) => T)
@@ -75,6 +75,7 @@ export function createDisplay(options: {
     options.viewRef.current.yaw = 0
     options.viewRef.current.pitch = 0
     options.viewRef.current.zoom = DEFAULT_ZOOM
+    options.viewRef.current.forward = DEFAULT_FORWARD
     options.viewRef.current.pausedUntil = performance.now() + 900
     setZoomSignal(DEFAULT_ZOOM)
   }

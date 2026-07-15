@@ -3,7 +3,7 @@ import type { DlnaDevice } from "../sources/fsvr-client"
 import type { SubtitleCue } from "../subtitles/parser"
 import type { CameraView, VrSceneController } from "../vr/scene"
 import type { LastPlayback, RepeatMode } from "./playback-state"
-import { DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS } from "@foursmith/player-core/config"
+import { DEFAULT_FORWARD, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS } from "@foursmith/player-core/config"
 import { createEffect, createMemo, createSignal, createStore, onSettled } from "solid-js"
 import { createMotionPhoto } from "../../lib/motion-photo"
 import {
@@ -179,7 +179,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   let faceHint!: HTMLDivElement
   let fpsMeter!: HTMLDivElement
 
-  const viewRef = { current: { yaw: 0, pitch: 0, zoom: DEFAULT_ZOOM, pausedUntil: 0 } satisfies CameraView }
+  const viewRef = { current: { yaw: 0, pitch: 0, zoom: DEFAULT_ZOOM, forward: DEFAULT_FORWARD, pausedUntil: 0 } satisfies CameraView }
   let scene: VrSceneController | undefined
   let fileUrl: string | undefined
   let lastAudibleVolume = initialPreferences.volume || DEFAULT_GLOBAL_PREFERENCES.volume

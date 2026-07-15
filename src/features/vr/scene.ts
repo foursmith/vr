@@ -3,12 +3,16 @@ import type { FaceCenteringMode, FaceInferenceResult } from "../face-tracking/pr
 import type { DetectionMode, FaceAutoCenterState, PanoramaSample } from "./face-auto-center"
 import type { FaceInferenceActivity } from "./frame-scheduler"
 import { createVrPlayerCore, DEFAULT_FOV, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS } from "@foursmith/player-core"
-import { MathUtils } from "three"
+import { MathUtils, Vector3 } from "three"
 import {
   applyDetections,
+  FACE_CENTER_MAX_FORWARD,
+  FACE_CENTER_MIN_FORWARD,
   getFaceCenteringError,
   getFaceCenteringVelocity,
   getFaceDetectionRange,
+  getFaceForwardVelocity,
+  getFaceMovementHint,
   getProjectionYawLimit,
   mapSampleFaceToPanorama,
   pauseFaceAutoCenter,
@@ -43,11 +47,13 @@ const MAX_SPLIT_SCREEN_PANELS = 3
 const MIN_SPLIT_SCREEN_ASPECT = 9 / 16
 const FACE_CENTER_VELOCITY_SMOOTHING_MS = 260
 const FACE_CENTER_STOP_SPEED = 0.025
+const SPHERE_SURFACE_DISTANCE = 100
+const FLAT_SURFACE_DISTANCE = 65
 
 interface RenderViewport { x: number, y: number, width: number, height: number }
 
 interface OverlayState {
-  hint?: { side: "left" | "right", top: number, text: string }
+  hint?: { left: number, top: number, text: string }
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
@@ -127,7 +133,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   let skippedInferenceFrames = 0
   let overlayVisible = !options.hintElement.hidden
   let lastOverlayText = options.hintElement.textContent ?? ""
-  let lastOverlaySide = options.hintElement.dataset.side
+  let lastOverlayLeft = Number.NaN
   let lastOverlayTop = Number.NaN
   const initialViewport = getRenderViewports(
     Math.max(1, mount.clientWidth),
@@ -166,9 +172,21 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     isMoving: false,
     yawVelocity: 0,
     pitchVelocity: 0,
+    forwardVelocity: 0,
     lastErrorAt: 0,
   }
   const sampleContext = sampleCanvas.getContext("2d", { alpha: false, willReadFrequently: true })
+  const cameraForward = new Vector3()
+  const getFaceSurfaceDistance = (projection: ProjectionMode) =>
+    projection === "flat_2d" ? FLAT_SURFACE_DISTANCE : SPHERE_SURFACE_DISTANCE
+  const applyCameraPose = () => {
+    camera.rotation.set(MathUtils.degToRad(options.viewRef.current.pitch), MathUtils.degToRad(options.viewRef.current.yaw), 0, "YXZ")
+    cameraForward
+      .set(0, 0, -1)
+      .applyEuler(camera.rotation)
+      .multiplyScalar(options.viewRef.current.forward)
+    camera.position.copy(cameraForward)
+  }
   type FaceDetectorBackend = ReturnType<(typeof import("../../system-face-detector-client"))["createSystemFaceDetectorWorkerClient"]>
   let faceDetector: FaceDetectorBackend | undefined
   let faceDetectorPromise: Promise<FaceDetectorBackend> | undefined
@@ -230,11 +248,9 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         options.hintElement.textContent = hint.text
         lastOverlayText = hint.text
       }
-      if (lastOverlaySide !== hint.side) {
-        options.hintElement.dataset.side = hint.side
-        options.hintElement.classList.toggle("left-3.5", hint.side === "left")
-        options.hintElement.classList.toggle("right-3.5", hint.side === "right")
-        lastOverlaySide = hint.side
+      if (!Number.isFinite(lastOverlayLeft) || Math.abs(lastOverlayLeft - hint.left) >= 0.1) {
+        options.hintElement.style.left = `${hint.left}%`
+        lastOverlayLeft = hint.left
       }
       if (!Number.isFinite(lastOverlayTop) || Math.abs(lastOverlayTop - hint.top) >= 0.1) {
         options.hintElement.style.top = `${hint.top}%`
@@ -348,6 +364,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     faceState.recoveryMode = undefined
     faceState.yawVelocity = 0
     faceState.pitchVelocity = 0
+    faceState.forwardVelocity = 0
     faceState.isMoving = false
     setOverlay({})
     requestRender()
@@ -564,7 +581,14 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       faceState.faces = face ? [face] : []
       faceState.selectedFace = face ? { ...face, mode: "viewport" } : faceState.selectedFace
       if (face) updateFaceMotion(faceState, face, time)
-      foundFace = setViewportTarget(faceState, face, time, result.center)
+      foundFace = setViewportTarget(
+        faceState,
+        face,
+        time,
+        result.center,
+        options.viewRef.current.forward,
+        getFaceSurfaceDistance(projection),
+      )
       faceState.recoveryMode = foundFace ? undefined : "viewport"
     } else if (detectionMode === "panorama" && panoramaSample) {
       faceState.detectionMode = "panorama"
@@ -589,7 +613,14 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       faceState.detectionMode = "viewport"
       const face = applyDetections(faceState, result.faces, time, "viewport")
       if (face) updateFaceMotion(faceState, face, time)
-      foundFace = setViewportTarget(faceState, face, time)
+      foundFace = setViewportTarget(
+        faceState,
+        face,
+        time,
+        undefined,
+        options.viewRef.current.forward,
+        getFaceSurfaceDistance(projection),
+      )
       if (foundFace) {
         panoramaScanIndex = 0
         faceState.recoveryMode = undefined
@@ -630,6 +661,9 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       y: camera.rotation.y,
       z: camera.rotation.z,
       order: camera.rotation.order,
+      positionX: camera.position.x,
+      positionY: camera.position.y,
+      positionZ: camera.position.z,
     }
     const side = Math.max(1, Math.min(mount.clientWidth, mount.clientHeight))
     const sidePixels = Math.min(
@@ -643,6 +677,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       camera.aspect = 1
       camera.fov = tile.fov
       camera.zoom = 1
+      camera.position.set(0, 0, 0)
       camera.rotation.set(MathUtils.degToRad(tile.pitch), MathUtils.degToRad(tile.yaw), 0, "YXZ")
       camera.updateProjectionMatrix()
       renderer.setScissorTest(true)
@@ -664,6 +699,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       camera.aspect = savedCamera.aspect
       camera.fov = savedCamera.fov
       camera.zoom = savedCamera.zoom
+      camera.position.set(savedCamera.positionX, savedCamera.positionY, savedCamera.positionZ)
       camera.rotation.set(savedCamera.x, savedCamera.y, savedCamera.z, savedCamera.order)
       camera.updateProjectionMatrix()
       renderSceneViewports()
@@ -769,6 +805,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     if (video.paused) {
       faceState.yawVelocity = 0
       faceState.pitchVelocity = 0
+      faceState.forwardVelocity = 0
       faceState.isMoving = false
       setOverlay({})
       return
@@ -782,6 +819,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       faceState.consecutiveMisses = 0
       faceState.yawVelocity = 0
       faceState.pitchVelocity = 0
+      faceState.forwardVelocity = 0
       faceState.isMoving = false
       setOverlay({})
       return
@@ -794,6 +832,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       faceState.recoveryMode = undefined
       faceState.yawVelocity = 0
       faceState.pitchVelocity = 0
+      faceState.forwardVelocity = 0
       faceState.isMoving = false
       setOverlay({})
       return
@@ -821,7 +860,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     if (!target || now - target.lastSeenAt > targetMaxAge) {
       faceState.yawVelocity = updateVelocity(faceState.yawVelocity, 0)
       faceState.pitchVelocity = updateVelocity(faceState.pitchVelocity, 0)
-      faceState.isMoving = faceState.yawVelocity !== 0 || faceState.pitchVelocity !== 0
+      faceState.forwardVelocity = updateVelocity(faceState.forwardVelocity, 0)
+      faceState.isMoving = faceState.yawVelocity !== 0 || faceState.pitchVelocity !== 0 || faceState.forwardVelocity !== 0
       const yawLimit = getProjectionYawLimit(options.projection)
       const yawStep = faceState.yawVelocity * frameDelta
       options.viewRef.current.yaw
@@ -833,41 +873,45 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         -85,
         85,
       )
+      options.viewRef.current.forward = clamp(
+        options.viewRef.current.forward + faceState.forwardVelocity * frameDelta,
+        FACE_CENTER_MIN_FORWARD,
+        FACE_CENTER_MAX_FORWARD,
+      )
       setOverlay({})
       return
     }
 
     const error = getFaceCenteringError(target, camera, options.viewRef.current, faceState.isMoving)
-    const yawError = error.yaw
-    const pitchError = error.pitch
     const x = error.yawOffset
     const y = error.pitchOffset
-    const hint
-      = Math.abs(yawError) >= 18
-        ? {
-            side: yawError > 0 ? ("right" as const) : ("left" as const),
-            top: 50 + clamp(-pitchError, -42, 42) * 0.32,
-            text: `${yawError > 0 ? "→" : "←"} ${Math.round(Math.abs(yawError))}°`,
-          }
-        : undefined
+    const forward = error.forwardOffset
+    const hint = getFaceMovementHint(error)
 
     setOverlay({ hint })
-    if (!x && !y) faceState.offCenterSince = undefined
+    if (!x && !y && !forward) faceState.offCenterSince = undefined
     else faceState.offCenterSince ??= now
     const desiredYawVelocity = getFaceCenteringVelocity(x, target.mode)
     const desiredPitchVelocity = getFaceCenteringVelocity(y, target.mode)
+    const desiredForwardVelocity = getFaceForwardVelocity(forward)
     faceState.yawVelocity = x ? updateVelocity(faceState.yawVelocity, desiredYawVelocity) : 0
     faceState.pitchVelocity = y ? updateVelocity(faceState.pitchVelocity, desiredPitchVelocity) : 0
+    faceState.forwardVelocity = forward ? updateVelocity(faceState.forwardVelocity, desiredForwardVelocity) : 0
     const yawStep = faceState.yawVelocity * frameDelta
     const pitchStep = faceState.pitchVelocity * frameDelta
     const yawLimit = getProjectionYawLimit(options.projection)
 
-    faceState.isMoving = faceState.yawVelocity !== 0 || faceState.pitchVelocity !== 0
+    faceState.isMoving = faceState.yawVelocity !== 0 || faceState.pitchVelocity !== 0 || faceState.forwardVelocity !== 0
     options.viewRef.current.yaw
       = yawLimit === undefined
         ? options.viewRef.current.yaw + yawStep
         : clamp(shortestAngle(options.viewRef.current.yaw) + yawStep, -yawLimit, yawLimit)
     options.viewRef.current.pitch = clamp(options.viewRef.current.pitch + pitchStep, -85, 85)
+    options.viewRef.current.forward = clamp(
+      options.viewRef.current.forward + faceState.forwardVelocity * frameDelta,
+      FACE_CENTER_MIN_FORWARD,
+      FACE_CENTER_MAX_FORWARD,
+    )
   }
 
   function render(now: number) {
@@ -886,7 +930,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       camera.zoom = options.viewRef.current.zoom
       camera.updateProjectionMatrix()
     }
-    camera.rotation.set(MathUtils.degToRad(options.viewRef.current.pitch), MathUtils.degToRad(options.viewRef.current.yaw), 0, "YXZ")
+    applyCameraPose()
     const renderStartedAt = performance.now()
     renderSceneViewports()
     frameCapture?.(renderer.domElement)
@@ -978,6 +1022,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       faceState.isMoving = false
       faceState.yawVelocity = 0
       faceState.pitchVelocity = 0
+      faceState.forwardVelocity = 0
       faceState.nextDetectionAt = 0
       setOverlay({})
       recentFrameTimes.length = 0

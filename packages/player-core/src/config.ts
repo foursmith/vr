@@ -17,6 +17,7 @@ export const QUALITY_OPTIONS = [
 
 export const DEFAULT_FOV = 80
 export const DEFAULT_ZOOM = 1
+export const DEFAULT_FORWARD = 0
 
 export type ProjectionMode = (typeof PROJECTION_OPTIONS)[number]["component"]
 export type ProjectionQuality = (typeof QUALITY_OPTIONS)[number]["component"]
@@ -30,5 +31,6 @@ export interface CameraView {
   yaw: number
   pitch: number
   zoom: number
+  forward: number
   pausedUntil: number
 }

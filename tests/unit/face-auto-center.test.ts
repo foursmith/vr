@@ -1,7 +1,7 @@
 import type { FaceAutoCenterState, FaceBox, FaceTarget } from "../../src/features/vr/face-auto-center"
 import { PerspectiveCamera } from "three"
 import { describe, expect, it } from "vitest"
-import { applyDetections, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, getFaceCenter, getFaceCenteringError, getFaceCenteringVelocity, getFaceDetectionRange, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, updateFaceMotion } from "../../src/features/vr/face-auto-center"
+import { applyDetections, FACE_CENTER_FORWARD_ACTIVATION_DISTANCE, FACE_CENTER_FORWARD_MAX_SPEED, FACE_CENTER_FORWARD_SETTLE_DISTANCE, FACE_CENTER_MAX_FORWARD, FACE_CENTER_MIN_FORWARD, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_TARGET_SIZE, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, getFaceCenter, getFaceCenteringError, getFaceCenteringVelocity, getFaceDetectionRange, getFaceForwardTarget, getFaceForwardVelocity, getFaceMovementHint, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, updateFaceMotion } from "../../src/features/vr/face-auto-center"
 
 const state = (): FaceAutoCenterState => ({
   faces: [],
@@ -12,6 +12,7 @@ const state = (): FaceAutoCenterState => ({
   isMoving: false,
   yawVelocity: 0,
   pitchVelocity: 0,
+  forwardVelocity: 0,
   lastErrorAt: 0,
 })
 const face = (overrides: Partial<FaceBox> = {}): FaceBox => ({ x: 0.2, y: 0.1, width: 0.2, height: 0.3, score: 0.9, lastSeenAt: 10, ...overrides })
@@ -43,14 +44,67 @@ describe("face auto-center", () => {
     expect(FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD).toBe(0.05)
     expect(FACE_CENTER_PANORAMA_ACTIVATION_DEGREES).toBe(10)
     expect(FACE_CENTER_PANORAMA_SETTLE_DEGREES).toBe(7)
-    expect(getFaceCenteringError(target({ x: FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD - 0.001 }), camera, { yaw: 0, pitch: 0 }).needsMovement).toBe(false)
-    expect(getFaceCenteringError(target({ x: FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD + 0.001 }), camera, { yaw: 0, pitch: 0 }).needsMovement).toBe(true)
-    expect(getFaceCenteringError(target({ x: FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD + 0.001 }), camera, { yaw: 0, pitch: 0 }, true).needsMovement).toBe(true)
-    expect(getFaceCenteringError(target({ x: FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD - 0.001 }), camera, { yaw: 0, pitch: 0 }, true).needsMovement).toBe(false)
-    expect(getFaceCenteringError(target({ mode: "panorama", yaw: FACE_CENTER_PANORAMA_ACTIVATION_DEGREES - 0.1 }), camera, { yaw: 0, pitch: 0 }).needsMovement).toBe(false)
-    expect(getFaceCenteringError(target({ mode: "panorama", yaw: FACE_CENTER_PANORAMA_ACTIVATION_DEGREES + 0.1 }), camera, { yaw: 0, pitch: 0 }).needsMovement).toBe(true)
-    expect(getFaceCenteringError(target({ mode: "panorama", yaw: FACE_CENTER_PANORAMA_SETTLE_DEGREES + 0.1 }), camera, { yaw: 0, pitch: 0 }, true).needsMovement).toBe(true)
-    expect(getFaceCenteringError(target({ mode: "panorama", yaw: FACE_CENTER_PANORAMA_SETTLE_DEGREES - 0.1 }), camera, { yaw: 0, pitch: 0 }, true).needsMovement).toBe(false)
+    const view = { yaw: 0, pitch: 0, forward: 0 }
+    expect(getFaceCenteringError(target({ x: FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD - 0.001 }), camera, view).needsMovement).toBe(false)
+    expect(getFaceCenteringError(target({ x: FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD + 0.001 }), camera, view).needsMovement).toBe(true)
+    expect(getFaceCenteringError(target({ x: FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD + 0.001 }), camera, view, true).needsMovement).toBe(true)
+    expect(getFaceCenteringError(target({ x: FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD - 0.001 }), camera, view, true).needsMovement).toBe(false)
+    expect(getFaceCenteringError(target({ mode: "panorama", yaw: FACE_CENTER_PANORAMA_ACTIVATION_DEGREES - 0.1 }), camera, view).needsMovement).toBe(false)
+    expect(getFaceCenteringError(target({ mode: "panorama", yaw: FACE_CENTER_PANORAMA_ACTIVATION_DEGREES + 0.1 }), camera, view).needsMovement).toBe(true)
+    expect(getFaceCenteringError(target({ mode: "panorama", yaw: FACE_CENTER_PANORAMA_SETTLE_DEGREES + 0.1 }), camera, view, true).needsMovement).toBe(true)
+    expect(getFaceCenteringError(target({ mode: "panorama", yaw: FACE_CENTER_PANORAMA_SETTLE_DEGREES - 0.1 }), camera, view, true).needsMovement).toBe(false)
+  })
+
+  it("translates the camera forward and backward from face size without changing zoom", () => {
+    const value = state()
+    const camera = new PerspectiveCamera(80, 9 / 16)
+    const smallFace = face({ width: 0.1, height: 0.1 })
+    const largeFace = face({ width: 0.6, height: 0.6 })
+
+    expect(getFaceForwardTarget(smallFace, 0, 100)).toBe(FACE_CENTER_MAX_FORWARD)
+    expect(getFaceForwardTarget(largeFace, 0, 100)).toBe(FACE_CENTER_MIN_FORWARD)
+    expect(getFaceForwardTarget(face({ width: FACE_CENTER_TARGET_SIZE, height: FACE_CENTER_TARGET_SIZE }), 0, 100)).toBeCloseTo(0)
+
+    setViewportTarget(value, smallFace, 100, undefined, 0, 100)
+    expect(value.target?.forward).toBe(FACE_CENTER_MAX_FORWARD)
+    const centeredTarget = { ...value.target!, x: 0, y: 0 }
+    expect(getFaceCenteringError({ ...centeredTarget, forward: FACE_CENTER_FORWARD_ACTIVATION_DISTANCE - 0.01 }, camera, { yaw: 0, pitch: 0, forward: 0 }).needsMovement).toBe(false)
+    expect(getFaceCenteringError({ ...centeredTarget, forward: FACE_CENTER_FORWARD_ACTIVATION_DISTANCE + 0.01 }, camera, { yaw: 0, pitch: 0, forward: 0 }).needsMovement).toBe(true)
+    expect(getFaceCenteringError({ ...centeredTarget, forward: FACE_CENTER_FORWARD_SETTLE_DISTANCE + 0.01 }, camera, { yaw: 0, pitch: 0, forward: 0 }, true).needsMovement).toBe(true)
+    expect(getFaceForwardVelocity(20)).toBeGreaterThan(0)
+    expect(getFaceForwardVelocity(20)).toBeLessThan(FACE_CENTER_FORWARD_MAX_SPEED)
+    expect(getFaceForwardVelocity(-20)).toBeCloseTo(-getFaceForwardVelocity(20))
+    expect(camera.zoom).toBe(1)
+  })
+
+  it("describes horizontal, vertical, and forward movement in the debug hint", () => {
+    expect(getFaceMovementHint({
+      yaw: -14,
+      pitch: 9,
+      forward: -6.25,
+      yawOffset: -4,
+      pitchOffset: 2,
+      forwardOffset: -3.25,
+      needsMovement: true,
+    })).toEqual({ left: 12, top: 14, text: "← 14° · ↑ 9° · BACK 6.3" })
+    expect(getFaceMovementHint({
+      yaw: 0,
+      pitch: -8,
+      forward: 5,
+      yawOffset: 0,
+      pitchOffset: -1,
+      forwardOffset: 2,
+      needsMovement: true,
+    })).toEqual({ left: 50, top: 86, text: "↓ 8° · FORWARD 5.0" })
+    expect(getFaceMovementHint({
+      yaw: 2,
+      pitch: 1,
+      forward: 0.5,
+      yawOffset: 0,
+      pitchOffset: 0,
+      forwardOffset: 0,
+      needsMovement: false,
+    })).toBeUndefined()
   })
 
   it("accelerates camera movement with target distance and preserves direction", () => {
@@ -85,10 +139,11 @@ describe("face auto-center", () => {
     value.motion = { centerX: 0.3, centerY: 0.25, size: 0.2, speed: 1, recedingSpeed: 0, lastSeenAt: 100 }
     value.isMoving = true
     value.yawVelocity = 2
+    value.forwardVelocity = 4
 
     pauseFaceAutoCenter(value)
 
-    expect(value).toMatchObject({ manuallyPaused: true, faces: [], isMoving: false, yawVelocity: 0 })
+    expect(value).toMatchObject({ manuallyPaused: true, faces: [], isMoving: false, yawVelocity: 0, forwardVelocity: 0 })
     expect(value.target).toBeUndefined()
     expect(value.motion).toBeUndefined()
     expect(value.nextDetectionAt).toBe(Number.POSITIVE_INFINITY)

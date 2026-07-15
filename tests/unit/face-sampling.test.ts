@@ -53,7 +53,7 @@ describe("face sampling", () => {
       video,
       320,
       "mono_360_eqr",
-      { yaw: 0, pitch: 0, zoom: 1, pausedUntil: 0 },
+      { yaw: 0, pitch: 0, zoom: 1, forward: 0, pausedUntil: 0 },
       new PerspectiveCamera(80, 16 / 9),
     )
     expect(result).toBeUndefined()
@@ -74,7 +74,7 @@ describe("face sampling", () => {
       video,
       320,
       projection,
-      { yaw: 0, pitch: 0, zoom: 1, pausedUntil: 0 },
+      { yaw: 0, pitch: 0, zoom: 1, forward: 0, pausedUntil: 0 },
       new PerspectiveCamera(80, 16 / 9),
     )
     expect(sample).toBeDefined()
@@ -95,7 +95,7 @@ describe("face sampling", () => {
       video,
       320,
       "mono_360_eqr",
-      { yaw: -179, pitch: 0, zoom: 1, pausedUntil: 0 },
+      { yaw: -179, pitch: 0, zoom: 1, forward: 0, pausedUntil: 0 },
       new PerspectiveCamera(80, 16 / 9),
     )
     expect(sample?.wraps).toBe(true)
@@ -116,7 +116,7 @@ describe("face sampling", () => {
       video,
       640,
       "mono_360_eqr",
-      { yaw: 0, pitch: 75, zoom: 1, pausedUntil: 0 },
+      { yaw: 0, pitch: 75, zoom: 1, forward: 0, pausedUntil: 0 },
       new PerspectiveCamera(80, 1),
     )
     expect(canvas.height).toBe(384)

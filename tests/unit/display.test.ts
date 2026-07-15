@@ -5,7 +5,7 @@ import { createDisplay } from "../../src/features/player/display"
 describe("player display state", () => {
   it("guards unavailable resources and clamps zoom and quality", () => {
     let ready = false
-    const viewRef = { current: { yaw: 12, pitch: -4, zoom: 1, pausedUntil: 0 } }
+    const viewRef = { current: { yaw: 12, pitch: -4, zoom: 1, forward: 8, pausedUntil: 0 } }
     let dispose!: () => void
     const display = createRoot((rootDispose) => {
       dispose = rootDispose
@@ -30,7 +30,7 @@ describe("player display state", () => {
     expect(display.renderFrameRateId()).toBe(3)
     display.controller.resetView()
     flush()
-    expect(viewRef.current).toMatchObject({ yaw: 0, pitch: 0, zoom: 1 })
+    expect(viewRef.current).toMatchObject({ yaw: 0, pitch: 0, zoom: 1, forward: 0 })
     dispose()
   })
 
@@ -39,7 +39,7 @@ describe("player display state", () => {
     player.requestFullscreen = vi.fn().mockResolvedValue(undefined)
     const exitFullscreen = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(document, "exitFullscreen", { configurable: true, value: exitFullscreen })
-    const display = createDisplay({ getPlayer: () => player, resourcesReady: () => true, viewRef: { current: { yaw: 0, pitch: 0, zoom: 1, pausedUntil: 0 } } })
+    const display = createDisplay({ getPlayer: () => player, resourcesReady: () => true, viewRef: { current: { yaw: 0, pitch: 0, zoom: 1, forward: 0, pausedUntil: 0 } } })
     await display.controller.toggleFullscreen()
     expect(player.requestFullscreen).toHaveBeenCalled()
     Object.defineProperty(document, "fullscreenElement", { configurable: true, value: player })
@@ -54,7 +54,7 @@ describe("player display state", () => {
     const display = createDisplay({
       getPlayer: () => document.body,
       resourcesReady: () => true,
-      viewRef: { current: { yaw: 0, pitch: 0, zoom: 1, pausedUntil: 0 } },
+      viewRef: { current: { yaw: 0, pitch: 0, zoom: 1, forward: 0, pausedUntil: 0 } },
       initialState: { qualityId: 1, renderFrameRateId: 1, splitScreen: false, faceAutoCenter: false },
     })
     expect(display.controller.state).toMatchObject({ qualityId: 1, renderFrameRateId: 1, splitScreen: false, faceAutoCenter: false })
@@ -70,7 +70,7 @@ describe("player display state", () => {
     const display = createDisplay({
       getPlayer: () => document.body,
       resourcesReady: () => true,
-      viewRef: { current: { yaw: 8, pitch: -3, zoom: 1, pausedUntil: 0 } },
+      viewRef: { current: { yaw: 8, pitch: -3, zoom: 1, forward: 0, pausedUntil: 0 } },
       onManualViewChange,
     })
 

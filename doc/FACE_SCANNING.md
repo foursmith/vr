@@ -6,7 +6,7 @@ This document is the maintenance reference for face detection, recovery scanning
 
 The algorithm balances four competing goals:
 
-1. Keep a tracked face comfortably framed in the portrait viewport.
+1. Keep a tracked face comfortably framed in the portrait viewport with rotational and forward/backward camera motion.
 2. Recover a face after it leaves the visible viewport without relying on distorted equirectangular crops.
 3. Avoid running face inference faster than human motion or the detector requires.
 4. Bound recovery cost so video rendering remains responsive on mobile hardware.
@@ -58,9 +58,17 @@ speed = sign(offset) * maxSpeed * (1 - exp(-abs(offset) / distanceScale))
 
 Viewport targets use a maximum speed of 18°/s and a 22° distance scale. Panorama recovery targets use a maximum speed of 32°/s and a 45° distance scale, allowing large recovery turns to travel decisively while close corrections stay gentle. Desired velocity is temporally smoothed with a 260 ms time constant, producing progressive acceleration and braking instead of an immediate speed jump.
 
+### Forward and backward camera motion
+
+Viewport detections use `sqrt(face.width * face.height)` as an approximate distance observation and target a normalized face size of `0.24`. This does not alter camera zoom or FOV. Instead, the camera translates along its current look direction. Positive `forward` values move toward the viewed projection surface and negative values move away.
+
+The target assumes a local projection-surface distance of 100 units for spherical modes and 65 units for the flat screen, matching their geometry. Given the current forward position and observed face size, the remaining camera-to-surface distance is scaled by `observedSize / targetSize`. The resulting forward target is clamped to `[-35, 35]` units to limit panorama distortion. This is an approximate depth response inferred from apparent face size; the source video does not provide metric depth.
+
+Forward motion starts outside a 3-unit dead zone and settles within 1.5 units. Its exponential velocity profile is capped at 16 units/s with an 18-unit distance scale, then passes through the same 260 ms temporal smoothing used by yaw and pitch. During panorama recovery capture, the camera temporarily returns to the projection center so perspective-to-panorama mapping remains valid, then restores the visible camera position.
+
 ### Manual view override
 
-Dragging the view, changing zoom, or explicitly resetting the view pauses face centering after the first effective change. The pause has no timeout: detections, recovery scanning, and camera motion remain stopped so the player does not undo the user's chosen view. Starting a gesture without moving does not pause centering.
+Dragging the view, changing zoom, or explicitly resetting the view pauses face centering after the first effective change. The pause has no timeout: detections, recovery scanning, and camera motion remain stopped so the player does not undo the user's chosen view. Starting a gesture without moving does not pause centering. Resetting the view also returns the camera's forward position to the projection center.
 
 While paused, the player shows a **Resume face centering** button. Resuming clears the manual override and schedules an immediate viewport detection. Disabling face centering or resetting the media also clears the override and hides the button.
 
@@ -125,6 +133,7 @@ Motion prediction is updated only from viewport detections, where consecutive co
 - `speed` is the normalized face-center displacement per second.
 - `recedingSpeed` is the decrease in `size` per second; positive values mean the subject appears to be moving away.
 - Measurements use exponential smoothing with a 350 ms time constant.
+- The raw viewport face size also supplies the forward/backward camera target; the smoothed motion metrics remain dedicated to adaptive inference scheduling.
 - Motion history resets when the gap between reliable detections exceeds 1.5 seconds, media changes, playback pauses, tracking is disabled, or the scene becomes unavailable.
 
 ## Adaptive inference frequency
@@ -162,6 +171,8 @@ The configured playback render rate limits ordinary video presentation, but it d
 ## Debug metrics
 
 The debug panel exposes the inputs needed for tuning:
+
+- the movement hint reports every active axis together: left/right and up/down angular correction plus forward/backward positional correction; its screen position follows the active horizontal and vertical direction;
 
 - current activity (`stable`, `active`, `searching`, or `recovery`);
 - tracking frequency and inference duration;

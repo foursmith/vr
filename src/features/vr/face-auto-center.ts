@@ -11,22 +11,32 @@ export const FACE_CENTER_PANORAMA_ACTIVATION_DEGREES = 10
 export const FACE_CENTER_PANORAMA_SETTLE_DEGREES = 7
 export const FACE_CENTER_VIEWPORT_MAX_SPEED = 18
 export const FACE_CENTER_PANORAMA_MAX_SPEED = 32
+export const FACE_CENTER_TARGET_SIZE = 0.24
+export const FACE_CENTER_MIN_FORWARD = -35
+export const FACE_CENTER_MAX_FORWARD = 35
+export const FACE_CENTER_FORWARD_ACTIVATION_DISTANCE = 3
+export const FACE_CENTER_FORWARD_SETTLE_DISTANCE = 1.5
+export const FACE_CENTER_FORWARD_MAX_SPEED = 16
 const FACE_CENTER_VIEWPORT_DISTANCE_SCALE = 22
 const FACE_CENTER_PANORAMA_DISTANCE_SCALE = 45
+const FACE_CENTER_FORWARD_DISTANCE_SCALE = 18
 const MIN_FACE_SCORE = 0.5
 const TARGET_SMOOTHING_TIME_MS = 480
 
 export type FaceBox = NormalizedFace & { lastSeenAt: number }
 export type DetectionMode = "viewport" | "panorama"
 export const getFaceDetectionRange = (mode: DetectionMode): FaceDetectionRange => mode === "viewport" ? "short" : "full"
-export interface FaceTarget { x: number, y: number, yaw?: number, pitch?: number, mode: DetectionMode, lastSeenAt: number }
+export interface FaceTarget { x: number, y: number, yaw?: number, pitch?: number, forward?: number, mode: DetectionMode, lastSeenAt: number }
 export interface FaceCenteringError {
   yaw: number
   pitch: number
+  forward: number
   yawOffset: number
   pitchOffset: number
+  forwardOffset: number
   needsMovement: boolean
 }
+export interface FaceMovementHint { left: number, top: number, text: string }
 interface FaceSelectionAnchor { x: number, y: number, weight: number, wrapX: boolean }
 export interface PerspectivePanoramaView { yaw: number, pitch: number, fov: number, aspect: number, yawSpan: 180 | 360 }
 export interface PanoramaSample {
@@ -58,6 +68,7 @@ export interface FaceAutoCenterState {
   target?: FaceTarget
   yawVelocity: number
   pitchVelocity: number
+  forwardVelocity: number
   lastErrorAt: number
   motion?: FaceMotionState
   manuallyPaused?: boolean
@@ -80,7 +91,7 @@ const getViewportPitchOffset = (camera: PerspectiveCamera, y: number) => {
 export const getFaceCenteringError = (
   target: FaceTarget,
   camera: PerspectiveCamera,
-  view: { yaw: number, pitch: number },
+  view: { yaw: number, pitch: number, forward: number },
   moving = false,
 ): FaceCenteringError => {
   const viewportFaceX = VIEWPORT_TARGET_X + target.x
@@ -99,14 +110,19 @@ export const getFaceCenteringError = (
   const pitchDeadZone = target.mode === "viewport"
     ? Math.abs(getViewportPitchOffset(camera, VIEWPORT_TARGET_Y + viewportThreshold) - getViewportPitchOffset(camera, VIEWPORT_TARGET_Y))
     : panoramaThreshold
+  const forward = target.forward === undefined ? 0 : target.forward - view.forward
+  const forwardDeadZone = moving ? FACE_CENTER_FORWARD_SETTLE_DISTANCE : FACE_CENTER_FORWARD_ACTIVATION_DISTANCE
   const yawOffset = Math.sign(yaw) * Math.max(0, Math.abs(yaw) - yawDeadZone)
   const pitchOffset = Math.sign(pitch) * Math.max(0, Math.abs(pitch) - pitchDeadZone)
+  const forwardOffset = Math.sign(forward) * Math.max(0, Math.abs(forward) - forwardDeadZone)
   return {
     yaw,
     pitch,
+    forward,
     yawOffset,
     pitchOffset,
-    needsMovement: yawOffset !== 0 || pitchOffset !== 0,
+    forwardOffset,
+    needsMovement: yawOffset !== 0 || pitchOffset !== 0 || forwardOffset !== 0,
   }
 }
 
@@ -116,6 +132,40 @@ export const getFaceCenteringVelocity = (offset: number, mode: DetectionMode) =>
   const maxSpeed = mode === "panorama" ? FACE_CENTER_PANORAMA_MAX_SPEED : FACE_CENTER_VIEWPORT_MAX_SPEED
   const distanceScale = mode === "panorama" ? FACE_CENTER_PANORAMA_DISTANCE_SCALE : FACE_CENTER_VIEWPORT_DISTANCE_SCALE
   return Math.sign(offset) * maxSpeed * (1 - Math.exp(-distance / distanceScale))
+}
+
+export const getFaceForwardVelocity = (offset: number) => {
+  const distance = Math.abs(offset)
+  if (!distance) return 0
+  return Math.sign(offset) * FACE_CENTER_FORWARD_MAX_SPEED * (1 - Math.exp(-distance / FACE_CENTER_FORWARD_DISTANCE_SCALE))
+}
+
+export const getFaceForwardTarget = (
+  face: FaceBox,
+  currentForward: number,
+  surfaceDistance: number,
+) => {
+  const size = Math.sqrt(Math.max(0, face.width * face.height))
+  if (!size) return currentForward
+  const remainingDistance = Math.max(1, surfaceDistance - currentForward)
+  return clamp(
+    surfaceDistance - remainingDistance * size / FACE_CENTER_TARGET_SIZE,
+    FACE_CENTER_MIN_FORWARD,
+    FACE_CENTER_MAX_FORWARD,
+  )
+}
+
+export const getFaceMovementHint = (error: FaceCenteringError): FaceMovementHint | undefined => {
+  const labels: string[] = []
+  if (error.yawOffset) labels.push(`${error.yaw > 0 ? "→" : "←"} ${Math.round(Math.abs(error.yaw))}°`)
+  if (error.pitchOffset) labels.push(`${error.pitch > 0 ? "↑" : "↓"} ${Math.round(Math.abs(error.pitch))}°`)
+  if (error.forwardOffset) labels.push(`${error.forward > 0 ? "FORWARD" : "BACK"} ${Math.abs(error.forward).toFixed(1)}`)
+  if (!labels.length) return undefined
+  return {
+    left: error.yawOffset ? (error.yaw > 0 ? 88 : 12) : 50,
+    top: error.pitchOffset ? (error.pitch > 0 ? 14 : 86) : 50,
+    text: labels.join(" · "),
+  }
 }
 
 export const getFaceCenter = (face: FaceBox) => ({
@@ -159,6 +209,7 @@ export const pauseFaceAutoCenter = (state: FaceAutoCenterState) => {
   state.offCenterSince = undefined
   state.yawVelocity = 0
   state.pitchVelocity = 0
+  state.forwardVelocity = 0
   state.isMoving = false
   state.nextDetectionAt = Number.POSITIVE_INFINITY
 }
@@ -278,6 +329,9 @@ const smoothTarget = (state: FaceAutoCenterState, nextTarget: FaceTarget) => {
     pitch: previous.pitch === undefined || nextTarget.pitch === undefined
       ? nextTarget.pitch
       : previous.pitch + (nextTarget.pitch - previous.pitch) * smoothing,
+    forward: previous.forward === undefined || nextTarget.forward === undefined
+      ? nextTarget.forward
+      : previous.forward + (nextTarget.forward - previous.forward) * smoothing,
     mode: nextTarget.mode,
     lastSeenAt: nextTarget.lastSeenAt,
   }
@@ -288,9 +342,17 @@ export const setViewportTarget = (
   face: FaceBox | undefined,
   time: number,
   center = face ? getFaceCenter(face) : undefined,
+  currentForward = 0,
+  surfaceDistance = 100,
 ) => {
   if (!face || !center) return false
-  smoothTarget(state, { x: center.x - VIEWPORT_TARGET_X, y: center.y - VIEWPORT_TARGET_Y, mode: "viewport", lastSeenAt: time })
+  smoothTarget(state, {
+    x: center.x - VIEWPORT_TARGET_X,
+    y: center.y - VIEWPORT_TARGET_Y,
+    forward: getFaceForwardTarget(face, currentForward, surfaceDistance),
+    mode: "viewport",
+    lastSeenAt: time,
+  })
   return true
 }
 
