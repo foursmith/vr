@@ -17,6 +17,7 @@ export const FACE_CENTER_MAX_FORWARD = 35
 export const FACE_CENTER_FORWARD_ACTIVATION_DISTANCE = 3
 export const FACE_CENTER_FORWARD_SETTLE_DISTANCE = 1.5
 export const FACE_CENTER_FORWARD_MAX_SPEED = 16
+export const FACE_CENTER_EDGE_MARGIN_DEGREES = 2
 export const FACE_PITCH_LOOK_DEAD_ZONE_DEGREES = 6
 export const FACE_PITCH_LOOK_FULL_SCALE_DEGREES = 30
 export const FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET = 0.12
@@ -99,6 +100,90 @@ const getViewportYawOffset = (camera: PerspectiveCamera, x: number) =>
   MathUtils.radToDeg(Math.atan((1 - x * 2) * getViewportTanHalfVertical(camera) * camera.aspect))
 const getViewportPitchOffset = (camera: PerspectiveCamera, y: number) => {
   return MathUtils.radToDeg(Math.atan((1 - y * 2) * getViewportTanHalfVertical(camera)))
+}
+
+const VIEWPORT_EDGE_STEPS = [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1]
+const VIEWPORT_EDGE_SAMPLES = [
+  ...VIEWPORT_EDGE_STEPS.flatMap(y => [{ x: -1, y }, { x: 1, y }]),
+  ...VIEWPORT_EDGE_STEPS.slice(1, -1).flatMap(x => [{ x, y: -1 }, { x, y: 1 }]),
+]
+
+export const getProjectionCoverageMargin = (
+  projection: ProjectionMode,
+  camera: PerspectiveCamera,
+  view: { yaw: number, pitch: number, forward: number },
+) => {
+  if (!isHalfProjection(projection)) return Number.POSITIVE_INFINITY
+
+  const rotation = new Euler(
+    MathUtils.degToRad(view.pitch),
+    MathUtils.degToRad(view.yaw),
+    0,
+    "YXZ",
+  )
+  const cameraPosition = new Vector3(0, 0, -1)
+    .applyEuler(rotation)
+    .multiplyScalar(view.forward)
+  const direction = new Vector3()
+  const surfacePoint = new Vector3()
+  const tanHalfVertical = getViewportTanHalfVertical(camera)
+  // The fisheye back-half mask sits one unit inside the video sphere, so its
+  // curved silhouette can occlude the video before a ray reaches radius 100.
+  const coverageSurfaceRadius = projection === "sbs_180_fe" || projection === "m_180_fe" ? 99 : 100
+  let margin = Number.POSITIVE_INFINITY
+
+  for (const { x, y } of VIEWPORT_EDGE_SAMPLES) {
+    direction
+      .set(x * tanHalfVertical * camera.aspect, y * tanHalfVertical, -1)
+      .normalize()
+      .applyEuler(rotation)
+    const cameraAlongRay = cameraPosition.dot(direction)
+    const discriminant
+      = cameraAlongRay * cameraAlongRay + coverageSurfaceRadius ** 2 - cameraPosition.lengthSq()
+    if (discriminant < 0) return Number.NEGATIVE_INFINITY
+    const distance = -cameraAlongRay + Math.sqrt(discriminant)
+    surfacePoint.copy(direction).multiplyScalar(distance).add(cameraPosition)
+    const hemisphereDistance = MathUtils.radToDeg(Math.asin(clamp(
+      -surfacePoint.z / coverageSurfaceRadius,
+      -1,
+      1,
+    )))
+    margin = Math.min(margin, hemisphereDistance - FACE_CENTER_EDGE_MARGIN_DEGREES)
+  }
+
+  return margin
+}
+
+export const constrainFaceAutoCenterView = (
+  projection: ProjectionMode,
+  camera: PerspectiveCamera,
+  current: { yaw: number, pitch: number, forward: number },
+  proposed: { yaw: number, pitch: number, forward: number },
+) => {
+  if (!isHalfProjection(projection)) return proposed
+  const currentMargin = getProjectionCoverageMargin(projection, camera, current)
+  const proposedMargin = getProjectionCoverageMargin(projection, camera, proposed)
+  if (proposedMargin >= 0 || (currentMargin < 0 && proposedMargin > currentMargin)) return proposed
+  if (currentMargin < 0) return current
+
+  let safe = 0
+  let unsafe = 1
+  for (let index = 0; index < 12; index += 1) {
+    const fraction = (safe + unsafe) / 2
+    const candidate = {
+      yaw: current.yaw + shortestAngle(proposed.yaw - current.yaw) * fraction,
+      pitch: current.pitch + (proposed.pitch - current.pitch) * fraction,
+      forward: current.forward + (proposed.forward - current.forward) * fraction,
+    }
+    if (getProjectionCoverageMargin(projection, camera, candidate) >= 0) safe = fraction
+    else unsafe = fraction
+  }
+
+  return {
+    yaw: current.yaw + shortestAngle(proposed.yaw - current.yaw) * safe,
+    pitch: current.pitch + (proposed.pitch - current.pitch) * safe,
+    forward: current.forward + (proposed.forward - current.forward) * safe,
+  }
 }
 
 export const getFaceCenteringError = (

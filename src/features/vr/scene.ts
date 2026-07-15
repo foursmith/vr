@@ -6,6 +6,7 @@ import { createVrPlayerCore, DEFAULT_FOV, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUAL
 import { MathUtils, Vector3 } from "three"
 import {
   applyDetections,
+  constrainFaceAutoCenterView,
   FACE_CENTER_MAX_FORWARD,
   FACE_CENTER_MIN_FORWARD,
   getFaceCenteringError,
@@ -910,29 +911,38 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       const next = current + (desired - current) * velocityBlend
       return Math.abs(next) < FACE_CENTER_STOP_SPEED && desired === 0 ? 0 : next
     }
+    const applySafeMovement = () => {
+      const current = options.viewRef.current
+      const moveAxis = (axis: "yaw" | "pitch" | "forward", proposedValue: number) => {
+        const proposed = { yaw: current.yaw, pitch: current.pitch, forward: current.forward, [axis]: proposedValue }
+        const constrained = constrainFaceAutoCenterView(options.projection, camera, current, proposed)
+        current[axis] = constrained[axis]
+        if (Math.abs(constrained[axis] - proposedValue) > 0.0001) {
+          if (axis === "yaw") faceState.yawVelocity = 0
+          else if (axis === "pitch") faceState.pitchVelocity = 0
+          else faceState.forwardVelocity = 0
+        }
+      }
+      const yawLimit = getProjectionYawLimit(options.projection)
+      const nextYaw = yawLimit === undefined
+        ? current.yaw + faceState.yawVelocity * frameDelta
+        : clamp(shortestAngle(current.yaw) + faceState.yawVelocity * frameDelta, -yawLimit, yawLimit)
+      moveAxis("yaw", nextYaw)
+      moveAxis("pitch", clamp(current.pitch + faceState.pitchVelocity * frameDelta, -85, 85))
+      moveAxis("forward", clamp(
+        current.forward + faceState.forwardVelocity * frameDelta,
+        FACE_CENTER_MIN_FORWARD,
+        FACE_CENTER_MAX_FORWARD,
+      ))
+      faceState.isMoving = faceState.yawVelocity !== 0 || faceState.pitchVelocity !== 0 || faceState.forwardVelocity !== 0
+    }
     const target = faceState.target
     const targetMaxAge = faceState.isMoving ? 4500 : 1100
     if (!target || now - target.lastSeenAt > targetMaxAge) {
       faceState.yawVelocity = updateVelocity(faceState.yawVelocity, 0)
       faceState.pitchVelocity = updateVelocity(faceState.pitchVelocity, 0)
       faceState.forwardVelocity = updateVelocity(faceState.forwardVelocity, 0)
-      faceState.isMoving = faceState.yawVelocity !== 0 || faceState.pitchVelocity !== 0 || faceState.forwardVelocity !== 0
-      const yawLimit = getProjectionYawLimit(options.projection)
-      const yawStep = faceState.yawVelocity * frameDelta
-      options.viewRef.current.yaw
-        = yawLimit === undefined
-          ? options.viewRef.current.yaw + yawStep
-          : clamp(shortestAngle(options.viewRef.current.yaw) + yawStep, -yawLimit, yawLimit)
-      options.viewRef.current.pitch = clamp(
-        options.viewRef.current.pitch + faceState.pitchVelocity * frameDelta,
-        -85,
-        85,
-      )
-      options.viewRef.current.forward = clamp(
-        options.viewRef.current.forward + faceState.forwardVelocity * frameDelta,
-        FACE_CENTER_MIN_FORWARD,
-        FACE_CENTER_MAX_FORWARD,
-      )
+      applySafeMovement()
       setOverlay({})
       return
     }
@@ -952,21 +962,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     faceState.yawVelocity = x ? updateVelocity(faceState.yawVelocity, desiredYawVelocity) : 0
     faceState.pitchVelocity = y ? updateVelocity(faceState.pitchVelocity, desiredPitchVelocity) : 0
     faceState.forwardVelocity = forward ? updateVelocity(faceState.forwardVelocity, desiredForwardVelocity) : 0
-    const yawStep = faceState.yawVelocity * frameDelta
-    const pitchStep = faceState.pitchVelocity * frameDelta
-    const yawLimit = getProjectionYawLimit(options.projection)
-
-    faceState.isMoving = faceState.yawVelocity !== 0 || faceState.pitchVelocity !== 0 || faceState.forwardVelocity !== 0
-    options.viewRef.current.yaw
-      = yawLimit === undefined
-        ? options.viewRef.current.yaw + yawStep
-        : clamp(shortestAngle(options.viewRef.current.yaw) + yawStep, -yawLimit, yawLimit)
-    options.viewRef.current.pitch = clamp(options.viewRef.current.pitch + pitchStep, -85, 85)
-    options.viewRef.current.forward = clamp(
-      options.viewRef.current.forward + faceState.forwardVelocity * frameDelta,
-      FACE_CENTER_MIN_FORWARD,
-      FACE_CENTER_MAX_FORWARD,
-    )
+    applySafeMovement()
   }
 
   function render(now: number) {

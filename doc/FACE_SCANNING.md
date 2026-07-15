@@ -80,6 +80,12 @@ The target assumes a local projection-surface distance of 100 units for spherica
 
 Forward motion starts outside a 3-unit dead zone and settles within 1.5 units. Its exponential velocity profile is capped at 16 units/s with an 18-unit distance scale, then passes through the same 260 ms temporal smoothing used by yaw and pitch. During panorama recovery capture, the camera temporarily returns to the projection center so perspective-to-panorama mapping remains valid, then restores the visible camera position.
 
+### Projection-edge protection
+
+Automatic movement on 180-degree projections checks the complete viewport against the video hemisphere before applying each yaw, pitch, or forward step. The check casts rays around all four viewport edges at quarter-edge intervals, intersects those rays with the projection surface, and measures each hit's signed spherical distance from the hemisphere boundary plane. Using plane distance rather than yaw is important near the poles, where the boundary appears curved in the viewport. Equirectangular modes use the 100-unit video sphere. Fisheye modes instead test the 99-unit back-half mask because its curved silhouette can occlude the outer video sphere first after the camera translates. A view is covered only when every sampled point remains inside the half-sphere with a 2° seam margin.
+
+When a proposed step would cross the covered boundary, a binary search keeps the last covered fraction of that step and clears the blocked axis velocity. The camera can still move from an already exposed view toward better coverage, so a view left near an edge by manual control is not trapped there. Full 360-degree projections bypass this check. This protection uses the live camera FOV, zoom, viewport aspect, pitch, and forward position, rather than relying only on the older center-yaw clamp.
+
 ### Manual view override
 
 Dragging the view, changing zoom, or explicitly resetting the view pauses face centering after the first effective change. The pause has no timeout: detections, recovery scanning, and camera motion remain stopped so the player does not undo the user's chosen view. Starting a gesture without moving does not pause centering. Resetting the view also returns the camera's forward position to the projection center.

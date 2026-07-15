@@ -1,7 +1,7 @@
 import type { FaceAutoCenterState, FaceBox, FaceTarget } from "../../src/features/vr/face-auto-center"
 import { PerspectiveCamera } from "three"
 import { describe, expect, it } from "vitest"
-import { applyDetections, FACE_CENTER_FORWARD_ACTIVATION_DISTANCE, FACE_CENTER_FORWARD_MAX_SPEED, FACE_CENTER_FORWARD_SETTLE_DISTANCE, FACE_CENTER_MAX_FORWARD, FACE_CENTER_MIN_FORWARD, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_TARGET_SIZE, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, FACE_IDENTITY_SWITCH_POSITION_SPEED, FACE_IDENTITY_SWITCH_SIZE_SPEED, FACE_PITCH_LOOK_DEAD_ZONE_DEGREES, FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET, getFaceCenter, getFaceCenteringError, getFaceCenteringVelocity, getFaceDetectionRange, getFaceForwardTarget, getFaceForwardVelocity, getFaceInferenceMode, getFaceMovementHint, getFacePitchAdjustedCenter, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, shouldEnterPanoramaRecovery, updateFaceMotion, VIEWPORT_MISSES_BEFORE_PANORAMA } from "../../src/features/vr/face-auto-center"
+import { applyDetections, constrainFaceAutoCenterView, FACE_CENTER_EDGE_MARGIN_DEGREES, FACE_CENTER_FORWARD_ACTIVATION_DISTANCE, FACE_CENTER_FORWARD_MAX_SPEED, FACE_CENTER_FORWARD_SETTLE_DISTANCE, FACE_CENTER_MAX_FORWARD, FACE_CENTER_MIN_FORWARD, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_TARGET_SIZE, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, FACE_IDENTITY_SWITCH_POSITION_SPEED, FACE_IDENTITY_SWITCH_SIZE_SPEED, FACE_PITCH_LOOK_DEAD_ZONE_DEGREES, FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET, getFaceCenter, getFaceCenteringError, getFaceCenteringVelocity, getFaceDetectionRange, getFaceForwardTarget, getFaceForwardVelocity, getFaceInferenceMode, getFaceMovementHint, getFacePitchAdjustedCenter, getProjectionCoverageMargin, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, shouldEnterPanoramaRecovery, updateFaceMotion, VIEWPORT_MISSES_BEFORE_PANORAMA } from "../../src/features/vr/face-auto-center"
 
 const state = (): FaceAutoCenterState => ({
   faces: [],
@@ -81,6 +81,54 @@ describe("face auto-center", () => {
     expect(getFaceCenter(face()).y).toBeCloseTo(0.25)
     expect(getProjectionYawLimit("sbs_180_eqr")).toBe(86)
     expect(getProjectionYawLimit("mono_360_eqr")).toBeUndefined()
+  })
+
+  it("detects when a 180-degree viewport exposes the projection edge", () => {
+    const camera = new PerspectiveCamera(80, 9 / 16)
+    const centered = { yaw: 0, pitch: 0, forward: 0 }
+    const nearEdge = { yaw: 86, pitch: 0, forward: 0 }
+
+    expect(FACE_CENTER_EDGE_MARGIN_DEGREES).toBe(2)
+    expect(getProjectionCoverageMargin("sbs_180_eqr", camera, centered)).toBeGreaterThan(0)
+    expect(getProjectionCoverageMargin("sbs_180_eqr", camera, nearEdge)).toBeLessThan(0)
+    expect(getProjectionCoverageMargin("mono_360_eqr", camera, nearEdge)).toBe(Number.POSITIVE_INFINITY)
+  })
+
+  it("stops automatic movement at the last fully covered 180-degree view", () => {
+    const camera = new PerspectiveCamera(80, 9 / 16)
+    const current = { yaw: 0, pitch: 20, forward: 10 }
+    const proposed = { yaw: 86, pitch: 20, forward: 10 }
+    const constrained = constrainFaceAutoCenterView("m_180_eqr", camera, current, proposed)
+
+    expect(constrained.yaw).toBeGreaterThan(0)
+    expect(constrained.yaw).toBeLessThan(proposed.yaw)
+    expect(getProjectionCoverageMargin("m_180_eqr", camera, constrained)).toBeGreaterThanOrEqual(-0.01)
+    expect(constrainFaceAutoCenterView("mono_360_eqr", camera, current, proposed)).toBe(proposed)
+  })
+
+  it("allows automatic movement that recovers an already exposed edge", () => {
+    const camera = new PerspectiveCamera(80, 9 / 16)
+    const current = { yaw: 86, pitch: 0, forward: 0 }
+    const proposed = { yaw: 85, pitch: 0, forward: 0 }
+
+    expect(constrainFaceAutoCenterView("sbs_180_fe", camera, current, proposed)).toBe(proposed)
+  })
+
+  it("checks the inset curved mask when constraining fisheye movement", () => {
+    const camera = new PerspectiveCamera(80, 9 / 16)
+    const view = { yaw: 45, pitch: 0, forward: -35 }
+
+    expect(getProjectionCoverageMargin("sbs_180_fe", camera, view))
+      .toBeLessThan(getProjectionCoverageMargin("sbs_180_eqr", camera, view))
+  })
+
+  it("detects the curved hemisphere boundary near the top and bottom of the viewport", () => {
+    const camera = new PerspectiveCamera(80, 9 / 16)
+    const level = { yaw: 0, pitch: 0, forward: 0 }
+    const nearPole = { yaw: 0, pitch: 50, forward: 0 }
+
+    expect(getProjectionCoverageMargin("m_180_eqr", camera, level)).toBeGreaterThan(0)
+    expect(getProjectionCoverageMargin("m_180_eqr", camera, nearPole)).toBeLessThan(0)
   })
 
   it("uses shared hysteresis thresholds for movement and adaptive scan activity", () => {
