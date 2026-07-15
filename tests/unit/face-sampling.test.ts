@@ -1,10 +1,7 @@
-import type { FaceAutoCenterState } from "../../src/features/vr/face-auto-center"
 import { PerspectiveCamera } from "three"
 import { describe, expect, it, vi } from "vitest"
 import {
   drawPanoramaInferenceSample,
-  drawSampleBoxes,
-  drawSampleStatus,
   drawViewportInferenceSample,
   getPanoramaRefinementTile,
   getPanoramaScanTile,
@@ -159,43 +156,5 @@ describe("face sampling", () => {
     expect(canvas.height).toBe(384)
     expect(canvas.width).toBeGreaterThan(0)
     expect(canvas.width).toBeLessThan(640)
-  })
-
-  it("drops stale boxes and draws fresh detections", () => {
-    const context = { save: vi.fn(), restore: vi.fn(), fillRect: vi.fn(), fillText: vi.fn(), strokeRect: vi.fn() } as unknown as CanvasRenderingContext2D
-    const value = {
-      faces: [
-        {
-          x: 0.1,
-          y: 0.2,
-          width: 0.3,
-          height: 0.4,
-          score: 0.91,
-          pose: { yaw: 12.4, pitch: -3.6, roll: 6.5 },
-          lastSeenAt: 900,
-        },
-        { x: 0, y: 0, width: 1, height: 1, score: 1, lastSeenAt: 0 },
-      ],
-    } as FaceAutoCenterState
-    drawSampleBoxes(value, { width: 200, height: 100 } as HTMLCanvasElement, context, 1500, "viewport")
-    expect(value.faces).toHaveLength(1)
-    expect(context.strokeRect).toHaveBeenCalledWith(20, 20, 60, 40)
-    expect(context.fillText).toHaveBeenCalledWith("91% Y12° P-4° R7°", 25, 15)
-  })
-
-  it("overlays a stable status without clearing the current debug preview", () => {
-    const context = {
-      save: vi.fn(),
-      restore: vi.fn(),
-      fillRect: vi.fn(),
-      fillText: vi.fn(),
-    } as unknown as CanvasRenderingContext2D
-    const canvas = { width: 1, height: 1 } as HTMLCanvasElement
-
-    drawSampleStatus(canvas, context, "No face detected")
-
-    expect(canvas).toMatchObject({ width: 320, height: 180 })
-    expect(context.fillRect).toHaveBeenCalledWith(80, 76, 160, 28)
-    expect(context.fillText).toHaveBeenCalledWith("No face detected", 160, 90)
   })
 })

@@ -88,11 +88,11 @@ export function PlayerStage(props: { controller: PlayerController }) {
       >
         <div ref={setVrMount} id="vr-mount" class="h-full w-full"></div>
         <div class="pointer-events-none absolute inset-0 z-10">
-          <div class="absolute right-3 top-3 flex w-[min(16rem,24vw)] max-w-[calc(100vw-24px)] flex-col gap-2">
+          <div class="absolute right-3 top-3 flex w-[min(14rem,38vw,31.5vh)] max-w-[calc(100vw-24px)] flex-col gap-2">
             <canvas
               ref={debug.setSampleCanvas}
               id="sample-canvas"
-              class="hidden aspect-video w-full object-contain overflow-hidden rounded-xl border border-accent/18 bg-[#070a0c] shadow-[0_12px_32px_rgba(0,0,0,0.34),inset_0_0_0_1px_rgba(255,255,255,0.025)]"
+              class="hidden aspect-[9/16] w-full object-contain overflow-hidden rounded-xl border border-accent/18 bg-[#070a0c] shadow-[0_12px_32px_rgba(0,0,0,0.34),inset_0_0_0_1px_rgba(255,255,255,0.025)]"
             >
             </canvas>
             <div

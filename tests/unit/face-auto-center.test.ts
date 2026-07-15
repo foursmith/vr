@@ -1,7 +1,7 @@
 import type { FaceAutoCenterState, FaceBox, FaceTarget } from "../../src/features/vr/face-auto-center"
 import { PerspectiveCamera } from "three"
 import { describe, expect, it } from "vitest"
-import { applyDetections, constrainFaceAutoCenterView, FACE_CENTER_EDGE_MARGIN_DEGREES, FACE_CENTER_FORWARD_ACTIVATION_DISTANCE, FACE_CENTER_FORWARD_MAX_SPEED, FACE_CENTER_FORWARD_SETTLE_DISTANCE, FACE_CENTER_MAX_FORWARD, FACE_CENTER_MIN_FORWARD, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_TARGET_SIZE, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, FACE_DIRECTION_MAX_AGE_MS, FACE_IDENTITY_SWITCH_POSITION_SPEED, FACE_IDENTITY_SWITCH_SIZE_SPEED, FACE_PITCH_LOOK_DEAD_ZONE_DEGREES, FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET, getFaceCenter, getFaceCenteringError, getFaceCenteringVelocity, getFaceDetectionRange, getFaceForwardTarget, getFaceForwardVelocity, getFaceInferenceMode, getFaceMovementHint, getFacePitchAdjustedCenter, getManualZoomForwardTarget, getPredictedFaceDirection, getProjectionCoverageMargin, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, shouldEnterPanoramaRecovery, updateFaceMotion, VIEWPORT_MISSES_BEFORE_PANORAMA } from "../../src/features/vr/face-auto-center"
+import { applyDetections, constrainFaceAutoCenterView, FACE_CENTER_EDGE_MARGIN_DEGREES, FACE_CENTER_FORWARD_ACTIVATION_DISTANCE, FACE_CENTER_FORWARD_MAX_SPEED, FACE_CENTER_FORWARD_SETTLE_DISTANCE, FACE_CENTER_MAX_FORWARD, FACE_CENTER_MIN_FORWARD, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_TARGET_SIZE, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, FACE_DIRECTION_MAX_AGE_MS, FACE_IDENTITY_SWITCH_POSITION_SPEED, FACE_IDENTITY_SWITCH_SIZE_SPEED, FACE_PITCH_LOOK_DEAD_ZONE_DEGREES, FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET, getFaceCenter, getFaceCenteringError, getFaceCenteringVelocity, getFaceDetectionRange, getFaceForwardTarget, getFaceForwardVelocity, getFaceInferenceMode, getFacePitchAdjustedCenter, getManualZoomForwardTarget, getPredictedFaceDirection, getProjectionCoverageMargin, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, shouldEnterPanoramaRecovery, updateFaceMotion, VIEWPORT_MISSES_BEFORE_PANORAMA } from "../../src/features/vr/face-auto-center"
 
 const state = (): FaceAutoCenterState => ({
   faces: [],
@@ -176,69 +176,6 @@ describe("face auto-center", () => {
     expect(getFaceForwardVelocity(20)).toBeLessThan(FACE_CENTER_FORWARD_MAX_SPEED)
     expect(getFaceForwardVelocity(-20)).toBeCloseTo(-getFaceForwardVelocity(20))
     expect(camera.zoom).toBe(1)
-  })
-
-  it("describes horizontal, vertical, and forward movement in the debug hint", () => {
-    expect(getFaceMovementHint({
-      yaw: -14,
-      pitch: 9,
-      forward: -6.25,
-      yawOffset: -4,
-      pitchOffset: 2,
-      forwardOffset: -3.25,
-      needsMovement: true,
-    })).toEqual({
-      left: 12,
-      top: 14,
-      text: "← 14° · ↑ 9° · farther 6.3",
-      horizontal: { direction: "left", value: "14°" },
-      vertical: { direction: "up", value: "9°" },
-      depth: "farther",
-      depthValue: "6.3",
-    })
-    expect(getFaceMovementHint({
-      yaw: 0,
-      pitch: -8,
-      forward: 5,
-      yawOffset: 0,
-      pitchOffset: -1,
-      forwardOffset: 2,
-      needsMovement: true,
-    })).toEqual({
-      left: 50,
-      top: 86,
-      text: "↓ 8° · nearer 5.0",
-      horizontal: undefined,
-      vertical: { direction: "down", value: "8°" },
-      depth: "nearer",
-      depthValue: "5.0",
-    })
-    expect(getFaceMovementHint({
-      yaw: 0,
-      pitch: 0,
-      forward: -4,
-      yawOffset: 0,
-      pitchOffset: 0,
-      forwardOffset: -1,
-      needsMovement: true,
-    })).toEqual({
-      left: 50,
-      top: 50,
-      text: "farther 4.0",
-      horizontal: undefined,
-      vertical: undefined,
-      depth: "farther",
-      depthValue: "4.0",
-    })
-    expect(getFaceMovementHint({
-      yaw: 2,
-      pitch: 1,
-      forward: 0.5,
-      yawOffset: 0,
-      pitchOffset: 0,
-      forwardOffset: 0,
-      needsMovement: false,
-    })).toBeUndefined()
   })
 
   it("accelerates camera movement with target distance and preserves direction", () => {

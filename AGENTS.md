@@ -34,6 +34,8 @@
 ### Testing
 
 - Do not run end-to-end (e2e) tests unless the user explicitly requests them.
+- Do not add or maintain UI tests. This includes component rendering tests, DOM interaction tests, visual or snapshot tests, and browser/end-to-end UI flows.
+- Validate UI-only changes with type checking, linting, and production builds instead of automated UI tests.
 
 ### Portrait Centering
 
