@@ -64,7 +64,7 @@ afterEach(() => {
 })
 
 describe("player stage gestures", () => {
-  it("shows a resume action while manual movement has paused face centering", () => {
+  it("shows a resume action while manual movement has paused portrait centering", () => {
     const controller = createController()
     const [paused, setPaused] = createSignal(false)
     const [controlsVisible, setControlsVisible] = createSignal(true)
@@ -74,10 +74,10 @@ describe("player stage gestures", () => {
     document.body.append(host)
     const dispose = render(() => <PlayerStage controller={controller} />, host)
 
-    expect(host.querySelector("button[aria-label='Resume face centering']")).toBeNull()
+    expect(host.querySelector("button[aria-label='Resume portrait centering']")).toBeNull()
     setPaused(true)
     flush()
-    host.querySelector<HTMLButtonElement>("button[aria-label='Resume face centering']")!.click()
+    host.querySelector<HTMLButtonElement>("button[aria-label='Resume portrait centering']")!.click()
 
     expect(controller.frame.resumeFaceAutoCenter).toHaveBeenCalledOnce()
     const resumeSurface = host.querySelector<HTMLElement>("[data-face-centering-resume]")!

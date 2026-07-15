@@ -13,7 +13,7 @@
 ## Features
 
 - **Enjoy VR without a headset.** Turn immersive video into a comfortable, easy-to-follow 2D view and simply sit back and watch.
-- **Let the camera follow the action.** Automatic framing and face centering keep detected faces comfortably in view.
+- **Let the camera follow the action.** Automatic framing and portrait centering keep detected faces comfortably in view.
 - **Make wide screens work for people.** Portrait layout repeats the view in portrait panels, keeping human subjects large and easy to see.
 - **Play the formats you already have.** Open 180°, 360°, side-by-side, top-bottom, fisheye, and flat videos directly in the browser.
 - **Bring your whole library.** Choose local files or folders, run the included media server, and discover videos from DLNA devices.

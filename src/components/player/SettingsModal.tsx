@@ -104,7 +104,7 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
           onCheckedChange={setSplitScreen}
         />
         <SettingToggle
-          title="Face centering"
+          title="Portrait centering"
           description="Automatically keep detected faces centered."
           icon="scan-face"
           pressed={state.faceAutoCenter}

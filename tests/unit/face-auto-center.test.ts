@@ -264,7 +264,7 @@ describe("face auto-center", () => {
     expect(motion.size).toBeCloseTo(Math.sqrt(0.06))
   })
 
-  it("holds manual view changes until face centering is explicitly resumed", () => {
+  it("holds manual view changes until portrait centering is explicitly resumed", () => {
     const value = state()
     value.faces = [face()]
     value.selectedFace = { ...face(), mode: "viewport" }

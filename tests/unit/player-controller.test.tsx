@@ -178,7 +178,7 @@ describe("player controller", () => {
     expect(video.pause).toHaveBeenCalled()
   })
 
-  it("exposes the scene's manual face-centering pause and resume action", async () => {
+  it("exposes the scene's manual portrait-centering pause and resume action", async () => {
     const { controller, dispose, host } = setupController()
     await controller.playback.startInitialLoad()
     const options = mocks.createVrScene.mock.calls[0]![0]
@@ -188,14 +188,14 @@ describe("player controller", () => {
 
     options.onFaceAutoCenterPauseChange(true)
     await settle()
-    host.querySelector<HTMLButtonElement>("button[aria-label='Resume face centering']")!.click()
+    host.querySelector<HTMLButtonElement>("button[aria-label='Resume portrait centering']")!.click()
 
     expect(controller.frame.faceAutoCenterPaused()).toBe(true)
     expect(mocks.sceneController.resumeFaceAutoCenter).toHaveBeenCalledOnce()
 
     options.onFaceAutoCenterPauseChange(false)
     await settle()
-    expect(host.querySelector("button[aria-label='Resume face centering']")).toBeNull()
+    expect(host.querySelector("button[aria-label='Resume portrait centering']")).toBeNull()
     dispose()
   })
 

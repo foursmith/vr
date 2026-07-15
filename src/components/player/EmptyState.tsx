@@ -122,8 +122,8 @@ export function EmptyState(props: {
           <span aria-label="Portrait layout" role="img" tabindex="0" class="empty-feature-dot empty-feature-portrait-layout">
             <span aria-hidden="true" class="empty-feature-label">Portrait layout</span>
           </span>
-          <span aria-label="Face centering" role="img" tabindex="0" class="empty-feature-dot empty-feature-face-tracking">
-            <span aria-hidden="true" class="empty-feature-label">Face centering</span>
+          <span aria-label="Portrait centering" role="img" tabindex="0" class="empty-feature-dot empty-feature-face-tracking">
+            <span aria-hidden="true" class="empty-feature-label">Portrait centering</span>
           </span>
           <span aria-label="Auto-framed VR" role="img" tabindex="0" class="empty-feature-dot empty-feature-vr-player">
             <span aria-hidden="true" class="empty-feature-label">Auto-framed VR</span>

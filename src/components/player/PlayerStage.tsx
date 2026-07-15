@@ -154,8 +154,8 @@ export function PlayerStage(props: { controller: PlayerController }) {
           }}
         >
           <IconButton
-            label="Resume face centering"
-            title="Resume face centering"
+            label="Resume portrait centering"
+            title="Resume portrait centering"
             icon="scan-face"
             iconClass="h-5 w-5"
             onClick={resumeFaceAutoCenter}
