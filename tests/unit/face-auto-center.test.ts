@@ -40,8 +40,14 @@ describe("face auto-center", () => {
   it("follows face pitch vertically without applying yaw or roll", () => {
     const center = { x: 0.4, y: 0.35 }
     expect(getFacePitchAdjustedCenter(center, FACE_PITCH_LOOK_DEAD_ZONE_DEGREES)).toBe(center)
-    expect(getFacePitchAdjustedCenter(center, -18)).toEqual({ x: 0.4, y: 0.31 })
-    expect(getFacePitchAdjustedCenter(center, 18)).toEqual({ x: 0.4, y: 0.38999999999999996 })
+    expect(getFacePitchAdjustedCenter(center, -18)).toEqual({
+      x: 0.4,
+      y: center.y - FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET / 2,
+    })
+    expect(getFacePitchAdjustedCenter(center, 18)).toEqual({
+      x: 0.4,
+      y: center.y + FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET / 2,
+    })
     expect(getFacePitchAdjustedCenter(center, -90)).toEqual({
       x: 0.4,
       y: 0.35 - FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET,
@@ -50,6 +56,24 @@ describe("face auto-center", () => {
       x: 0.4,
       y: 0.35 + FACE_PITCH_LOOK_MAX_VIEWPORT_OFFSET,
     })
+  })
+
+  it("allows a strong face pitch to start vertical centering on its own", () => {
+    const camera = new PerspectiveCamera(80, 9 / 16)
+    const center = { x: 0.5, y: 1 / 3 }
+    const targetForPitch = (pitch: number): FaceTarget => {
+      const adjusted = getFacePitchAdjustedCenter(center, pitch)
+      return {
+        x: adjusted.x - center.x,
+        y: adjusted.y - center.y,
+        mode: "viewport",
+        lastSeenAt: 100,
+      }
+    }
+    const view = { yaw: 0, pitch: 0, forward: 0 }
+
+    expect(getFaceCenteringError(targetForPitch(18), camera, view).needsMovement).toBe(false)
+    expect(getFaceCenteringError(targetForPitch(30), camera, view).needsMovement).toBe(true)
   })
 
   it("computes centers and projection yaw limits", () => {
