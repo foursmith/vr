@@ -1,5 +1,5 @@
+import type { CameraView, ProjectionMode } from "@foursmith/player-core"
 import type { PerspectiveCamera } from "three"
-import type { CameraView, ProjectionMode } from "./config"
 import type { FaceAutoCenterState, PanoramaSample } from "./face-auto-center"
 import { MathUtils } from "three"
 

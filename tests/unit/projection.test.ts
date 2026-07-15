@@ -1,7 +1,6 @@
+import { createProjectionGroup, disposeObject, PROJECTION_OPTIONS, projectionPixelRatio, QUALITY_OPTIONS } from "@foursmith/player-core"
 import { Mesh, Texture } from "three"
 import { describe, expect, it, vi } from "vitest"
-import { PROJECTION_OPTIONS, projectionPixelRatio, QUALITY_OPTIONS } from "../../src/features/vr/config"
-import { createProjectionGroup, disposeObject } from "../../src/features/vr/projection"
 
 describe("vR projections", () => {
   it.each(PROJECTION_OPTIONS)("creates the $label projection", ({ component }) => {

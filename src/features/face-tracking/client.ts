@@ -118,6 +118,10 @@ class MainThreadFaceBackend {
   private fullRangeDetector?: FaceDetector
   private shortRangeDetector?: FaceDetector
   private landmarker?: FaceLandmarker
+  private visionTasks?: typeof import("@mediapipe/tasks-vision")
+  private fullRangeDetectorPromise?: Promise<FaceDetector>
+  private shortRangeDetectorPromise?: Promise<FaceDetector>
+  private landmarkerPromise?: Promise<FaceLandmarker>
   private destroyed = false
 
   private assertActive() {
@@ -125,57 +129,60 @@ class MainThreadFaceBackend {
   }
 
   async initialize(onProgress: (progress: ResourceLoadProgress) => void) {
-    const total = 4
+    const total = 1
     onProgress({ loaded: 0, total, label: "Loading vision runtime" })
-    const { FaceDetector, FaceLandmarker } = await import("@mediapipe/tasks-vision")
+    this.visionTasks = await import("@mediapipe/tasks-vision")
     this.assertActive()
-    const vision = VISION_WASM_FILESET
-    this.assertActive()
-    const createCanvas = () => typeof OffscreenCanvas === "undefined" ? document.createElement("canvas") : new OffscreenCanvas(1, 1)
+    onProgress({ loaded: total, total, label: "Fallback face tracker ready" })
+  }
 
-    onProgress({ loaded: 1, total, label: "Loading full-range face detector" })
-    const fullRangeDetector = await createWithGpuFallback((delegate) => {
+  private createCanvas() {
+    return typeof OffscreenCanvas === "undefined" ? document.createElement("canvas") : new OffscreenCanvas(1, 1)
+  }
+
+  private createDetector(range: FaceDetectionRange) {
+    const modelAssetPath = range === "short" ? SHORT_RANGE_FACE_MODEL_URL : FULL_RANGE_FACE_MODEL_URL
+    return createWithGpuFallback((delegate) => {
       this.assertActive()
-      return FaceDetector.createFromOptions(vision, {
-        baseOptions: { modelAssetPath: FULL_RANGE_FACE_MODEL_URL, delegate },
-        canvas: createCanvas(),
+      return this.visionTasks!.FaceDetector.createFromOptions(VISION_WASM_FILESET, {
+        baseOptions: { modelAssetPath, delegate },
+        canvas: this.createCanvas(),
         runningMode: "IMAGE",
         minDetectionConfidence: MIN_FACE_SCORE,
         minSuppressionThreshold: 0.45,
       })
     })
+  }
+
+  private async getDetector(range: FaceDetectionRange) {
+    this.assertActive()
+    if (range === "short") {
+      this.shortRangeDetectorPromise ??= this.createDetector("short")
+      const detector = await this.shortRangeDetectorPromise
+      if (this.destroyed) {
+        detector.close()
+        this.assertActive()
+      }
+      this.shortRangeDetector ??= detector
+      return this.shortRangeDetector
+    }
+    this.fullRangeDetectorPromise ??= this.createDetector("full")
+    const detector = await this.fullRangeDetectorPromise
     if (this.destroyed) {
-      fullRangeDetector.close()
+      detector.close()
       this.assertActive()
     }
-    this.fullRangeDetector = fullRangeDetector
-    this.assertActive()
+    this.fullRangeDetector ??= detector
+    return this.fullRangeDetector
+  }
 
-    onProgress({ loaded: 2, total, label: "Loading short-range face detector" })
-    const shortRangeDetector = await createWithGpuFallback((delegate) => {
-      this.assertActive()
-      return FaceDetector.createFromOptions(vision, {
-        baseOptions: { modelAssetPath: SHORT_RANGE_FACE_MODEL_URL, delegate },
-        canvas: createCanvas(),
-        runningMode: "IMAGE",
-        minDetectionConfidence: MIN_FACE_SCORE,
-        minSuppressionThreshold: 0.45,
-      })
-    })
-    if (this.destroyed) {
-      shortRangeDetector.close()
-      this.assertActive()
-    }
-    this.shortRangeDetector = shortRangeDetector
+  private async getLandmarker() {
     this.assertActive()
-
-    onProgress({ loaded: 3, total, label: "Loading fallback face landmarks" })
-    this.assertActive()
-    const landmarker = await createWithGpuFallback((delegate) => {
+    this.landmarkerPromise ??= createWithGpuFallback((delegate) => {
       this.assertActive()
-      return FaceLandmarker.createFromOptions(vision, {
+      return this.visionTasks!.FaceLandmarker.createFromOptions(VISION_WASM_FILESET, {
         baseOptions: { modelAssetPath: FACE_LANDMARKER_MODEL_URL, delegate },
-        canvas: createCanvas(),
+        canvas: this.createCanvas(),
         runningMode: "VIDEO",
         numFaces: 1,
         minFaceDetectionConfidence: MIN_FACE_SCORE,
@@ -185,13 +192,13 @@ class MainThreadFaceBackend {
         outputFacialTransformationMatrixes: false,
       })
     })
+    const landmarker = await this.landmarkerPromise
     if (this.destroyed) {
       landmarker.close()
       this.assertActive()
     }
-    this.landmarker = landmarker
-    this.assertActive()
-    onProgress({ loaded: total, total, label: "Fallback face tracker ready" })
+    this.landmarker ??= landmarker
+    return this.landmarker
   }
 
   async infer(id: number, mode: FaceInferenceMode, bitmap: ImageBitmap, timestamp: number, detectionRange: FaceDetectionRange): Promise<FaceInferenceResult> {
@@ -199,7 +206,8 @@ class MainThreadFaceBackend {
     try {
       this.assertActive()
       if (mode === "landmarks") {
-        const landmarks = this.landmarker!.detectForVideo(bitmap, timestamp).faceLandmarks[0]
+        const landmarker = await this.getLandmarker()
+        const landmarks = landmarker.detectForVideo(bitmap, timestamp).faceLandmarks[0]
         const face = landmarks ? readLandmarkFace(landmarks) : undefined
         return {
           id,
@@ -222,8 +230,8 @@ class MainThreadFaceBackend {
           score: item.categories[0]?.score ?? 0,
         }
       }).sort((a, b) => b.width * b.height - a.width * a.height).slice(0, 8)
-      let faces = readFaces(detectionRange === "short" ? this.shortRangeDetector! : this.fullRangeDetector!)
-      if (detectionRange === "short" && !faces.length) faces = readFaces(this.fullRangeDetector!)
+      let faces = readFaces(await this.getDetector(detectionRange))
+      if (detectionRange === "short" && !faces.length) faces = readFaces(await this.getDetector("full"))
       return { id, type: "result", mode, timestamp, faces, inferenceMs: performance.now() - startedAt }
     } finally {
       bitmap.close()
@@ -238,6 +246,10 @@ class MainThreadFaceBackend {
     this.fullRangeDetector = undefined
     this.shortRangeDetector = undefined
     this.landmarker = undefined
+    this.fullRangeDetectorPromise = undefined
+    this.shortRangeDetectorPromise = undefined
+    this.landmarkerPromise = undefined
+    this.visionTasks = undefined
   }
 }
 

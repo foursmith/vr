@@ -1,6 +1,6 @@
+import { PROJECTION_OPTIONS } from "@foursmith/player-core/config"
 import { Portal } from "@solidjs/web"
 import { createSignal, For } from "solid-js"
-import { PROJECTION_OPTIONS } from "../../features/vr/scene"
 import { createPopover } from "../ui/createPopover"
 import { IconButton } from "../ui/IconButton"
 import { LiquidGlass } from "../ui/LiquidGlass"

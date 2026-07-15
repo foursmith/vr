@@ -5,7 +5,9 @@
     "": {
       "name": "foursmith-vr",
       "dependencies": {
+        "@foursmith/player-core": "workspace:*",
         "@mediapipe/tasks-vision": "^0.10.35",
+        "@msvargas97/pico.js": "1.0.2",
         "@solidjs/web": "^2.0.0-beta.15",
         "solid-js": "^2.0.0-beta.15",
         "three": "^0.185.1",
@@ -46,6 +48,17 @@
       "devDependencies": {
         "@types/bun": "latest",
         "@typescript/native-preview": "catalog:",
+      },
+    },
+    "packages/player-core": {
+      "name": "@foursmith/player-core",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@types/three": "^0.185.0",
+        "@typescript/native-preview": "catalog:",
+      },
+      "peerDependencies": {
+        "three": "^0.185.1",
       },
     },
   },
@@ -375,6 +388,8 @@
 
     "@exodus/bytes": ["@exodus/bytes@1.15.1", "", { "peerDependencies": { "@noble/hashes": "^1.8.0 || ^2.0.0" }, "optionalPeers": ["@noble/hashes"] }, "sha512-S6mL0yNB/Abt9Ei4tq8gDhcczc4S3+vQ4ra7vxnAf+YHC02srtqxKKZghx2Dq6p0e66THKwR6r8N6P95wEty7Q=="],
 
+    "@foursmith/player-core": ["@foursmith/player-core@workspace:packages/player-core"],
+
     "@humanfs/core": ["@humanfs/core@0.19.2", "", { "dependencies": { "@humanfs/types": "^0.15.0" } }, "sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA=="],
 
     "@humanfs/node": ["@humanfs/node@0.16.8", "", { "dependencies": { "@humanfs/core": "^0.19.2", "@humanfs/types": "^0.15.0", "@humanwhocodes/retry": "^0.4.0" } }, "sha512-gE1eQNZ3R++kTzFUpdGlpmy8kDZD/MLyHqDwqjkVQI0JMdI1D51sy1H958PNXYkM2rAac7e5/CnIKZrHtPh3BQ=="],
@@ -456,6 +471,8 @@
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
     "@mediapipe/tasks-vision": ["@mediapipe/tasks-vision@0.10.35", "", {}, "sha512-HOvadwVRE6JC+45nyYhmnywnr5h/J8KZvOeUNVOG9q/0875pZgItznFB9bRTvLc264YSJqiZ1NsIpCStJw/egg=="],
+
+    "@msvargas97/pico.js": ["@msvargas97/pico.js@1.0.2", "", {}, "sha512-8Nwwu1uJ+QCWPcQZExbosWhw1jfeVXEVImSaA+QBau/I6KC8qOxxcP3jIYQYPYtZrwp0fRZGHynt+kWsI7jLDw=="],
 
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.1.6", "", { "dependencies": { "@tybys/wasm-util": "^0.10.3" }, "peerDependencies": { "@emnapi/core": "^1.7.1", "@emnapi/runtime": "^1.7.1" } }, "sha512-ZLv/JdUfkvOy9eCnnBaGfiO+XimbjebAeO+MRQqD/B+FR1tnRN0tpKSJHRbE8sFfS6aqsXZ67TQjfwfsxULVbg=="],
 

@@ -1,6 +1,6 @@
+import type { ProjectionMode } from "@foursmith/player-core"
 import type { PerspectiveCamera } from "three"
 import type { NormalizedFace } from "../face-tracking/protocol"
-import type { ProjectionMode } from "./config"
 import { MathUtils } from "three"
 
 const VIEWPORT_TARGET_X = 0.5

@@ -1,4 +1,7 @@
+import type { FaceCenteringMode } from "../face-tracking/protocol"
+
 export type RepeatMode = "off" | "folder" | "file"
+export type { FaceCenteringMode } from "../face-tracking/protocol"
 
 export interface GlobalPreferences {
   volume: number
@@ -7,6 +10,7 @@ export interface GlobalPreferences {
   renderFrameRateId: number
   splitScreen: boolean
   faceAutoCenter: boolean
+  faceCenteringMode: FaceCenteringMode
   subtitlesEnabled: boolean
   repeatMode: RepeatMode
 }
@@ -27,7 +31,8 @@ export const DEFAULT_GLOBAL_PREFERENCES: GlobalPreferences = {
   qualityId: 2,
   renderFrameRateId: 3,
   splitScreen: true,
-  faceAutoCenter: true,
+  faceAutoCenter: false,
+  faceCenteringMode: "system",
   subtitlesEnabled: true,
   repeatMode: "file",
 }
@@ -56,19 +61,33 @@ const isRepeatMode = (value: unknown): value is RepeatMode =>
 const repeatModeFromStorage = (value: unknown): RepeatMode =>
   value === "playlist" ? "folder" : isRepeatMode(value) ? value : DEFAULT_GLOBAL_PREFERENCES.repeatMode
 
+const isFaceCenteringMode = (value: unknown): value is FaceCenteringMode =>
+  value === "system" || value === "mediapipe"
+
 export function loadGlobalPreferences(storage: Storage = localStorage): GlobalPreferences {
   try {
     const raw = storage.getItem(GLOBAL_PREFERENCES_KEY)
     if (!raw) return { ...DEFAULT_GLOBAL_PREFERENCES }
     const parsed: unknown = JSON.parse(raw)
     if (!isRecord(parsed)) return { ...DEFAULT_GLOBAL_PREFERENCES }
+    const storedFaceCenteringMode = parsed.faceCenteringMode
+    const hasFaceCenteringMode = isFaceCenteringMode(storedFaceCenteringMode)
+    const faceCenteringMode: FaceCenteringMode = hasFaceCenteringMode
+      ? storedFaceCenteringMode
+      : DEFAULT_GLOBAL_PREFERENCES.faceCenteringMode
     return {
       volume: numberInRange(parsed.volume, DEFAULT_GLOBAL_PREFERENCES.volume, 0, 1),
       playbackRate: numberInRange(parsed.playbackRate, DEFAULT_GLOBAL_PREFERENCES.playbackRate, 0.25, 4),
       qualityId: Math.round(numberInRange(parsed.qualityId, DEFAULT_GLOBAL_PREFERENCES.qualityId, 0, 3)),
       renderFrameRateId: Math.round(numberInRange(parsed.renderFrameRateId, DEFAULT_GLOBAL_PREFERENCES.renderFrameRateId, 1, 3)),
       splitScreen: booleanOr(parsed.splitScreen, DEFAULT_GLOBAL_PREFERENCES.splitScreen),
-      faceAutoCenter: booleanOr(parsed.faceAutoCenter, DEFAULT_GLOBAL_PREFERENCES.faceAutoCenter),
+      // Before detector modes existed, face centering defaulted to enabled. Treat
+      // those legacy snapshots as disabled so an upgrade does not eagerly restore
+      // the old memory-heavy behavior without an explicit user choice.
+      faceAutoCenter: hasFaceCenteringMode
+        ? booleanOr(parsed.faceAutoCenter, DEFAULT_GLOBAL_PREFERENCES.faceAutoCenter)
+        : false,
+      faceCenteringMode,
       subtitlesEnabled: booleanOr(parsed.subtitlesEnabled, DEFAULT_GLOBAL_PREFERENCES.subtitlesEnabled),
       repeatMode: repeatModeFromStorage(parsed.repeatMode),
     }
