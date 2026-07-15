@@ -1,5 +1,4 @@
 import type { CameraView, ProjectionMode, ProjectionQuality } from "@foursmith/player-core"
-import type { PerspectiveCamera } from "three"
 import type { FaceCenteringMode, FaceInferenceResult } from "../face-tracking/protocol"
 import type { DetectionMode, FaceAutoCenterState, PanoramaSample } from "./face-auto-center"
 import type { FaceInferenceActivity } from "./frame-scheduler"
@@ -7,6 +6,7 @@ import { createVrPlayerCore, DEFAULT_FOV, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUAL
 import { MathUtils } from "three"
 import {
   applyDetections,
+  getFaceCenteringError,
   getProjectionYawLimit,
   mapSampleFaceToPanorama,
   pauseFaceAutoCenter,
@@ -33,10 +33,6 @@ const MIN_ZOOM = 0.8
 const MAX_ZOOM = 2.4
 const WHEEL_ZOOM_SPEED = 0.0016
 const TRACKPAD_PINCH_ZOOM_SPEED = 0.01
-const VIEWPORT_TARGET_X = 0.5
-const VIEWPORT_TARGET_Y = 1 / 3
-const VIEWPORT_DEAD_ZONE_X = 0.04
-const VIEWPORT_DEAD_ZONE_Y = 0.04
 const PANORAMA_DIRECTION_ANCHOR_WEIGHT = 1.35
 const FACE_TARGET_GRACE_MS = 900
 const VIEWPORT_SAMPLE_WIDTH = 320
@@ -56,12 +52,6 @@ interface OverlayState {
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 const shortestAngle = (degrees: number) => ((degrees + 540) % 360) - 180
-const getViewportTanHalfVertical = (camera: PerspectiveCamera) =>
-  Math.tan(MathUtils.degToRad(camera.fov) / 2) / camera.zoom
-const getViewportYawOffset = (camera: PerspectiveCamera, x: number) =>
-  MathUtils.radToDeg(Math.atan((1 - x * 2) * getViewportTanHalfVertical(camera) * camera.aspect))
-const getViewportPitchOffset = (camera: PerspectiveCamera, y: number) =>
-  MathUtils.radToDeg(Math.atan((1 - y * 2) * getViewportTanHalfVertical(camera)))
 
 const getRenderViewports = (width: number, height: number, splitScreen: boolean): RenderViewport[] => {
   if (!splitScreen || width <= height) return [{ x: 0, y: 0, width, height }]
@@ -523,7 +513,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     const inferenceP95 = sortedInferenceTimes[p95Index] ?? 0
     const target = faceState.target
     const targetNeedsMovement = target
-      && (Math.abs(target.x) > VIEWPORT_DEAD_ZONE_X || Math.abs(target.y) > VIEWPORT_DEAD_ZONE_Y)
+      ? getFaceCenteringError(target, camera, options.viewRef.current, faceState.isMoving).needsMovement
+      : false
     if (faceState.recoveryMode === "panorama") inferenceActivity = "recovery"
     else if (!target || faceState.consecutiveMisses > 0) inferenceActivity = "searching"
     else if (faceState.isMoving || faceState.offCenterSince !== undefined || targetNeedsMovement) inferenceActivity = "active"
@@ -846,24 +837,11 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       return
     }
 
-    const viewportFaceX = VIEWPORT_TARGET_X + target.x
-    const viewportFaceY = VIEWPORT_TARGET_Y + target.y
-    const yawError = target.yaw === undefined
-      ? getViewportYawOffset(camera, viewportFaceX) - getViewportYawOffset(camera, VIEWPORT_TARGET_X)
-      : shortestAngle(target.yaw - options.viewRef.current.yaw)
-    const pitchError = target.pitch === undefined
-      ? getViewportPitchOffset(camera, viewportFaceY) - getViewportPitchOffset(camera, VIEWPORT_TARGET_Y)
-      : target.pitch - options.viewRef.current.pitch
-    const yawDeadZone = target.yaw === undefined
-      ? Math.abs(getViewportYawOffset(camera, VIEWPORT_TARGET_X + VIEWPORT_DEAD_ZONE_X) - getViewportYawOffset(camera, VIEWPORT_TARGET_X))
-      : 6
-    const pitchDeadZone = target.yaw === undefined
-      ? Math.abs(getViewportPitchOffset(camera, VIEWPORT_TARGET_Y + VIEWPORT_DEAD_ZONE_Y) - getViewportPitchOffset(camera, VIEWPORT_TARGET_Y))
-      : 7
-    // Remove the dead zone from the error instead of switching the full error
-    // on and off at its edge. This lets the camera ease to a stop smoothly.
-    const x = Math.sign(yawError) * Math.max(0, Math.abs(yawError) - yawDeadZone)
-    const y = Math.sign(pitchError) * Math.max(0, Math.abs(pitchError) - pitchDeadZone)
+    const error = getFaceCenteringError(target, camera, options.viewRef.current, faceState.isMoving)
+    const yawError = error.yaw
+    const pitchError = error.pitch
+    const x = error.yawOffset
+    const y = error.pitchOffset
     const hint
       = Math.abs(yawError) >= 18
         ? {
@@ -882,8 +860,8 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     const maxSpeed = FACE_CENTER_MAX_SPEED * (panoramaTarget ? 1.35 : farTarget ? 1.15 : 1)
     const desiredYawVelocity = clamp(x * response, -maxSpeed, maxSpeed)
     const desiredPitchVelocity = clamp(y * response, -maxSpeed, maxSpeed)
-    faceState.yawVelocity = updateVelocity(faceState.yawVelocity, desiredYawVelocity)
-    faceState.pitchVelocity = updateVelocity(faceState.pitchVelocity, desiredPitchVelocity)
+    faceState.yawVelocity = x ? updateVelocity(faceState.yawVelocity, desiredYawVelocity) : 0
+    faceState.pitchVelocity = y ? updateVelocity(faceState.pitchVelocity, desiredPitchVelocity) : 0
     const yawStep = faceState.yawVelocity * frameDelta
     const pitchStep = faceState.pitchVelocity * frameDelta
     const yawLimit = getProjectionYawLimit(options.projection)

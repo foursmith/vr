@@ -5,12 +5,23 @@ import { Euler, MathUtils, Vector3 } from "three"
 
 const VIEWPORT_TARGET_X = 0.5
 const VIEWPORT_TARGET_Y = 1 / 3
+export const FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD = 0.08
+export const FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD = 0.05
+export const FACE_CENTER_PANORAMA_ACTIVATION_DEGREES = 10
+export const FACE_CENTER_PANORAMA_SETTLE_DEGREES = 7
 const MIN_FACE_SCORE = 0.5
 const TARGET_SMOOTHING_TIME_MS = 480
 
 export type FaceBox = NormalizedFace & { lastSeenAt: number }
 export type DetectionMode = "viewport" | "panorama"
-interface FaceTarget { x: number, y: number, yaw?: number, pitch?: number, mode: DetectionMode, lastSeenAt: number }
+export interface FaceTarget { x: number, y: number, yaw?: number, pitch?: number, mode: DetectionMode, lastSeenAt: number }
+export interface FaceCenteringError {
+  yaw: number
+  pitch: number
+  yawOffset: number
+  pitchOffset: number
+  needsMovement: boolean
+}
 interface FaceSelectionAnchor { x: number, y: number, weight: number, wrapX: boolean }
 export interface PerspectivePanoramaView { yaw: number, pitch: number, fov: number, aspect: number, yawSpan: 180 | 360 }
 export interface PanoramaSample {
@@ -53,9 +64,45 @@ const isHalfProjection = (projection: ProjectionMode) =>
   projection === "sbs_180_eqr" || projection === "sbs_180_fe" || projection === "m_180_eqr" || projection === "m_180_fe"
 const getProjectionYawSpan = (projection: ProjectionMode) => (isHalfProjection(projection) ? 180 : 360)
 export const getProjectionYawLimit = (projection: ProjectionMode) => (isHalfProjection(projection) ? 86 : undefined)
+const getViewportTanHalfVertical = (camera: PerspectiveCamera) =>
+  Math.tan(MathUtils.degToRad(camera.fov) / 2) / camera.zoom
+const getViewportYawOffset = (camera: PerspectiveCamera, x: number) =>
+  MathUtils.radToDeg(Math.atan((1 - x * 2) * getViewportTanHalfVertical(camera) * camera.aspect))
 const getViewportPitchOffset = (camera: PerspectiveCamera, y: number) => {
-  const tanHalfVertical = Math.tan(MathUtils.degToRad(camera.fov) / 2) / camera.zoom
-  return MathUtils.radToDeg(Math.atan((1 - y * 2) * tanHalfVertical))
+  return MathUtils.radToDeg(Math.atan((1 - y * 2) * getViewportTanHalfVertical(camera)))
+}
+
+export const getFaceCenteringError = (
+  target: FaceTarget,
+  camera: PerspectiveCamera,
+  view: { yaw: number, pitch: number },
+  moving = false,
+): FaceCenteringError => {
+  const viewportFaceX = VIEWPORT_TARGET_X + target.x
+  const viewportFaceY = VIEWPORT_TARGET_Y + target.y
+  const yaw = target.yaw === undefined
+    ? getViewportYawOffset(camera, viewportFaceX) - getViewportYawOffset(camera, VIEWPORT_TARGET_X)
+    : shortestAngle(target.yaw - view.yaw)
+  const pitch = target.pitch === undefined
+    ? getViewportPitchOffset(camera, viewportFaceY) - getViewportPitchOffset(camera, VIEWPORT_TARGET_Y)
+    : target.pitch - view.pitch
+  const viewportThreshold = moving ? FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD : FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD
+  const panoramaThreshold = moving ? FACE_CENTER_PANORAMA_SETTLE_DEGREES : FACE_CENTER_PANORAMA_ACTIVATION_DEGREES
+  const yawDeadZone = target.mode === "viewport"
+    ? Math.abs(getViewportYawOffset(camera, VIEWPORT_TARGET_X + viewportThreshold) - getViewportYawOffset(camera, VIEWPORT_TARGET_X))
+    : panoramaThreshold
+  const pitchDeadZone = target.mode === "viewport"
+    ? Math.abs(getViewportPitchOffset(camera, VIEWPORT_TARGET_Y + viewportThreshold) - getViewportPitchOffset(camera, VIEWPORT_TARGET_Y))
+    : panoramaThreshold
+  const yawOffset = Math.sign(yaw) * Math.max(0, Math.abs(yaw) - yawDeadZone)
+  const pitchOffset = Math.sign(pitch) * Math.max(0, Math.abs(pitch) - pitchDeadZone)
+  return {
+    yaw,
+    pitch,
+    yawOffset,
+    pitchOffset,
+    needsMovement: yawOffset !== 0 || pitchOffset !== 0,
+  }
 }
 
 export const getFaceCenter = (face: FaceBox) => ({

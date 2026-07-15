@@ -40,6 +40,12 @@ Only one inference may be in flight. The next inference time is measured from th
 
 The target grace period and stable-face selection logic remain active across short misses so a single failed detection does not immediately discard the subject.
 
+### Centering dead zones
+
+Detection mode and camera movement share one hysteresis policy. From rest, a viewport target must drift beyond 8% of the inference view on either axis before the camera starts; after movement begins, it continues until both axes settle within 5%. A panorama recovery target similarly starts movement beyond 10° and settles within 7°. These same thresholds decide whether adaptive inference classifies a tracked target as `stable` or `active`, preventing scan frequency and render cadence from switching repeatedly near one boundary.
+
+The dead zone is subtracted from larger errors so movement starts continuously at its edge. When an axis re-enters the dead zone, its residual camera velocity is cleared immediately; small detection jitter therefore cannot keep the render loop or camera moving.
+
 ### Manual view override
 
 Dragging the view, changing zoom, or explicitly resetting the view pauses face centering after the first effective change. The pause has no timeout: detections, recovery scanning, and camera motion remain stopped so the player does not undo the user's chosen view. Starting a gesture without moving does not pause centering.

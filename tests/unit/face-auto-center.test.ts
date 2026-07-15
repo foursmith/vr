@@ -1,7 +1,7 @@
-import type { FaceAutoCenterState, FaceBox } from "../../src/features/vr/face-auto-center"
+import type { FaceAutoCenterState, FaceBox, FaceTarget } from "../../src/features/vr/face-auto-center"
 import { PerspectiveCamera } from "three"
 import { describe, expect, it } from "vitest"
-import { applyDetections, getFaceCenter, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, updateFaceMotion } from "../../src/features/vr/face-auto-center"
+import { applyDetections, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, getFaceCenter, getFaceCenteringError, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, updateFaceMotion } from "../../src/features/vr/face-auto-center"
 
 const state = (): FaceAutoCenterState => ({
   faces: [],
@@ -22,6 +22,30 @@ describe("face auto-center", () => {
     expect(getFaceCenter(face()).y).toBeCloseTo(0.25)
     expect(getProjectionYawLimit("sbs_180_eqr")).toBe(86)
     expect(getProjectionYawLimit("mono_360_eqr")).toBeUndefined()
+  })
+
+  it("uses shared hysteresis thresholds for movement and adaptive scan activity", () => {
+    const camera = new PerspectiveCamera(80, 9 / 16)
+    const target = (overrides: Partial<FaceTarget>): FaceTarget => ({
+      x: 0,
+      y: 0,
+      mode: "viewport",
+      lastSeenAt: 100,
+      ...overrides,
+    })
+
+    expect(FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD).toBe(0.08)
+    expect(FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD).toBe(0.05)
+    expect(FACE_CENTER_PANORAMA_ACTIVATION_DEGREES).toBe(10)
+    expect(FACE_CENTER_PANORAMA_SETTLE_DEGREES).toBe(7)
+    expect(getFaceCenteringError(target({ x: FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD - 0.001 }), camera, { yaw: 0, pitch: 0 }).needsMovement).toBe(false)
+    expect(getFaceCenteringError(target({ x: FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD + 0.001 }), camera, { yaw: 0, pitch: 0 }).needsMovement).toBe(true)
+    expect(getFaceCenteringError(target({ x: FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD + 0.001 }), camera, { yaw: 0, pitch: 0 }, true).needsMovement).toBe(true)
+    expect(getFaceCenteringError(target({ x: FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD - 0.001 }), camera, { yaw: 0, pitch: 0 }, true).needsMovement).toBe(false)
+    expect(getFaceCenteringError(target({ mode: "panorama", yaw: FACE_CENTER_PANORAMA_ACTIVATION_DEGREES - 0.1 }), camera, { yaw: 0, pitch: 0 }).needsMovement).toBe(false)
+    expect(getFaceCenteringError(target({ mode: "panorama", yaw: FACE_CENTER_PANORAMA_ACTIVATION_DEGREES + 0.1 }), camera, { yaw: 0, pitch: 0 }).needsMovement).toBe(true)
+    expect(getFaceCenteringError(target({ mode: "panorama", yaw: FACE_CENTER_PANORAMA_SETTLE_DEGREES + 0.1 }), camera, { yaw: 0, pitch: 0 }, true).needsMovement).toBe(true)
+    expect(getFaceCenteringError(target({ mode: "panorama", yaw: FACE_CENTER_PANORAMA_SETTLE_DEGREES - 0.1 }), camera, { yaw: 0, pitch: 0 }, true).needsMovement).toBe(false)
   })
 
   it("smooths face movement and detects a receding subject", () => {
