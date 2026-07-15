@@ -1,7 +1,7 @@
 import type { FaceAutoCenterState, FaceBox } from "../../src/features/vr/face-auto-center"
 import { PerspectiveCamera } from "three"
 import { describe, expect, it } from "vitest"
-import { applyDetections, getFaceCenter, getProjectionYawLimit, mapSampleFaceToPanorama, setPanoramaTarget, setViewportTarget } from "../../src/features/vr/face-auto-center"
+import { applyDetections, getFaceCenter, getProjectionYawLimit, mapSampleFaceToPanorama, setPanoramaTarget, setViewportTarget, updateFaceMotion } from "../../src/features/vr/face-auto-center"
 
 const state = (): FaceAutoCenterState => ({
   faces: [],
@@ -24,10 +24,42 @@ describe("face auto-center", () => {
     expect(getProjectionYawLimit("mono_360_eqr")).toBeUndefined()
   })
 
+  it("smooths face movement and detects a receding subject", () => {
+    const value = state()
+    updateFaceMotion(value, face({ x: 0.4, y: 0.3, width: 0.3, height: 0.4 }), 100)
+    const motion = updateFaceMotion(value, face({ x: 0.5, y: 0.3, width: 0.2, height: 0.3 }), 600)
+    expect(motion.speed).toBeGreaterThan(0)
+    expect(motion.recedingSpeed).toBeGreaterThan(0)
+    expect(motion.size).toBeCloseTo(Math.sqrt(0.06))
+  })
+
   it("maps wrapped samples back onto panorama coordinates", () => {
     const mapped = mapSampleFaceToPanorama(face({ x: 0.8, width: 0.2 }), { center: { x: 0, y: 0.5 }, startX: 0.9, widthX: 0.3, wraps: true })
     expect(getFaceCenter(mapped).x).toBeCloseTo(0.17)
     expect(mapped.width).toBeCloseTo(0.06)
+  })
+
+  it("maps perspective tile detections back onto panorama coordinates", () => {
+    const mapped = mapSampleFaceToPanorama(face({ x: 0.4, y: 0.35, width: 0.2, height: 0.3 }), {
+      center: { x: 0.25, y: 0.5 },
+      startX: 0,
+      widthX: 1,
+      wraps: true,
+      perspective: { yaw: 90, pitch: 0, fov: 90, aspect: 1, yawSpan: 360 },
+    })
+    expect(getFaceCenter(mapped).x).toBeCloseTo(0.25)
+    expect(getFaceCenter(mapped).y).toBeCloseTo(0.5)
+  })
+
+  it("preserves the full yaw angle when mapping a 180-degree perspective tile", () => {
+    const mapped = mapSampleFaceToPanorama(face({ x: 0.4, y: 0.35, width: 0.2, height: 0.3 }), {
+      center: { x: 0.11, y: 0.5 },
+      startX: 0,
+      widthX: 1,
+      wraps: false,
+      perspective: { yaw: 70, pitch: 0, fov: 90, aspect: 1, yawSpan: 180 },
+    })
+    expect((0.5 - getFaceCenter(mapped).x) * 180).toBeCloseTo(70)
   })
 
   it("clamps non-wrapped sample faces to panorama bounds", () => {
