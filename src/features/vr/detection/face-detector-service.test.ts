@@ -1,6 +1,6 @@
-import type { FaceDetectorBackend } from "../../src/features/vr/detection/face-detector-service"
+import type { FaceDetectorBackend } from "./face-detector-service"
 import { describe, expect, it, vi } from "vitest"
-import { createFaceDetectorService } from "../../src/features/vr/detection/face-detector-service"
+import { createFaceDetectorService } from "./face-detector-service"
 
 const createBackend = (): FaceDetectorBackend => ({
   detect: vi.fn(async () => []),

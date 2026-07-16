@@ -1,8 +1,8 @@
 import { indexedDB } from "fake-indexeddb"
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { fsvrMediaIdentity } from "../fsvr"
 import {
   DEFAULT_GLOBAL_PREFERENCES,
-  fsvrMediaIdentity,
   loadGlobalPreferences,
   loadLastPlayback,
   loadVideoPlaybackState,
@@ -10,7 +10,7 @@ import {
   saveLastPlayback,
   saveVideoPlaybackState,
   videoStateKey,
-} from "../../src/features/player/playback-state"
+} from "./playback-state"
 
 describe("player state persistence", () => {
   beforeAll(() => vi.stubGlobal("indexedDB", indexedDB))

@@ -1,4 +1,4 @@
-export interface SubtitleCue { start: number, end: number, text: string }
+interface SubtitleCue { start: number, end: number, text: string }
 
 const parseTimestamp = (value: string) => {
   const parts = value.trim().replace(",", ".").split(":").map(Number)

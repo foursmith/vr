@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { acceptFaceDetection, applyPanoramaDetectionMiss, applyViewportDetection, createFaceDetectionState, getActivePanoramaScan, getFaceDetectionMode, getFaceDetectionRange, getFaceDetectionRetryAt, getPanoramaRecoveryRetryDelay, prepareFaceDetection } from "../../src/features/vr/tracking/face-detection-state"
+import { acceptFaceDetection, applyPanoramaDetectionMiss, applyViewportDetection, createFaceDetectionState, getActivePanoramaScan, getFaceDetectionMode, getFaceDetectionRange, getFaceDetectionRetryAt, getPanoramaRecoveryRetryDelay, prepareFaceDetection } from "./face-detection-state"
 
 const tiles = [
   { yaw: 0, pitch: 0, fov: 100 },

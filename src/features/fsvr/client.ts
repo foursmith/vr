@@ -1,5 +1,6 @@
-import type { PlaylistNode, PlaylistSourceKind } from "../playlist/model"
-import { isAppleDoublePath, subtitleMatchScore } from "../playlist/model"
+import type { PlaylistNode, PlaylistSourceKind } from "../playlist"
+import { isAppleDoublePath } from "../playlist"
+import { subtitleMatchScore } from "../subtitles/matching"
 
 interface ServerSource { id: string, name: string, kind: Exclude<PlaylistSourceKind, "browser"> }
 export interface DlnaDevice { id: string, name: string, kind: string }

@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { createMediaPipeFaceDetectorClient } from "../../src/features/vr/detection/mediapipe-client"
+import { createMediaPipeFaceDetectorClient } from "./mediapipe-client"
 
 const mocks = vi.hoisted(() => ({
   infer: vi.fn(),
   release: vi.fn(),
 }))
 
-vi.mock("../../src/features/vr/detection/face-tracker-client", () => ({
+vi.mock("./face-tracker-client", () => ({
   getFaceTrackerClient: () => ({ infer: mocks.infer }),
   releaseFaceAutoCenterResources: mocks.release,
 }))

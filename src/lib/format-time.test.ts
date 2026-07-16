@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { formatTime } from "../../src/lib/format-time"
+import { formatTime } from "./format-time"
 
 describe("formatTime", () => {
   it.each([

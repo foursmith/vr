@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest"
-import { isChromiumBrowser } from "../../src/lib/browser"
+import { isChromiumBrowser } from "./browser"
 
 const originalUserAgent = navigator.userAgent
 const originalUserAgentData = (navigator as Navigator & { userAgentData?: unknown }).userAgentData

@@ -1,6 +1,6 @@
 import { createRoot, flush } from "solid-js"
 import { describe, expect, it, vi } from "vitest"
-import { createAbLoopController } from "../../src/features/player/ab-loop/controller"
+import { createAbLoopController } from "./index"
 
 const createHarness = () => {
   const video = {

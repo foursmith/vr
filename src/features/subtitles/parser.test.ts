@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { activeSubtitleText, parseSubtitle } from "../../src/features/subtitles/parser"
+import { activeSubtitleText, parseSubtitle } from "./parser"
 
 describe("subtitle parser", () => {
   it("parses SRT and WebVTT cues and resolves the active text", () => {

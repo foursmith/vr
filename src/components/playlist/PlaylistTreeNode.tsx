@@ -1,4 +1,4 @@
-import type { PlaylistSourceKind, PlaylistStateNode } from "../../features/playlist/model"
+import type { PlaylistSourceKind, PlaylistStateNode } from "../../features/playlist"
 import { For, Show } from "solid-js"
 import { Icon } from "../ui/Icon"
 

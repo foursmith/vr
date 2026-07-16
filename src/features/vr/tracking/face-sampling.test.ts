@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { drawViewportInferenceSample, getRenderViewports, getViewportInferenceSampleSize } from "../../src/features/vr/rendering/vr-render-runtime"
+import { drawViewportInferenceSample, getRenderViewports, getViewportInferenceSampleSize } from "../rendering/vr-render-runtime"
 import {
   getPanoramaRefinementTile,
   getPanoramaScanTile,
@@ -8,7 +8,7 @@ import {
   isPanoramaCandidateReliable,
   PANORAMA_COARSE_TILE_FOV,
   PANORAMA_REFINEMENT_FOV,
-} from "../../src/features/vr/tracking/face-sampling"
+} from "./face-sampling"
 
 describe("face sampling", () => {
   it("covers 360-degree projections with six overlapping cubemap-like views", () => {

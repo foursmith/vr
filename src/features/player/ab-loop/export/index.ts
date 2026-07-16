@@ -4,9 +4,6 @@ import { createStore } from "solid-js"
 import { chooseAbExportMimeType, getAbExportFormat } from "./format"
 import { createSubtitleCompositor } from "./subtitle-compositor"
 
-export { AB_EXPORT_FORMAT_OPTIONS } from "./format"
-export type { AbExportFormat } from "./format"
-
 export const MAX_AB_EXPORT_DURATION_SECONDS = 60
 
 type AbExportStatus = "idle" | "recording" | "done" | "error"

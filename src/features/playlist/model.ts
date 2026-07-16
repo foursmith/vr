@@ -1,3 +1,5 @@
+import { subtitleMatchScore } from "../subtitles/matching"
+
 export interface PlaylistStateNode {
   id: string
   name: string
@@ -87,38 +89,6 @@ export const isVideoFile = (file: File) =>
   file.type.startsWith("video/") || /\.(?:mp4|m4v|mov|webm|mkv|avi|ogv|mpeg|mpg)$/i.test(file.name)
 
 export const isSubtitleFile = (file: File) => /\.(?:srt|vtt|ass|ssa)$/i.test(file.name)
-
-const fileStem = (name: string) => name.replace(/\.[^.]+$/, "")
-
-const normalizedName = (name: string) => fileStem(name)
-  .normalize("NFKD")
-  .toLocaleLowerCase()
-  .replace(/\b(zh|zho|chi|chs|cht|cn|eng|en|english|subtitle|sub)\b/g, " ")
-  .replace(/[^\p{L}\p{N}]+/gu, " ")
-  .trim()
-
-const bigrams = (value: string) => {
-  const compact = value.replace(/\s+/g, "")
-  if (compact.length < 2) return new Set(compact ? [compact] : [])
-  return new Set(Array.from({ length: compact.length - 1 }, (_, index) => compact.slice(index, index + 2)))
-}
-
-export const subtitleMatchScore = (videoName: string, subtitleName: string) => {
-  const video = normalizedName(videoName)
-  const subtitle = normalizedName(subtitleName)
-  if (!video || !subtitle) return 0
-  if (video === subtitle) return 1
-  if (video.includes(subtitle) || subtitle.includes(video)) {
-    return 0.82 + 0.18 * (Math.min(video.length, subtitle.length) / Math.max(video.length, subtitle.length))
-  }
-  const left = bigrams(video)
-  const right = bigrams(subtitle)
-  let overlap = 0
-  left.forEach((part) => {
-    if (right.has(part)) overlap += 1
-  })
-  return left.size + right.size ? (2 * overlap) / (left.size + right.size) : 0
-}
 
 const matchSubtitles = (videos: PlaylistNode[], subtitles: File[]) => {
   const candidates = videos.flatMap(video => subtitles.map(subtitle => ({
@@ -258,4 +228,33 @@ export const firstVideoNode = (nodes: PlaylistNode[]): PlaylistNode | undefined 
     if (nestedVideo) return nestedVideo
   }
   return undefined
+}
+
+export const playlistFolderIds = (
+  nodes: PlaylistNode[],
+  targetId: string,
+  folderIds: string[] = [],
+): string[] | undefined => {
+  for (const node of nodes) {
+    if (node.id === targetId) return folderIds
+    if (node.kind !== "folder") continue
+    const found = playlistFolderIds(node.children ?? [], targetId, [...folderIds, node.id])
+    if (found) return found
+  }
+}
+
+export const countPlaylistVideos = (nodes: PlaylistNode[]): number => nodes.reduce(
+  (count, node) => count + (node.kind === "video" ? 1 : countPlaylistVideos(node.children ?? [])),
+  0,
+)
+
+export const findPlaylistStateNode = (
+  nodes: PlaylistStateNode[],
+  id: string,
+): PlaylistStateNode | undefined => {
+  for (const node of nodes) {
+    if (node.id === id) return node
+    const nested = findPlaylistStateNode(node.children ?? [], id)
+    if (nested) return nested
+  }
 }

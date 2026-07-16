@@ -1,12 +1,10 @@
+import type { ValueUpdate } from "../../lib/value-update"
 import type { CameraView } from "../vr/config"
 import { createSignal, createStore } from "solid-js"
+import { resolveValueUpdate } from "../../lib/value-update"
 import { DEFAULT_FORWARD, QUALITY_OPTIONS } from "../vr/config"
 
-type ValueUpdate<T> = T | ((current: T) => T)
 interface ViewRef { current: CameraView }
-
-const resolveUpdate = <T>(current: T, update: ValueUpdate<T>) =>
-  typeof update === "function" ? (update as (current: T) => T)(current) : update
 
 export function createDisplay(options: {
   getPlayer: () => HTMLElement
@@ -33,17 +31,17 @@ export function createDisplay(options: {
 
   const setValue = <K extends keyof typeof state>(key: K, update: ValueUpdate<(typeof state)[K]>) => {
     setState((draft) => {
-      draft[key] = resolveUpdate(draft[key], update)
+      draft[key] = resolveValueUpdate(draft[key], update)
     })
   }
   const setProjectionId = (update: ValueUpdate<number>) => {
-    const next = resolveUpdate(state.projectionId, update)
+    const next = resolveValueUpdate(state.projectionId, update)
     setValue("projectionId", next)
     return next
   }
   const setQualityId = (update: ValueUpdate<number>) => setValue("qualityId", update)
   const setRenderFrameRateId = (update: ValueUpdate<number>) => {
-    const next = resolveUpdate(state.renderFrameRateId, update)
+    const next = resolveValueUpdate(state.renderFrameRateId, update)
     setValue("renderFrameRateId", Math.min(3, Math.max(1, Math.round(next))))
   }
   const setSplitScreen = (update: ValueUpdate<boolean>) => setValue("splitScreen", update)

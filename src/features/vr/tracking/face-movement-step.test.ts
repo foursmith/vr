@@ -1,8 +1,8 @@
-import type { CameraView } from "../../src/features/vr/config"
-import type { FaceAutoCenterState, FaceTarget } from "../../src/features/vr/tracking/face-target-tracking"
+import type { CameraView } from "../config"
+import type { FaceAutoCenterState, FaceTarget } from "./face-target-tracking"
 import { PerspectiveCamera } from "three"
 import { describe, expect, it } from "vitest"
-import { advanceFaceMovement, getFaceCenteringPlan } from "../../src/features/vr/tracking/face-center-movement"
+import { advanceFaceMovement, getFaceCenteringPlan } from "./face-center-movement"
 
 const createState = (): FaceAutoCenterState => ({
   faces: [],

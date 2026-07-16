@@ -1,11 +1,27 @@
 import { describe, expect, it } from "vitest"
-import { buildPlaylistTree, firstVideoNode, isSubtitleFile, isVideoFile, playlistNodesFromTransfer, subtitleMatchScore, videosInPlaybackFolder } from "../../src/features/playlist/model"
+import { subtitleMatchScore } from "../subtitles/matching"
+import { buildPlaylistTree, countPlaylistVideos, findPlaylistStateNode, firstVideoNode, isSubtitleFile, isVideoFile, playlistFolderIds, playlistNodesFromTransfer, videosInPlaybackFolder } from "./model"
 
 const file = (name: string, type = "", relativePath?: string) => {
   const value = new File(["media"], name, { type })
   if (relativePath) Object.defineProperty(value, "webkitRelativePath", { value: relativePath })
   return value
 }
+
+const nestedNodes = [{
+  id: "series",
+  name: "Series",
+  kind: "folder" as const,
+  children: [
+    { id: "episode-1", name: "Episode 1", kind: "video" as const },
+    {
+      id: "specials",
+      name: "Specials",
+      kind: "folder" as const,
+      children: [{ id: "special-1", name: "Special 1", kind: "video" as const }],
+    },
+  ],
+}]
 
 describe("playlist model", () => {
   it("recognizes MIME types and supported extensions case-insensitively", () => {
@@ -116,5 +132,15 @@ describe("playlist model", () => {
     expect(videosInPlaybackFolder(nodes, "special-1").map(node => node.id)).toEqual(["special-1", "special-2"])
     expect(videosInPlaybackFolder(nodes, "episode-1").map(node => node.id)).toEqual(["episode-1", "special-1", "special-2"])
     expect(videosInPlaybackFolder(nodes, "root-video").map(node => node.id)).toEqual(["episode-1", "special-1", "special-2", "root-video"])
+  })
+
+  it("finds playlist ancestry and nodes without mutating the tree", () => {
+    expect(playlistFolderIds(nestedNodes, "special-1")).toEqual(["series", "specials"])
+    expect(findPlaylistStateNode(nestedNodes, "special-1")?.name).toBe("Special 1")
+    expect(playlistFolderIds(nestedNodes, "missing")).toBeUndefined()
+  })
+
+  it("counts nested videos", () => {
+    expect(countPlaylistVideos(nestedNodes)).toBe(2)
   })
 })

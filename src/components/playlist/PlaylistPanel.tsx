@@ -1,5 +1,5 @@
 import type { RepeatMode } from "../../features/player/playback-state"
-import type { PlaylistStateNode } from "../../features/playlist/model"
+import type { PlaylistStateNode } from "../../features/playlist"
 import { createSignal, For, Show, untrack } from "solid-js"
 import { PlaylistTreeNode } from "../playlist/PlaylistTreeNode"
 import { IconButton } from "../ui/IconButton"

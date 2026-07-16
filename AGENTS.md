@@ -20,7 +20,13 @@
 - If the existing design is not compatible with the feature, prefer a focused refactor that simplifies and generalizes the shared logic before adding the new behavior.
 - Keep feature changes cohesive: each piece of state should have a clear owner, related behavior should use one code path, and tests should verify the shared behavior rather than implementation-specific workarounds.
 - Prefer extracting logic into small, side-effect-free pure functions with explicit inputs and outputs so it can be covered by focused unit tests. Keep state management, I/O, and UI interaction at the boundaries.
-- When a feature grows beyond a cohesive single file, organize it in a dedicated folder and expose its public API through an `index.ts` entry point. Callers should import from that feature entry point instead of reaching into internal files.
+- Organize code by clear ownership. Keep related state and behavior together, and let higher-level modules compose lower-level APIs.
+
+### Modules and Public APIs
+
+- Keep cohesive modules in one file. Create a directory only when the module genuinely needs multiple files.
+- Use `index.ts` as an intentional public entry point, not a forwarding layer. Avoid wildcard exports and chains of re-exports.
+- Keep public APIs minimal. Export only what consumers need; internal code and tests should import implementation files directly.
 
 ### Version Control
 
@@ -38,6 +44,8 @@
 - Do not run end-to-end (e2e) tests unless the user explicitly requests them.
 - Do not add or maintain UI tests. This includes component rendering tests, DOM interaction tests, visual or snapshot tests, and browser/end-to-end UI flows.
 - Validate UI-only changes with type checking, linting, and production builds instead of automated UI tests.
+- Co-locate unit tests with the source they cover using `*.test.ts` or `*.test.tsx`; split tests that cover unrelated modules.
+- Keep only shared fixtures in `tests/fixtures`, and do not expand public APIs for tests.
 
 ### Portrait Centering
 

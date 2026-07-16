@@ -22,7 +22,7 @@ const wrapCanvasText = (context: CanvasRenderingContext2D, text: string, maxWidt
     return lines
   })
 
-export interface SubtitleCompositorOptions {
+interface SubtitleCompositorOptions {
   scene: VrSceneController
   sourceCanvas: HTMLCanvasElement
   mount: HTMLElement

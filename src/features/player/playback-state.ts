@@ -1,3 +1,4 @@
+import { fsvrMediaIdentity, fsvrMediaKey } from "../fsvr"
 import { PROJECTION_OPTIONS } from "../vr/config"
 
 export type RepeatMode = "off" | "folder" | "file"
@@ -117,25 +118,6 @@ export function saveGlobalPreferences(preferences: GlobalPreferences, storage: S
     console.warn("global preferences could not be saved", error)
   }
 }
-
-const FSVR_MEDIA_PATH = /^\/api\/v1\/media\/([^/]+)\/([^/]+)$/
-const FSVR_KEY = /^fsvr:([^/]+)\/([^/]+)$/
-
-export interface FsvrMediaIdentity { sourceId: string, entryId: string }
-
-export function fsvrMediaIdentity(keyOrUrl: string): FsvrMediaIdentity | undefined {
-  try {
-    const value = keyOrUrl.startsWith("url:") ? keyOrUrl.slice(4) : keyOrUrl
-    const match = FSVR_KEY.exec(keyOrUrl) ?? FSVR_MEDIA_PATH.exec(new URL(value).pathname)
-    if (!match) return
-    return { sourceId: decodeURIComponent(match[1]), entryId: decodeURIComponent(match[2]) }
-  } catch {
-    // Invalid URLs and percent encoding are not fsvr media identities.
-  }
-}
-
-const fsvrMediaKey = (identity: FsvrMediaIdentity) =>
-  `fsvr:${encodeURIComponent(identity.sourceId)}/${encodeURIComponent(identity.entryId)}`
 
 export function videoStateKey(resource: { name: string, file?: File, url?: string }) {
   if (resource.file) return `file:${resource.file.name}:${resource.file.size}:${resource.file.lastModified}`
