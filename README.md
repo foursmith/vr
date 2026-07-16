@@ -12,15 +12,9 @@
 
 ## Demo Video
 
-<div align="center">
-  <video src="https://cdn.jsdelivr.net/gh/foursmith/vr@main/doc/demo.mp4"
-         width="800"
-         controls
-         loop
-         muted>
-  </video>
+https://cdn.jsdelivr.net/gh/foursmith/vr@main/doc/demo.mp4
 
-[▶ Watch the demo video](doc/demo.mp4)
+[▶ Watch the demo video](https://cdn.jsdelivr.net/gh/foursmith/vr@main/doc/demo.mp4)
 </div>
 
 ## Features
