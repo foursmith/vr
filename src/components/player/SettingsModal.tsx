@@ -124,7 +124,7 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
             </div>
             <div class="border-t border-white/7">
               <SettingToggle
-                title="Portrait panels"
+                title="Portrait layout"
                 description="Repeat the view on wide screens."
                 icon="columns"
                 pressed={state.splitScreen}
