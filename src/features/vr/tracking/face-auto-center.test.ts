@@ -146,18 +146,18 @@ describe("face auto-center", () => {
     const value = state()
     const camera = new PerspectiveCamera(80, 9 / 16)
     const smallFace = face({ width: 0.05, height: 0.05 })
-    const largeFace = face({ width: 0.2, height: 0.2 })
+    const largeFace = face({ width: FACE_CENTER_TARGET_SIZE * 2, height: FACE_CENTER_TARGET_SIZE * 2 })
 
-    expect(FACE_CENTER_TARGET_SIZE).toBe(0.1)
+    expect(FACE_CENTER_TARGET_SIZE).toBe(0.18)
     expect(FACE_CENTER_SIZE_DEAD_ZONE).toBe(0.02)
     expect(getFaceForwardTarget(smallFace, 0, 100)).toBe(FACE_CENTER_MAX_FORWARD)
     expect(getFaceForwardTarget(largeFace, 0, 100)).toBe(-100)
-    expect(getFaceForwardTarget(face({ width: 0.4, height: 0.4 }), -100, 100)).toBe(-700)
+    expect(getFaceForwardTarget(face({ width: FACE_CENTER_TARGET_SIZE * 4, height: FACE_CENTER_TARGET_SIZE * 4 }), -100, 100)).toBe(-700)
     expect(getFaceForwardTarget(face({ width: FACE_CENTER_TARGET_SIZE, height: FACE_CENTER_TARGET_SIZE }), 0, 100)).toBeCloseTo(0)
-    expect(getFaceForwardTarget(face({ width: 0.119, height: 0.119 }), 7, 100)).toBe(7)
-    expect(getFaceForwardTarget(face({ width: 0.12, height: 0.12 }), 7, 100)).not.toBe(7)
-    expect(getFaceForwardTarget(face({ width: 0.08, height: 0.08 }), 7, 100)).not.toBe(7)
-    expect(getFaceForwardTarget(face({ width: 0.121, height: 0.121 }), 7, 100)).not.toBe(7)
+    expect(getFaceForwardTarget(face({ width: 0.199, height: 0.199 }), 7, 100)).toBe(7)
+    expect(getFaceForwardTarget(face({ width: 0.2, height: 0.2 }), 7, 100)).not.toBe(7)
+    expect(getFaceForwardTarget(face({ width: 0.16, height: 0.16 }), 7, 100)).not.toBe(7)
+    expect(getFaceForwardTarget(face({ width: 0.201, height: 0.201 }), 7, 100)).not.toBe(7)
 
     setViewportTarget(value, smallFace, 100, camera, { yaw: 0, pitch: 0, forward: 0 }, undefined, 100)
     expect(value.target?.forward).toBe(FACE_CENTER_MAX_FORWARD)
@@ -165,8 +165,8 @@ describe("face auto-center", () => {
     expect(getFaceCenteringError({ ...centeredTarget, forward: FACE_CENTER_FORWARD_ACTIVATION_DISTANCE - 0.01 }, camera, { yaw: 0, pitch: 0, forward: 0 }).needsMovement).toBe(false)
     expect(getFaceCenteringError({ ...centeredTarget, forward: FACE_CENTER_FORWARD_ACTIVATION_DISTANCE + 0.01 }, camera, { yaw: 0, pitch: 0, forward: 0 }).needsMovement).toBe(true)
     expect(getFaceCenteringError({ ...centeredTarget, forward: FACE_CENTER_FORWARD_SETTLE_DISTANCE + 0.01 }, camera, { yaw: 0, pitch: 0, forward: 0 }, true).needsMovement).toBe(true)
-    expect(getFaceCenteringError({ ...centeredTarget, size: 0.119, forward: FACE_CENTER_MAX_FORWARD }, camera, { yaw: 0, pitch: 0, forward: 0 }).needsMovement).toBe(false)
-    expect(getFaceCenteringError({ ...centeredTarget, size: 0.121, forward: FACE_CENTER_MAX_FORWARD }, camera, { yaw: 0, pitch: 0, forward: 0 }).needsMovement).toBe(true)
+    expect(getFaceCenteringError({ ...centeredTarget, size: 0.199, forward: FACE_CENTER_MAX_FORWARD }, camera, { yaw: 0, pitch: 0, forward: 0 }).needsMovement).toBe(false)
+    expect(getFaceCenteringError({ ...centeredTarget, size: 0.201, forward: FACE_CENTER_MAX_FORWARD }, camera, { yaw: 0, pitch: 0, forward: 0 }).needsMovement).toBe(true)
     expect(getFaceMovementHint({
       yaw: 0,
       pitch: 0,
@@ -178,8 +178,8 @@ describe("face auto-center", () => {
     })).toMatchObject({ text: "nearer 0.6", depthValue: "0.6" })
     const settlingState = state()
     setViewportTarget(settlingState, smallFace, 100, camera, { yaw: 0, pitch: 0, forward: 0 }, undefined, 100)
-    setViewportTarget(settlingState, face({ width: 0.1, height: 0.1 }), 200, camera, { yaw: 0, pitch: 0, forward: 4 }, undefined, 100)
-    expect(settlingState.target).toMatchObject({ size: 0.1, forward: 4 })
+    setViewportTarget(settlingState, face({ width: 0.18, height: 0.18 }), 200, camera, { yaw: 0, pitch: 0, forward: 4 }, undefined, 100)
+    expect(settlingState.target).toMatchObject({ size: 0.18, forward: 4 })
     expect(getFaceForwardVelocity(20)).toBeGreaterThan(0)
     expect(getFaceForwardVelocity(20)).toBeLessThan(FACE_CENTER_FORWARD_MAX_SPEED)
     expect(getFaceForwardVelocity(-20)).toBeCloseTo(-getFaceForwardVelocity(20))
@@ -456,6 +456,7 @@ describe("face auto-center", () => {
       ...initialView,
       yaw: value.target!.yaw!,
       pitch: value.target!.pitch!,
+      forward: value.target!.forward!,
     }, "mono_360_eqr", true)
     expect(settledPlan.error.yawOffset).toBe(0)
     expect(settledPlan.error.pitchOffset).toBe(0)
