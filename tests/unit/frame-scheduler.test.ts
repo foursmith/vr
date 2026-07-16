@@ -80,14 +80,14 @@ describe("frame scheduler", () => {
   it("adapts inference frequency to tracking activity", () => {
     expect(faceInferencePeriod(60, 0, "stable")).toBeCloseTo(1000 / 3)
     expect(faceInferencePeriod(60, 0, "active")).toBeCloseTo(1000 / 6)
-    expect(faceInferencePeriod(60, 0, "searching")).toBe(125)
-    expect(faceInferencePeriod(60, 0, "recovery")).toBeCloseTo(1000 / 12)
+    expect(faceInferencePeriod(60, 0, "searching")).toBe(200)
+    expect(faceInferencePeriod(60, 0, "recovery")).toBeCloseTo(1000 / 6)
   })
 
   it("uses measured inference cost as a floor for every activity", () => {
     expect(faceInferencePeriod(60, 100, "stable")).toBeCloseTo(1000 / 3)
     expect(faceInferencePeriod(60, 100, "active")).toBeCloseTo(1000 / 6)
-    expect(faceInferencePeriod(60, 100, "recovery")).toBeCloseTo(103)
+    expect(faceInferencePeriod(60, 100, "recovery")).toBeCloseTo(1000 / 6)
   })
 
   it("slows down for a close still face and anticipates fast or receding motion", () => {

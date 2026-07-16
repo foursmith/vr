@@ -2,15 +2,13 @@ import type { FaceAutoCenterState, FaceBox } from "../../src/features/vr/face-au
 import { PerspectiveCamera } from "three"
 import { describe, expect, it } from "vitest"
 import { MIN_FACE_CONFIDENCE } from "../../src/features/face-tracking/protocol"
-import { applyDetections, constrainFaceAutoCenterView, estimateFaceCenteringDuration, FACE_CENTER_EDGE_MARGIN_DEGREES, FACE_CENTER_FORWARD_ACTIVATION_DISTANCE, FACE_CENTER_FORWARD_MAX_SPEED, FACE_CENTER_FORWARD_SETTLE_DISTANCE, FACE_CENTER_MANUAL_INPUT_RESUME_DELAY_MS, FACE_CENTER_MAX_FORWARD, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_SIZE_DEAD_ZONE, FACE_CENTER_STOP_SPEED, FACE_CENTER_TARGET_SIZE, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, FACE_DIRECTION_MAX_AGE_MS, FACE_IDENTITY_SWITCH_POSITION_SPEED, FACE_IDENTITY_SWITCH_SIZE_SPEED, getFaceAutoCenterManualResumeAt, getFaceCenter, getFaceCenteringError, getFaceCenteringPlan, getFaceCenteringVelocity, getFaceDetectionRange, getFaceForwardTarget, getFaceForwardVelocity, getFaceMovementHint, getManualZoomForwardTarget, getPredictedFaceDirection, getProjectionCoverageMargin, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, shouldEnterPanoramaRecovery, smoothFaceCenteringVelocity, updateFaceMotion, VIEWPORT_MISSES_BEFORE_PANORAMA } from "../../src/features/vr/face-auto-center"
+import { applyDetections, constrainFaceAutoCenterView, estimateFaceCenteringDuration, FACE_CENTER_EDGE_MARGIN_DEGREES, FACE_CENTER_FORWARD_ACTIVATION_DISTANCE, FACE_CENTER_FORWARD_MAX_SPEED, FACE_CENTER_FORWARD_SETTLE_DISTANCE, FACE_CENTER_MANUAL_INPUT_RESUME_DELAY_MS, FACE_CENTER_MAX_FORWARD, FACE_CENTER_PANORAMA_ACTIVATION_DEGREES, FACE_CENTER_PANORAMA_MAX_SPEED, FACE_CENTER_PANORAMA_SETTLE_DEGREES, FACE_CENTER_SIZE_DEAD_ZONE, FACE_CENTER_STOP_SPEED, FACE_CENTER_TARGET_SIZE, FACE_CENTER_VIEWPORT_ACTIVATION_THRESHOLD, FACE_CENTER_VIEWPORT_MAX_SPEED, FACE_CENTER_VIEWPORT_SETTLE_THRESHOLD, FACE_DIRECTION_MAX_AGE_MS, FACE_IDENTITY_SWITCH_POSITION_SPEED, FACE_IDENTITY_SWITCH_SIZE_SPEED, getFaceAutoCenterManualResumeAt, getFaceCenter, getFaceCenteringError, getFaceCenteringPlan, getFaceCenteringVelocity, getFaceForwardTarget, getFaceForwardVelocity, getFaceMovementHint, getManualZoomForwardTarget, getPredictedFaceDirection, getProjectionCoverageMargin, getProjectionYawLimit, mapSampleFaceToPanorama, pauseFaceAutoCenter, resumeFaceAutoCenter, setPanoramaTarget, setViewportTarget, smoothFaceCenteringVelocity, updateFaceMotion } from "../../src/features/vr/face-auto-center"
 
 const state = (): FaceAutoCenterState => ({
   faces: [],
   detectionMode: "viewport",
   nextDetectionAt: 0,
   lastDetectionAt: 0,
-  consecutiveMisses: 0,
-  consecutiveViewportMisses: 0,
   isMoving: false,
   yawVelocity: 0,
   pitchVelocity: 0,
@@ -27,18 +25,6 @@ const target = (overrides: Partial<FaceTarget> = {}): FaceTarget => ({
 })
 
 describe("face auto-center", () => {
-  it("cascades viewport detection from short range to full range before panorama recovery", () => {
-    expect(getFaceDetectionRange("viewport")).toBe("short")
-    expect(getFaceDetectionRange("viewport", 1)).toBe("full")
-    expect(getFaceDetectionRange("panorama")).toBe("full")
-  })
-
-  it("enters panorama recovery only after two consecutive viewport misses", () => {
-    expect(VIEWPORT_MISSES_BEFORE_PANORAMA).toBe(2)
-    expect(shouldEnterPanoramaRecovery(1)).toBe(false)
-    expect(shouldEnterPanoramaRecovery(2)).toBe(true)
-  })
-
   it("computes centers and projection yaw limits", () => {
     expect(getFaceCenter(face()).x).toBeCloseTo(0.3)
     expect(getFaceCenter(face()).y).toBeCloseTo(0.25)
@@ -172,9 +158,9 @@ describe("face auto-center", () => {
     expect(getFaceForwardTarget(face({ width: 0.08, height: 0.08 }), 7, 100)).not.toBe(7)
     expect(getFaceForwardTarget(face({ width: 0.121, height: 0.121 }), 7, 100)).not.toBe(7)
 
-    setViewportTarget(value, smallFace, 100, undefined, 0, 100)
+    setViewportTarget(value, smallFace, 100, camera, { yaw: 0, pitch: 0, forward: 0 }, undefined, 100)
     expect(value.target?.forward).toBe(FACE_CENTER_MAX_FORWARD)
-    const centeredTarget = { ...value.target!, x: 0, y: 0 }
+    const centeredTarget = { ...value.target!, x: 0, y: 0, yaw: 0, pitch: 0 }
     expect(getFaceCenteringError({ ...centeredTarget, forward: FACE_CENTER_FORWARD_ACTIVATION_DISTANCE - 0.01 }, camera, { yaw: 0, pitch: 0, forward: 0 }).needsMovement).toBe(false)
     expect(getFaceCenteringError({ ...centeredTarget, forward: FACE_CENTER_FORWARD_ACTIVATION_DISTANCE + 0.01 }, camera, { yaw: 0, pitch: 0, forward: 0 }).needsMovement).toBe(true)
     expect(getFaceCenteringError({ ...centeredTarget, forward: FACE_CENTER_FORWARD_SETTLE_DISTANCE + 0.01 }, camera, { yaw: 0, pitch: 0, forward: 0 }, true).needsMovement).toBe(true)
@@ -190,8 +176,8 @@ describe("face auto-center", () => {
       needsMovement: true,
     })).toMatchObject({ text: "nearer 0.6", depthValue: "0.6" })
     const settlingState = state()
-    setViewportTarget(settlingState, smallFace, 100, undefined, 0, 100)
-    setViewportTarget(settlingState, face({ width: 0.1, height: 0.1 }), 200, undefined, 4, 100)
+    setViewportTarget(settlingState, smallFace, 100, camera, { yaw: 0, pitch: 0, forward: 0 }, undefined, 100)
+    setViewportTarget(settlingState, face({ width: 0.1, height: 0.1 }), 200, camera, { yaw: 0, pitch: 0, forward: 4 }, undefined, 100)
     expect(settlingState.target).toMatchObject({ size: 0.1, forward: 4 })
     expect(getFaceForwardVelocity(20)).toBeGreaterThan(0)
     expect(getFaceForwardVelocity(20)).toBeLessThan(FACE_CENTER_FORWARD_MAX_SPEED)
@@ -309,9 +295,6 @@ describe("face auto-center", () => {
     value.selectedFace = { ...face(), mode: "viewport" }
     value.target = { x: 0.2, y: -0.1, mode: "viewport", lastSeenAt: 100 }
     value.motion = { centerX: 0.3, centerY: 0.25, size: 0.2, speed: 1, recedingSpeed: 0, lastSeenAt: 100 }
-    value.recoveryMode = "panorama"
-    value.consecutiveMisses = 2
-    value.consecutiveViewportMisses = 1
     value.isMoving = true
     value.yawVelocity = 2
     value.forwardVelocity = 4
@@ -321,9 +304,6 @@ describe("face auto-center", () => {
     expect(value).toMatchObject({ manuallyPaused: true, faces: [], isMoving: false, yawVelocity: 0, forwardVelocity: 0 })
     expect(value.target).toBeUndefined()
     expect(value.motion).toBeUndefined()
-    expect(value.recoveryMode).toBeUndefined()
-    expect(value.consecutiveMisses).toBe(0)
-    expect(value.consecutiveViewportMisses).toBe(0)
     expect(value.nextDetectionAt).toBe(Number.POSITIVE_INFINITY)
 
     resumeFaceAutoCenter(value)
@@ -448,13 +428,37 @@ describe("face auto-center", () => {
 
   it("sets viewport and clamped panorama targets", () => {
     const value = state()
-    expect(setViewportTarget(value, face(), 100)).toBe(true)
+    const camera = new PerspectiveCamera(80, 16 / 9)
+    expect(setViewportTarget(value, face(), 100, camera, { yaw: 0, pitch: 0, forward: 0 })).toBe(true)
     expect(value.target?.mode).toBe("viewport")
     expect(value.target?.x).toBeCloseTo(-0.2)
-    const camera = new PerspectiveCamera(80, 16 / 9)
     expect(setPanoramaTarget(value, face({ x: -1, width: 0.1 }), 200, "sbs_180_eqr", camera)).toBe(true)
     expect(value.target?.yaw).toBe(86)
-    expect(setViewportTarget(value, undefined, 300)).toBe(false)
+    expect(setViewportTarget(value, undefined, 300, camera, { yaw: 0, pitch: 0, forward: 0 })).toBe(false)
+  })
+
+  it("stores viewport detections as absolute targets that converge without rescanning", () => {
+    const value = state()
+    const camera = new PerspectiveCamera(80, 9 / 16)
+    const initialView = { yaw: 20, pitch: -10, forward: 0 }
+    setViewportTarget(
+      value,
+      face({ x: 0.75, y: 0.6, width: 0.1, height: 0.1 }),
+      100,
+      camera,
+      initialView,
+    )
+
+    const initialPlan = getFaceCenteringPlan(value.target!, camera, initialView, "mono_360_eqr")
+    expect(initialPlan.error.needsMovement).toBe(true)
+    const settledPlan = getFaceCenteringPlan(value.target!, camera, {
+      ...initialView,
+      yaw: value.target!.yaw!,
+      pitch: value.target!.pitch!,
+    }, "mono_360_eqr", true)
+    expect(settledPlan.error.yawOffset).toBe(0)
+    expect(settledPlan.error.pitchOffset).toBe(0)
+    expect(settledPlan.error.needsMovement).toBe(false)
   })
 
   it("smooths panorama yaw over the shortest wrapped angle", () => {
@@ -469,10 +473,11 @@ describe("face auto-center", () => {
 
   it("resets target smoothing after a long detection gap or mode change", () => {
     const value = state()
-    setViewportTarget(value, face({ x: 0 }), 100)
-    setViewportTarget(value, face({ x: 0.7 }), 2000)
-    expect(value.target?.x).toBeCloseTo(0.3)
     const camera = new PerspectiveCamera(80, 1)
+    const view = { yaw: 0, pitch: 0, forward: 0 }
+    setViewportTarget(value, face({ x: 0 }), 100, camera, view)
+    setViewportTarget(value, face({ x: 0.7 }), 2000, camera, view)
+    expect(value.target?.x).toBeCloseTo(0.3)
     setPanoramaTarget(value, face({ x: 0.2 }), 2100, "mono_360_eqr", camera)
     expect(value.target?.mode).toBe("panorama")
     expect(value.target?.yaw).toBeCloseTo(72)

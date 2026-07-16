@@ -1,27 +1,19 @@
-import type { CameraView, ProjectionMode } from "@foursmith/player-core"
-import type { PerspectiveCamera } from "three"
+import type { ProjectionMode } from "@foursmith/player-core"
 import type { NormalizedFace } from "../face-tracking/protocol"
 import type { FaceAutoCenterState, FaceBox, FaceWorldDirection, PanoramaSample } from "./face-auto-center"
 import { MathUtils } from "three"
 
 // Keep doc/PORTRAIT_CENTERING.md synchronized with scan geometry and sampling changes.
 
-const VIEWPORT_TARGET_X = 0.5
-const VIEWPORT_TARGET_Y = 1 / 3
-const PANORAMA_SEARCH_DEGREES = 140
-const PANORAMA_SAMPLE_MAX_HEIGHT = 384
-const PANORAMA_HORIZONTAL_TILE_FOV = 130
-const PANORAMA_CAP_TILE_FOV = 110
-const PANORAMA_SCAN_TILE_COUNT = 5
-const PANORAMA_RING_PITCH_LIMIT = 45
+export const PANORAMA_COARSE_TILE_FOV = 100
+const PANORAMA_FULL_SCAN_TILE_COUNT = 6
+const PANORAMA_HALF_SCAN_TILE_COUNT = 5
 export const PANORAMA_RELIABLE_FACE_SCORE = 0.7
 export const PANORAMA_RELIABLE_CENTER_MARGIN = 0.18
 export const PANORAMA_RELIABLE_BOX_MARGIN = 0.08
 export const PANORAMA_REFINEMENT_FOV = 70
 
 export interface PanoramaScanTile { yaw: number, pitch: number, fov: number }
-
-interface SourceCrop { x: number, y: number, width: number, height: number }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 const shortestAngle = (degrees: number) => ((degrees + 540) % 360) - 180
@@ -31,18 +23,15 @@ const isFullProjection = (projection: ProjectionMode) =>
   projection === "tb_360_eqr" || projection === "mono_360_eqr"
 const getProjectionYawSpan = (projection: ProjectionMode) => (isHalfProjection(projection) ? 180 : 360)
 const getProjectionYawLimit = (projection: ProjectionMode) => (isHalfProjection(projection) ? 86 : undefined)
-const getViewportPitchOffset = (camera: PerspectiveCamera, y: number) => {
-  const tanHalfVertical = Math.tan(MathUtils.degToRad(camera.fov) / 2) / camera.zoom
-  return MathUtils.radToDeg(Math.atan((1 - y * 2) * tanHalfVertical))
-}
-
 const resizeCanvas = (canvas: HTMLCanvasElement, width: number, height: number) => {
   if (canvas.width !== width) canvas.width = width
   if (canvas.height !== height) canvas.height = height
 }
 
 export const getPanoramaScanTileCount = (projection: ProjectionMode) =>
-  isHalfProjection(projection) || isFullProjection(projection) ? PANORAMA_SCAN_TILE_COUNT : 1
+  isFullProjection(projection)
+    ? PANORAMA_FULL_SCAN_TILE_COUNT
+    : isHalfProjection(projection) ? PANORAMA_HALF_SCAN_TILE_COUNT : 1
 
 export const getPanoramaScanTile = (
   projection: ProjectionMode,
@@ -50,24 +39,24 @@ export const getPanoramaScanTile = (
   originYaw: number,
   originPitch = 0,
 ): PanoramaScanTile => {
-  const ringPitch = clamp(originPitch, -PANORAMA_RING_PITCH_LIMIT, PANORAMA_RING_PITCH_LIMIT)
   if (isHalfProjection(projection)) {
-    const origin = clamp(shortestAngle(originYaw), -86, 86)
-    switch (tileIndex % PANORAMA_SCAN_TILE_COUNT) {
-      case 0: return { yaw: origin, pitch: ringPitch, fov: PANORAMA_HORIZONTAL_TILE_FOV }
-      case 1: return { yaw: -60, pitch: ringPitch, fov: PANORAMA_HORIZONTAL_TILE_FOV }
-      case 2: return { yaw: 60, pitch: ringPitch, fov: PANORAMA_HORIZONTAL_TILE_FOV }
-      case 3: return { yaw: origin, pitch: 70, fov: PANORAMA_CAP_TILE_FOV }
-      default: return { yaw: origin, pitch: -70, fov: PANORAMA_CAP_TILE_FOV }
+    switch (tileIndex % PANORAMA_HALF_SCAN_TILE_COUNT) {
+      case 0: return { yaw: 0, pitch: 0, fov: PANORAMA_COARSE_TILE_FOV }
+      case 1: return { yaw: -60, pitch: 0, fov: PANORAMA_COARSE_TILE_FOV }
+      case 2: return { yaw: 60, pitch: 0, fov: PANORAMA_COARSE_TILE_FOV }
+      case 3: return { yaw: 0, pitch: 90, fov: PANORAMA_COARSE_TILE_FOV }
+      default: return { yaw: 0, pitch: -90, fov: PANORAMA_COARSE_TILE_FOV }
     }
   }
-  if (!isFullProjection(projection)) return { yaw: originYaw, pitch: originPitch, fov: PANORAMA_HORIZONTAL_TILE_FOV }
-  switch (tileIndex % PANORAMA_SCAN_TILE_COUNT) {
-    case 0: return { yaw: shortestAngle(originYaw), pitch: ringPitch, fov: PANORAMA_HORIZONTAL_TILE_FOV }
-    case 1: return { yaw: shortestAngle(originYaw + 120), pitch: ringPitch, fov: PANORAMA_HORIZONTAL_TILE_FOV }
-    case 2: return { yaw: shortestAngle(originYaw - 120), pitch: ringPitch, fov: PANORAMA_HORIZONTAL_TILE_FOV }
-    case 3: return { yaw: shortestAngle(originYaw), pitch: 70, fov: PANORAMA_CAP_TILE_FOV }
-    default: return { yaw: shortestAngle(originYaw), pitch: -70, fov: PANORAMA_CAP_TILE_FOV }
+  if (!isFullProjection(projection)) return { yaw: originYaw, pitch: originPitch, fov: PANORAMA_COARSE_TILE_FOV }
+  const origin = shortestAngle(originYaw)
+  switch (tileIndex % PANORAMA_FULL_SCAN_TILE_COUNT) {
+    case 0: return { yaw: origin, pitch: 0, fov: PANORAMA_COARSE_TILE_FOV }
+    case 1: return { yaw: shortestAngle(origin + 90), pitch: 0, fov: PANORAMA_COARSE_TILE_FOV }
+    case 2: return { yaw: shortestAngle(origin + 180), pitch: 0, fov: PANORAMA_COARSE_TILE_FOV }
+    case 3: return { yaw: shortestAngle(origin - 90), pitch: 0, fov: PANORAMA_COARSE_TILE_FOV }
+    case 4: return { yaw: origin, pitch: 90, fov: PANORAMA_COARSE_TILE_FOV }
+    default: return { yaw: origin, pitch: -90, fov: PANORAMA_COARSE_TILE_FOV }
   }
 }
 
@@ -150,63 +139,6 @@ export const createPerspectivePanoramaSample = (
   }
 }
 
-const getSourceCrop = (video: HTMLVideoElement, projection: ProjectionMode): SourceCrop => {
-  switch (projection) {
-    case "sbs_180_eqr":
-    case "sbs_180_fe":
-      return { x: 0, y: 0, width: video.videoWidth / 2, height: video.videoHeight }
-    case "tb_360_eqr":
-      return { x: 0, y: 0, width: video.videoWidth, height: video.videoHeight / 2 }
-    default:
-      return { x: 0, y: 0, width: video.videoWidth, height: video.videoHeight }
-  }
-}
-
-const drawPanoramaSample = (
-  context: CanvasRenderingContext2D,
-  video: HTMLVideoElement,
-  crop: SourceCrop,
-  width: number,
-  height: number,
-  view: CameraView,
-  projection: ProjectionMode,
-  camera: PerspectiveCamera,
-): PanoramaSample => {
-  const yawSpan = getProjectionYawSpan(projection)
-  const yawLimit = getProjectionYawLimit(projection)
-  const yaw = yawLimit === undefined ? shortestAngle(view.yaw) : clamp(shortestAngle(view.yaw), -yawLimit, yawLimit)
-  const center = {
-    x: yawSpan === 360 ? ((0.5 - yaw / yawSpan) % 1 + 1) % 1 : clamp(VIEWPORT_TARGET_X - yaw / yawSpan, 0, 1),
-    y: clamp(0.5 - (clamp(view.pitch, -75, 75) + getViewportPitchOffset(camera, VIEWPORT_TARGET_Y)) / 180, 0, 1),
-  }
-  const wraps = yawLimit === undefined
-  const widthX = Math.min(1, PANORAMA_SEARCH_DEGREES / yawSpan)
-  const startX = wraps ? ((center.x - widthX / 2) % 1 + 1) % 1 : clamp(center.x - widthX / 2, 0, 1 - widthX)
-  const drawSlice = (sourceStartX: number, sourceWidthX: number, destStartX: number, destWidthX: number) => {
-    if (sourceWidthX <= 0 || destWidthX <= 0) return
-    context.drawImage(
-      video,
-      crop.x + sourceStartX * crop.width,
-      crop.y,
-      sourceWidthX * crop.width,
-      crop.height,
-      destStartX * width,
-      0,
-      destWidthX * width,
-      height,
-    )
-  }
-  if (!wraps || startX + widthX <= 1) {
-    drawSlice(startX, widthX, 0, 1)
-  } else {
-    const firstWidthX = 1 - startX
-    const firstDestWidthX = firstWidthX / widthX
-    drawSlice(startX, firstWidthX, 0, firstDestWidthX)
-    drawSlice(0, widthX - firstWidthX, firstDestWidthX, 1 - firstDestWidthX)
-  }
-  return { center, startX, widthX, wraps }
-}
-
 export const getViewportInferenceSampleSize = (sourceWidth: number, sourceHeight: number, sampleWidth: number) => {
   if (!sourceWidth || !sourceHeight) return undefined
   const width = Math.max(160, Math.round(sampleWidth))
@@ -238,36 +170,6 @@ export const drawViewportInferenceSample = (
     size.height,
   )
   return size
-}
-
-export const drawPanoramaInferenceSample = (
-  canvas: HTMLCanvasElement,
-  context: CanvasRenderingContext2D,
-  video: HTMLVideoElement,
-  sampleWidth: number,
-  projection: ProjectionMode,
-  view: CameraView,
-  camera: PerspectiveCamera,
-  tileIndex?: number,
-  originYaw = view.yaw,
-) => {
-  if (!video.videoWidth || !video.videoHeight || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return undefined
-  const crop = getSourceCrop(video, projection)
-  const yawSpan = getProjectionYawSpan(projection)
-  const aspect = (crop.width * (Math.min(yawSpan, PANORAMA_SEARCH_DEGREES) / yawSpan)) / crop.height
-  let width = Math.max(160, Math.round(sampleWidth))
-  let height = Math.max(120, Math.round(width / Math.max(aspect, 0.25)))
-  if (height > PANORAMA_SAMPLE_MAX_HEIGHT) {
-    const scale = PANORAMA_SAMPLE_MAX_HEIGHT / height
-    width = Math.max(1, Math.round(width * scale))
-    height = PANORAMA_SAMPLE_MAX_HEIGHT
-  }
-  resizeCanvas(canvas, width, height)
-  const tileView = {
-    ...view,
-    yaw: tileIndex === undefined ? view.yaw : getPanoramaScanTile(projection, tileIndex, originYaw, view.pitch).yaw,
-  }
-  return drawPanoramaSample(context, video, crop, width, height, tileView, projection, camera)
 }
 
 export const drawSampleBoxes = (

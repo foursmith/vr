@@ -20,8 +20,8 @@ export interface FaceMotionMetrics { size: number, speed: number, recedingSpeed:
 const INFERENCE_ACTIVITY_CONFIG: Record<FaceInferenceActivity, { maxHz: number, headroom: number }> = {
   stable: { maxHz: 3, headroom: 1.15 },
   active: { maxHz: 6, headroom: 1.1 },
-  searching: { maxHz: 8, headroom: 1.08 },
-  recovery: { maxHz: 12, headroom: 1.03 },
+  searching: { maxHz: 5, headroom: 1.08 },
+  recovery: { maxHz: 6, headroom: 1.03 },
 }
 
 export const faceInferencePeriod = (

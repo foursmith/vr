@@ -1,6 +1,6 @@
-import type { ProjectionMode } from "@foursmith/player-core"
+import type { CameraView, ProjectionMode } from "@foursmith/player-core"
 import type { PerspectiveCamera } from "three"
-import type { FaceDetectionRange, NormalizedFace } from "../face-tracking/protocol"
+import type { NormalizedFace } from "../face-tracking/protocol"
 import { Euler, MathUtils, Vector3 } from "three"
 import { MIN_FACE_CONFIDENCE } from "../face-tracking/protocol"
 
@@ -23,7 +23,6 @@ export const FACE_CENTER_STOP_SPEED = 0.025
 const FACE_CENTER_ETA_SETTLE_OFFSET = 0.01
 const FACE_CENTER_PLAN_EPSILON = 0.001
 export const FACE_CENTER_EDGE_MARGIN_DEGREES = 2
-export const VIEWPORT_MISSES_BEFORE_PANORAMA = 2
 export const FACE_DIRECTION_MAX_AGE_MS = 900
 export const FACE_DIRECTION_SCAN_LEAD_MS = 160
 export const FACE_DIRECTION_MAX_PREDICTION_MS = 600
@@ -39,10 +38,6 @@ export const FACE_IDENTITY_SWITCH_SIZE_SPEED = 1.2
 
 export type FaceBox = NormalizedFace & { lastSeenAt: number }
 export type DetectionMode = "viewport" | "panorama"
-export const getFaceDetectionRange = (
-  mode: DetectionMode,
-  consecutiveViewportMisses = 0,
-): FaceDetectionRange => mode === "panorama" || consecutiveViewportMisses > 0 ? "full" : "short"
 export interface FaceTarget { x: number, y: number, size?: number, yaw?: number, pitch?: number, forward?: number, mode: DetectionMode, lastSeenAt: number }
 export interface FaceCenteringError {
   yaw: number
@@ -98,9 +93,6 @@ export interface FaceAutoCenterState {
   detectionMode: DetectionMode
   nextDetectionAt: number
   lastDetectionAt: number
-  recoveryMode?: DetectionMode
-  consecutiveMisses: number
-  consecutiveViewportMisses: number
   isMoving: boolean
   offCenterSince?: number
   target?: FaceTarget
@@ -545,9 +537,6 @@ export const pauseFaceAutoCenter = (state: FaceAutoCenterState) => {
   state.selectedFace = undefined
   state.target = undefined
   state.motion = undefined
-  state.recoveryMode = undefined
-  state.consecutiveMisses = 0
-  state.consecutiveViewportMisses = 0
   state.offCenterSince = undefined
   state.yawVelocity = 0
   state.pitchVelocity = 0
@@ -555,9 +544,6 @@ export const pauseFaceAutoCenter = (state: FaceAutoCenterState) => {
   state.isMoving = false
   state.nextDetectionAt = Number.POSITIVE_INFINITY
 }
-
-export const shouldEnterPanoramaRecovery = (consecutiveViewportMisses: number) =>
-  consecutiveViewportMisses >= VIEWPORT_MISSES_BEFORE_PANORAMA
 
 export const resumeFaceAutoCenter = (state: FaceAutoCenterState) => {
   state.manuallyPaused = false
@@ -723,16 +709,21 @@ export const setViewportTarget = (
   state: FaceAutoCenterState,
   face: FaceBox | undefined,
   time: number,
+  camera: PerspectiveCamera,
+  view: Pick<CameraView, "yaw" | "pitch" | "forward">,
   center = face ? getFaceCenter(face) : undefined,
-  currentForward = 0,
   surfaceDistance = 100,
 ) => {
   if (!face || !center) return false
+  const yawOffset = getViewportYawOffset(camera, center.x) - getViewportYawOffset(camera, VIEWPORT_TARGET_X)
+  const pitchOffset = getViewportPitchOffset(camera, center.y) - getViewportPitchOffset(camera, VIEWPORT_TARGET_Y)
   smoothTarget(state, {
     x: center.x - VIEWPORT_TARGET_X,
     y: center.y - VIEWPORT_TARGET_Y,
     size: getFaceSize(face),
-    forward: getFaceForwardTarget(face, currentForward, surfaceDistance),
+    yaw: view.yaw + yawOffset,
+    pitch: clamp(view.pitch + pitchOffset, -85, 85),
+    forward: getFaceForwardTarget(face, view.forward, surfaceDistance),
     mode: "viewport",
     lastSeenAt: time,
   })

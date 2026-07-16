@@ -33,7 +33,7 @@ The next inference time is measured from the start of the previous inference. Co
 
 The player alternates between two spatial detection modes:
 
-- **Viewport detection** copies the currently rendered view into a reusable inference canvas. Each acquisition cycle starts with the BlazeFace short-range detector. A miss retries the same viewport once with the full-range detector; only a second miss enters panorama recovery. A successful viewport result clears the miss count, so the next cycle starts from short range again.
+- **Viewport detection** copies the currently rendered view into a reusable inference canvas. The `tracking` state uses the BlazeFace short-range detector. Its first miss enters `viewport-retry`, which applies the full-range detector to the same rendered view; a second miss creates the panorama scan plan.
 - **Panorama recovery** renders one perspective view of the projection sphere per inference. It uses the MediaPipe full-range detector because a face occupies fewer pixels in a wide-FOV recovery tile.
 
 ### Face filtering and target selection
@@ -58,65 +58,59 @@ Within the same mode and a gap of at most 1.5 seconds, a new detection is classi
 
 ### Recovery state machine
 
-1. A viewport detection succeeds:
-   - update the selected face, centering target, and motion model;
-   - clear the recovery tile index and miss counters;
-   - continue viewport tracking with the short-range detector.
-2. A viewport detection misses:
-   - after a short-range miss, stay in viewport mode and retry the same rendered view with the full-range detector;
-   - preserve the activity and adaptive frequency used by the missed inference for that retry;
-   - after the second consecutive miss, store the current camera yaw and pitch, freeze the current motion prediction, order the five recovery tiles by proximity to that predicted direction, and enter panorama recovery.
-3. A recovery tile returns a candidate:
-   - map the local face coordinates back to panorama coordinates;
-   - accept it immediately only when confidence is at least `0.7`, its center stays inside the middle 64% of both tile axes, and its complete box stays at least 8% from every tile edge;
-   - otherwise, if the pass has not refined a candidate yet, insert one 70° tile centered on the mapped candidate and run that next;
-   - a reliable coarse or refined candidate creates the panorama yaw/pitch target, stops scanning immediately, and moves the camera toward that target;
-   - if backward camera translation makes that direction unreachable without exposing a 180-degree projection edge, binary search finds the nearest inward position that restores coverage and the camera moves inward while aligning the panorama target; viewport detection then supplies a fresh face size and normal depth target.
-4. A recovery tile misses:
-   - advance to the next tile;
-   - a failed or still-unreliable refinement also advances past its originating coarse tile;
-   - only one refinement is permitted per recovery pass, limiting five coarse tiles to at most six inferences;
-   - after the final coarse tile, clear the viewport-miss counter and return to viewport detection before another recovery pass.
+Detection acquisition is owned by one discriminated `FaceDetectionState`. The scene controller does not keep parallel recovery flags, viewport-miss counters, scan references, or retry timestamps.
 
-Only viewport misses count toward the two-miss recovery threshold. A successful detection clears both miss counters. Face continuity remains active across short misses so one failed inference does not immediately discard the subject.
+| State | Capture and detector | Success | Miss or completion |
+| --- | --- | --- | --- |
+| `tracking` | Rendered viewport, short range | Update viewport target and remain in `tracking` | Enter `viewport-retry`; preserve the missed inference's activity and period |
+| `viewport-retry` | Rendered viewport, full range | Update viewport target and return to `tracking` | Freeze the motion prediction, build and order the recovery tiles, then enter `panorama-scan` |
+| `panorama-scan` | Active perspective tile, full range | Accept a reliable mapped candidate, create its panorama target, and return to `tracking` | Insert the pass's single refinement when eligible; otherwise advance the coarse scan |
+| `recovery-backoff` | No capture before `retryAt` | — | When due, return to `tracking` for a fresh short-range viewport attempt |
+
+An unreliable panorama candidate may insert one 70° refinement tile centered on its mapped direction. A failed or still-unreliable refinement advances past its originating coarse tile. This limits a 360° pass to seven inferences and a 180° pass to six. Exhausting all coarse tiles enters `recovery-backoff`: the first failed pass waits 500 ms and consecutive failures double the delay up to 4 seconds. Any successful viewport or panorama detection creates a fresh `tracking` state and clears accumulated misses, scan progress, failed-pass count, and backoff.
+
+A reliable panorama direction that cannot be reached without exposing a 180-degree projection edge requests the nearest inward camera position that restores coverage. The camera moves inward while aligning the target; a later viewport detection supplies the fresh face size and normal depth target. Face identity continuity remains active across short misses, while the state machine's total miss count controls when a stale selected subject is discarded.
 
 ## Detection capture and recovery scan
 
 ### Perspective scan tiles
 
-All spherical projections use five coarse recovery tiles. Flat 2D content uses one view and does not require a sphere-wide scan. The tables define the coverage set, not its runtime order.
+Full-sphere projections use six coarse recovery tiles; half-sphere projections use five. Every coarse tile is a square 100° perspective view. This is a cubemap-like layout with 10° overlap between adjacent nominal 90° faces. Compared with the previous 130° tiles, it substantially reduces rectilinear edge stretching and makes a face occupy more pixels in the fixed 320×320 detector input. Flat 2D content uses one view and does not require a sphere-wide scan. The tables define the coverage set, not its runtime order.
 
 #### 360-degree projections
 
 | Candidate | Yaw | Pitch | Vertical FOV | Purpose |
 | ---: | --- | --- | ---: | --- |
-| 0 | Lost-view yaw | Lost-view pitch, clamped to ±45° | 130° | Reacquire near the last visible direction |
-| 1 | Lost-view yaw + 120° | Same scan-ring pitch | 130° | First horizontal remainder |
-| 2 | Lost-view yaw - 120° | Same scan-ring pitch | 130° | Second horizontal remainder |
-| 3 | Lost-view yaw | +70° | 110° | Upper-cap fallback |
-| 4 | Lost-view yaw | -70° | 110° | Lower-cap fallback |
+| 0 | Lost-view yaw | 0° | 100° | First equatorial face |
+| 1 | Lost-view yaw + 90° | 0° | 100° | Second equatorial face |
+| 2 | Lost-view yaw + 180° | 0° | 100° | Third equatorial face |
+| 3 | Lost-view yaw - 90° | 0° | 100° | Fourth equatorial face |
+| 4 | Lost-view yaw | +90° | 100° | Upper polar face |
+| 5 | Lost-view yaw | -90° | 100° | Lower polar face |
 
-Yaw wraps into `[-180°, 180°)`. The 130° horizontal FOV overlaps neighboring tiles to reduce misses at tile boundaries.
+Yaw wraps into `[-180°, 180°)`. The lost-view yaw rotates the whole six-face layout without changing its coverage.
 
 #### 180-degree projections
 
 | Candidate | Yaw | Pitch | Vertical FOV | Purpose |
 | ---: | ---: | --- | ---: | --- |
-| 0 | Lost-view yaw, clamped to ±86° | Lost-view pitch, clamped to ±45° | 130° | Reacquire near the last visible direction |
-| 1 | -60° | Same scan-ring pitch | 130° | Left half-sphere |
-| 2 | +60° | Same scan-ring pitch | 130° | Right half-sphere |
-| 3 | Lost-view yaw | +70° | 110° | Upper-cap fallback |
-| 4 | Lost-view yaw | -70° | 110° | Lower-cap fallback |
+| 0 | 0° | 0° | 100° | Center of the half-sphere |
+| 1 | -60° | 0° | 100° | Left side |
+| 2 | +60° | 0° | 100° | Right side |
+| 3 | 0° | +90° | 100° | Upper polar face |
+| 4 | 0° | -90° | 100° | Lower polar face |
+
+The half-sphere layout is fixed to the projection rather than the lost view. This prevents a near-edge lost view from leaving an uncovered gap around the center of the 180° source.
 
 ### Motion-prioritized order
 
-Before a recovery pass, the player projects the last reliable viewport face into world yaw and pitch, predicts its direction at the expected first scan time, and sorts the fixed five-tile coverage set by spherical angular distance to that prediction. The ordered plan is frozen for the pass so asynchronous results cannot reshuffle tiles in flight.
+Before a recovery pass, the player projects the last reliable viewport face into world yaw and pitch, predicts its direction at the expected first scan time, and sorts the fixed five- or six-tile coverage set by spherical angular distance to that prediction. The ordered plan is frozen for the pass so asynchronous results cannot reshuffle tiles in flight.
 
 The prediction uses the last world-direction velocity, the age of that observation, and a 160 ms scan lead. Total extrapolation time is capped at 600 ms, yaw extrapolation at 45°, and pitch extrapolation at 30°. Direction history must contain at least two samples and be no older than 900 ms. Predictions wrap across the 360° seam, clamp to ±86° yaw for half-sphere projections, and clamp to ±85° pitch. Missing or stale history preserves the table order.
 
 ### Conditional refinement
 
-Selection and recovery reliability are separate thresholds. A face with confidence at least `0.6` can participate in subject selection, but a panorama candidate is accepted without refinement only when confidence reaches `0.7` and it is sufficiently far from distorted tile edges. The first edge or lower-confidence candidate in a pass receives one 70° square perspective tile centered on its mapped panorama direction. No later candidate in the same pass can add another refinement, bounding the pass at six inferences. A refined result must satisfy the same reliability test; otherwise scanning resumes at the next coarse tile.
+Selection and recovery reliability are separate thresholds. A face with confidence at least `0.6` can participate in subject selection, but a panorama candidate is accepted without refinement only when confidence reaches `0.7` and it is sufficiently far from distorted tile edges. The first edge or lower-confidence candidate in a pass receives one 70° square perspective tile centered on its mapped panorama direction. No later candidate in the same pass can add another refinement, bounding a 360° pass at seven inferences and a 180° pass at six. A refined result must satisfy the same reliability test; otherwise scanning resumes at the next coarse tile.
 
 ### Capture path
 
@@ -151,7 +145,7 @@ The face box width and height are converted to approximate angular dimensions. H
 
 Viewport centering targets normalized position `(0.5, 1/3)`: horizontally centered, with the face center on the upper third of the frame. Panorama recovery results are converted into yaw and pitch that place the recovered face at the same composition target.
 
-Position, panorama angle, and forward targets use exponential smoothing with a 480 ms time constant. Smoothing resets when the detection mode changes, the target gap exceeds 1.8 seconds, or a subject switch is detected.
+Each viewport detection is converted immediately from its screen-space face center into an absolute world yaw and pitch target using the camera pose at capture time. This lets a locked target's remaining error decrease as the camera moves even when short movements intentionally pause inference. Position, world angle, and forward targets use exponential smoothing with a 480 ms time constant. Smoothing resets when the detection mode changes, the target gap exceeds 1.8 seconds, or a subject switch is detected.
 
 ### Centering dead zones
 
@@ -223,8 +217,8 @@ The base activity limits are:
 | --- | ---: | --- |
 | `stable` | 3 Hz | Face is composed and the camera is settled |
 | `active` | 6 Hz | Face is outside the dead zone or a long automatic movement is being rescanned |
-| `searching` | 8 Hz | No reliable target or repeated viewport misses |
-| `recovery` | 12 Hz | Perspective recovery tiles are being scanned |
+| `searching` | 5 Hz | No reliable target or repeated viewport misses |
+| `recovery` | 6 Hz | Perspective recovery tiles are being scanned |
 
 Motion prediction further modifies `stable` and `active` modes:
 
@@ -275,6 +269,7 @@ Changes to any of the following must update this document in the same change:
 
 Primary implementation files:
 
+- `src/features/vr/face-detection-state.ts`
 - `src/features/vr/face-sampling.ts`
 - `src/features/vr/face-auto-center.ts`
 - `src/features/vr/panorama-recovery.ts`
@@ -283,6 +278,7 @@ Primary implementation files:
 
 Primary tests:
 
+- `tests/unit/face-detection-state.test.ts`
 - `tests/unit/face-sampling.test.ts`
 - `tests/unit/face-auto-center.test.ts`
 - `tests/unit/panorama-recovery.test.ts`

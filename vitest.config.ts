@@ -15,7 +15,7 @@ export default defineConfig({
         "src/features/player/controller.ts",
         "src/features/face-tracking/client.ts",
         "src/features/playlist/model.ts",
-        "src/features/vr/{face-auto-center,face-sampling,projection}.ts",
+        "src/features/vr/{face-auto-center,face-detection-state,face-sampling,projection}.ts",
       ],
     },
   },
