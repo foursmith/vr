@@ -27,7 +27,7 @@ export function Player(props: { controller: PlayerController }) {
     <main
       ref={setPlayer}
       id="player"
-      class={`relative h-dvh overflow-hidden bg-black text-white ${controls.controlsVisible() ? "" : "cursor-none"}`}
+      class={["relative h-dvh overflow-hidden bg-black text-white", !controls.controlsVisible() && "cursor-none"]}
       onPointerDown={handleUiPointerDown}
       onPointerMove={handlePlayerPointerMove}
       onPointerUp={handleUiPointerUp}

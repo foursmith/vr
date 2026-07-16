@@ -1,3 +1,4 @@
+import type { JSX } from "@solidjs/web"
 import { For } from "solid-js"
 
 export interface RangeOption {
@@ -9,7 +10,7 @@ export function DiscreteRange(props: {
   value: number
   labelledBy?: string
   label?: string
-  class?: string
+  class?: JSX.ClassValue
   onChange: (value: number) => void
 }) {
   const lastIndex = () => Math.max(1, props.options.length - 1)
@@ -17,7 +18,7 @@ export function DiscreteRange(props: {
 
   return (
     <div
-      class={`px-4 pb-3 pt-2.5 ${props.class ?? ""}`}
+      class={["px-4 pb-3 pt-2.5", props.class]}
       style={`--discrete-progress:${progress() * 100}%;--discrete-fill-offset:${(1 - progress()) * 1.25}rem`}
     >
       <div class="relative h-8">
@@ -55,7 +56,10 @@ export function DiscreteRange(props: {
         <For each={props.options}>
           {(option, index) => (
             <span
-              class={`absolute top-0 whitespace-nowrap ${index() === 0 ? "translate-x-0" : index() === props.options.length - 1 ? "-translate-x-full" : "-translate-x-1/2"}`}
+              class={[
+                "absolute top-0 whitespace-nowrap",
+                index() === 0 ? "translate-x-0" : index() === props.options.length - 1 ? "-translate-x-full" : "-translate-x-1/2",
+              ]}
               style={{ left: `${(index() / lastIndex()) * 100}%` }}
             >
               {option.label}
@@ -81,7 +85,7 @@ export function MatrixRange(props: {
   row: number
   label: string
   cornerLabel?: string
-  class?: string
+  class?: JSX.ClassValue
   cellLabel?: (column: RangeOption, row: RangeOption) => string
   onChange: (column: number, row: number) => void
 }) {
@@ -96,7 +100,7 @@ export function MatrixRange(props: {
   const columnsStyle = () => ({ "grid-template-columns": `repeat(${props.columns.length}, minmax(0, 1fr))` })
 
   return (
-    <div role="radiogroup" aria-label={props.label} class={`select-none ${props.class ?? ""}`}>
+    <div role="radiogroup" aria-label={props.label} class={["select-none", props.class]}>
       <div class="matrix-range-layout items-end pb-1.5">
         <span aria-hidden="true" class="pr-3 text-right text-[11px] font-semibold tracking-tight text-white/78">
           {props.cornerLabel}
@@ -148,7 +152,7 @@ export function MatrixRange(props: {
                             style={{ "--matrix-cell-color": column.color }}
                             onClick={() => props.onChange(columnIndex(), rowIndex())}
                           >
-                            <span class={`matrix-range-dot relative z-10 h-1.5 w-1.5 rounded-full ${covered() ? "bg-white" : "bg-[#595c5e] group-hover/cell:scale-150"}`}></span>
+                            <span class={["matrix-range-dot relative z-10 h-1.5 w-1.5 rounded-full", covered() ? "bg-white" : "bg-[#595c5e] group-hover/cell:scale-150"]}></span>
                           </button>
                         )
                       }}

@@ -162,9 +162,10 @@ export function PlayerStage(props: { controller: PlayerController }) {
                 <span class="text-[9px] font-semibold uppercase tracking-[0.12em] text-white/68">Tracking monitor</span>
                 <button
                   type="button"
-                  class={`pointer-events-auto ml-auto flex items-center gap-1 rounded-md border-0 bg-white/5 px-1.5 py-1 font-mono text-[8px] font-semibold tracking-[0.04em] outline-none transition-colors hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-accent/50 ${
-                    isRecordingLog() ? "text-red-200" : "text-accent/72 hover:text-accent"
-                  }`}
+                  class={[
+                    "pointer-events-auto ml-auto flex items-center gap-1 rounded-md border-0 bg-white/5 px-1.5 py-1 font-mono text-[8px] font-semibold tracking-[0.04em] outline-none transition-colors hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-accent/50",
+                    isRecordingLog() ? "text-red-200" : "text-accent/72 hover:text-accent",
+                  ]}
                   aria-label={isRecordingLog() ? "Copy tracking log and stop recording" : "Record tracking log"}
                   title={isRecordingLog() ? "Copy tracking log and stop recording" : "Record tracking log"}
                   onPointerDown={event => event.stopPropagation()}
@@ -221,11 +222,11 @@ export function PlayerStage(props: { controller: PlayerController }) {
 
       <div
         ref={registerUiSurface}
-        class={`absolute right-3 z-30 flex items-center gap-2 transition-[top,transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:right-6 sm:top-6 ${
-          display.fullscreen() ? "top-12" : "top-3"
-        } ${
-          controlsVisible() ? "pointer-events-auto translate-x-0 opacity-100" : "pointer-events-none translate-x-[calc(100%+1.5rem)] opacity-0"
-        }`}
+        class={[
+          "absolute right-3 z-30 flex items-center gap-2 transition-[top,transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:right-6 sm:top-6",
+          display.fullscreen() ? "top-12" : "top-3",
+          controlsVisible() ? "pointer-events-auto translate-x-0 opacity-100" : "pointer-events-none translate-x-[calc(100%+1.5rem)] opacity-0",
+        ]}
         aria-hidden={controlsVisible() ? "false" : "true"}
         inert={!controlsVisible()}
         onFocusIn={(event) => {

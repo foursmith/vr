@@ -8,7 +8,7 @@ export function MediaPickerButtons(props: {
 }) {
   return (
     <LiquidGlass
-      class={`h-10 ${props.fullWidth ? "w-full" : "w-64"} max-w-full rounded-full text-white`}
+      class={["h-10 max-w-full rounded-full text-white", props.fullWidth ? "w-full" : "w-64"]}
       cornerRadius={999}
       elasticity={0.12}
       castShadow={false}

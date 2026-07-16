@@ -1,3 +1,5 @@
+import type { JSX } from "@solidjs/web"
+
 const ICONS = {
   "bug": "i-ph-bug",
   "caret-down": "i-ph-caret-down",
@@ -53,6 +55,6 @@ const ICONS = {
 
 export type IconName = keyof typeof ICONS
 
-export function Icon(props: { name: IconName, class?: string }) {
+export function Icon(props: { name: IconName, class?: JSX.ClassValue }) {
   return <span aria-hidden="true" class={[ICONS[props.name], props.class ?? "h-4.5 w-4.5"]}></span>
 }

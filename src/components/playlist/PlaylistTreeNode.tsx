@@ -44,11 +44,12 @@ export function PlaylistTreeNode(props: {
     >
       <button
         type="button"
-        class={`playlist-tree-row group relative flex h-8 w-full min-w-0 items-center gap-1.5 rounded-xl border-0 pr-2 text-left text-xs max-sm:h-11 ${
+        class={[
+          "playlist-tree-row group relative flex h-8 w-full min-w-0 items-center gap-1.5 rounded-xl border-0 pr-2 text-left text-xs max-sm:h-11",
           props.node.id === props.selectedId
             ? "bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-            : "bg-transparent text-white/68 hover:bg-white/8 hover:text-white/92"
-        }`}
+            : "bg-transparent text-white/68 hover:bg-white/8 hover:text-white/92",
+        ]}
         style={{ "padding-left": `${8 + props.depth * 16}px` }}
         title={props.node.name}
         onClick={() => (props.node.kind === "folder" ? props.onToggle(props.node.id) : props.onSelect(props.node))}
@@ -59,7 +60,7 @@ export function PlaylistTreeNode(props: {
         >
           <span
             aria-hidden="true"
-            class={`i-ph-caret-right h-3.5 w-3.5 shrink-0 text-white/42 transition-transform ${isExpanded() ? "rotate-90" : ""}`}
+            class={["i-ph-caret-right h-3.5 w-3.5 shrink-0 text-white/42 transition-transform", isExpanded() && "rotate-90"]}
           >
           </span>
         </Show>
@@ -68,7 +69,7 @@ export function PlaylistTreeNode(props: {
           fallback={(
             <Icon
               name={iconName()}
-              class={`h-4 w-4 shrink-0 ${props.node.kind === "folder" ? "text-accent" : "text-white/52 group-hover:text-white/74"}`}
+              class={["h-4 w-4 shrink-0", props.node.kind === "folder" ? "text-accent" : "text-white/52 group-hover:text-white/74"]}
             />
           )}
         >

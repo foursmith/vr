@@ -1,8 +1,9 @@
+import type { JSX } from "@solidjs/web"
 import type { Element } from "solid-js"
 
 export function ProgressTrack(props: {
   progress: number
-  class?: string
+  class?: JSX.ClassValue
   role?: "progressbar"
   label?: string
   children?: Element
@@ -11,7 +12,7 @@ export function ProgressTrack(props: {
 
   return (
     <div
-      class={`relative h-[1.35rem] min-w-0 w-full [--fill:rgba(255,255,255,0.82)] [--track:rgba(255,255,255,0.18)] ${props.class ?? ""}`}
+      class={["relative h-[1.35rem] min-w-0 w-full [--fill:rgba(255,255,255,0.82)] [--track:rgba(255,255,255,0.18)]", props.class]}
       style={`--progress:${progress()}%`}
       role={props.role}
       aria-label={props.label}

@@ -12,8 +12,8 @@ export function IconButton(props: {
   label: string
   icon?: IconName
   customIcon?: JSX.Element
-  iconClass?: string
-  class?: string
+  iconClass?: JSX.ClassValue
+  class?: JSX.ClassValue
   disabled?: boolean
   pressed?: boolean
   title?: string

@@ -142,7 +142,7 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
                 <button
                   type="button"
                   aria-label="Set the current position as point A"
-                  class={`flex h-5 shrink-0 items-center gap-1 rounded-md px-1.5 font-mono text-[9px] ${abLoop.a === undefined ? "bg-white/6 text-white/45" : "bg-amber-300/14 text-amber-200"}`}
+                  class={["flex h-5 shrink-0 items-center gap-1 rounded-md px-1.5 font-mono text-[9px]", abLoop.a === undefined ? "bg-white/6 text-white/45" : "bg-amber-300/14 text-amber-200"]}
                   onClick={setAbStart}
                 >
                   <span class="font-bold">A</span>
@@ -158,7 +158,7 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
                   type="button"
                   aria-label="Set the current position as point B"
                   disabled={abLoop.a === undefined}
-                  class={`flex h-5 shrink-0 items-center gap-1 rounded-md px-1.5 font-mono text-[9px] disabled:cursor-not-allowed disabled:opacity-30 ${abLoop.b === undefined ? "bg-white/6 text-white/45" : "bg-sky-300/14 text-sky-200"}`}
+                  class={["flex h-5 shrink-0 items-center gap-1 rounded-md px-1.5 font-mono text-[9px] disabled:cursor-not-allowed disabled:opacity-30", abLoop.b === undefined ? "bg-white/6 text-white/45" : "bg-sky-300/14 text-sky-200"]}
                   onClick={setAbEnd}
                 >
                   <span class="font-bold">B</span>
@@ -172,7 +172,14 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
                         aria-label={abTooLong() ? "AB clip is longer than 1 minute" : `Export AB clip as ${option.label}`}
                         title={abExport.format === option.value && abExport.message ? abExport.message : abTooLong() ? "Only AB clips up to 1 minute can be exported" : `Export AB clip as ${option.label}`}
                         disabled={abTooLong() || abExport.status === "recording"}
-                        class={`flex h-5 shrink-0 items-center gap-1 rounded-md border-0 px-1.5 font-sans text-[9px] font-semibold transition disabled:cursor-not-allowed ${abTooLong() || (abExport.status === "error" && abExport.format === option.value) ? "bg-red-300/12 text-red-200/80" : abExport.status === "done" && abExport.format === option.value ? "bg-emerald-300/14 text-emerald-200" : "bg-white/8 text-white/62 hover:bg-white/14 hover:text-white"}`}
+                        class={[
+                          "flex h-5 shrink-0 items-center gap-1 rounded-md border-0 px-1.5 font-sans text-[9px] font-semibold transition disabled:cursor-not-allowed",
+                          abTooLong() || (abExport.status === "error" && abExport.format === option.value)
+                            ? "bg-red-300/12 text-red-200/80"
+                            : abExport.status === "done" && abExport.format === option.value
+                              ? "bg-emerald-300/14 text-emerald-200"
+                              : "bg-white/8 text-white/62 hover:bg-white/14 hover:text-white",
+                        ]}
                         onClick={() => void exportAbLoop(option.value)}
                       >
                         <Icon name={abExport.status === "done" && abExport.format === option.value ? "check" : "download"} class="h-3 w-3" />

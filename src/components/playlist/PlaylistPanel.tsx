@@ -74,13 +74,12 @@ export function PlaylistPanel(props: { controller: PlaylistPanelController }) {
   return (
     <div
       ref={registerUiSurface}
-      class={`pointer-events-auto absolute left-1 z-30 max-h-[calc(100dvh-14.75rem)] transition-[top,transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:left-4 sm:top-4 sm:max-h-[calc(100dvh-13.5rem)] ${
-        fullscreen() ? "top-10" : "top-1"
-      } ${
-        playlistExpanded() ? "w-[min(18rem,calc(100vw-1.5rem))] sm:w-72" : "h-14 w-14 sm:h-12 sm:w-12"
-      } ${
-        visible() ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-[calc(100%+1.5rem)] opacity-0"
-      }`}
+      class={[
+        "pointer-events-auto absolute left-1 z-30 max-h-[calc(100dvh-14.75rem)] transition-[top,transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:left-4 sm:top-4 sm:max-h-[calc(100dvh-13.5rem)]",
+        fullscreen() ? "top-10" : "top-1",
+        playlistExpanded() ? "w-[min(18rem,calc(100vw-1.5rem))] sm:w-72" : "h-14 w-14 sm:h-12 sm:w-12",
+        visible() ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-[calc(100%+1.5rem)] opacity-0",
+      ]}
       aria-hidden={visible() ? "false" : "true"}
       inert={!visible()}
       onFocusIn={(event) => {
@@ -95,7 +94,7 @@ export function PlaylistPanel(props: { controller: PlaylistPanelController }) {
         label={playlistExpanded() ? "Close playlist" : "Open playlist"}
         icon="playlist"
         iconClass="h-4 w-4 max-sm:h-5 max-sm:w-5"
-        class={`!h-8 !w-8 max-sm:!h-10 max-sm:!w-10 ${playlistExpanded() ? "!absolute left-2 top-2 z-1" : "ml-2 mt-2"}`}
+        class={["!h-8 !w-8 max-sm:!h-10 max-sm:!w-10", playlistExpanded() ? "!absolute left-2 top-2 z-1" : "ml-2 mt-2"]}
         pressed={playlistExpanded()}
         expanded={playlistExpanded()}
         controls="playlist-panel-content"
@@ -126,7 +125,7 @@ export function PlaylistPanel(props: { controller: PlaylistPanelController }) {
                 <IconButton
                   label={serverState.scanningDlna ? "Scanning for DLNA devices" : "Scan for DLNA devices"}
                   icon="dlna-scan"
-                  iconClass={`h-4 w-4 ${serverState.scanningDlna ? "animate-pulse" : ""}`}
+                  iconClass={["h-4 w-4", serverState.scanningDlna && "animate-pulse"]}
                   class="!h-8 !w-8"
                   disabled={serverState.scanningDlna}
                   onClick={() => void scanDlna().catch(() => {})}
@@ -136,7 +135,7 @@ export function PlaylistPanel(props: { controller: PlaylistPanelController }) {
                 label="Clear playlist"
                 icon="trash"
                 iconClass="h-3.5 w-3.5"
-                class={`!h-8 !w-8 ${hasBrowserPlaylistItems() ? "" : "pointer-events-none opacity-25"}`}
+                class={["!h-8 !w-8", !hasBrowserPlaylistItems() && "pointer-events-none opacity-25"]}
                 disabled={!hasBrowserPlaylistItems()}
                 onClick={clearPlaylist}
               />

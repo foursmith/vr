@@ -128,7 +128,7 @@ export function Drawer(props: {
   return (
     <Portal mount={props.mount}>
       <div
-        class={`drawer-root fixed inset-0 z-60 ${props.open ? "pointer-events-auto" : "pointer-events-none"}`}
+        class={["drawer-root fixed inset-0 z-60", props.open ? "pointer-events-auto" : "pointer-events-none"]}
         aria-hidden={props.open ? undefined : "true"}
         inert={!props.open}
         data-open={props.open ? "true" : "false"}

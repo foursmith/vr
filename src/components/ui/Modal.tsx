@@ -32,7 +32,7 @@ export function Modal(props: {
   return (
     <Portal mount={props.mount}>
       <div
-        class={`modal-root fixed inset-0 z-60 grid place-items-center p-4 ${props.open ? "pointer-events-auto" : "pointer-events-none"}`}
+        class={["modal-root fixed inset-0 z-60 grid place-items-center p-4", props.open ? "pointer-events-auto" : "pointer-events-none"]}
         aria-hidden={props.open ? undefined : "true"}
         inert={!props.open}
         data-open={props.open ? "true" : "false"}

@@ -1,4 +1,6 @@
-export function FsvrLogo(props: { class?: string, title?: string }) {
+import type { JSX } from "@solidjs/web"
+
+export function FsvrLogo(props: { class?: JSX.ClassValue, title?: string }) {
   return (
     <svg
       viewBox="0 0 320 320"

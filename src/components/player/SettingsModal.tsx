@@ -34,13 +34,13 @@ function SettingToggle(props: {
   return (
     <div
       aria-disabled={props.disabled ? "true" : undefined}
-      class={`group grid w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 py-1 pr-1 text-left text-white transition-[transform,background-color,opacity] ${
-        props.embedded ? "rounded-none bg-transparent" : "rounded-2xl bg-white/4"
-      } pl-3 ${
+      class={[
+        "group grid w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 py-1 pr-1 pl-3 text-left text-white transition-[transform,background-color,opacity]",
+        props.embedded ? "rounded-none bg-transparent" : "rounded-2xl bg-white/4",
         props.disabled
           ? "cursor-not-allowed opacity-42"
-          : "cursor-pointer hover:bg-white/8 active:scale-[0.992]"
-      }`}
+          : "cursor-pointer hover:bg-white/8 active:scale-[0.992]",
+      ]}
       onClick={(event) => {
         if (props.disabled || (event.target as Element).closest("button")) return
         props.onCheckedChange(!props.pressed)
@@ -252,13 +252,13 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
                     type="button"
                     aria-pressed={debug.panelOpen() ? "true" : "false"}
                     title={debug.panelOpen() ? "Hide debug info" : "Show debug info"}
-                    class={`${ABOUT_ACTION_CLASS} ${debug.panelOpen() ? "border-accent/18 bg-accent/10 text-accent/82 hover:border-accent/28 hover:bg-accent/15 hover:text-accent" : ABOUT_ACTION_IDLE_CLASS}`}
+                    class={[ABOUT_ACTION_CLASS, debug.panelOpen() ? "border-accent/18 bg-accent/10 text-accent/82 hover:border-accent/28 hover:bg-accent/15 hover:text-accent" : ABOUT_ACTION_IDLE_CLASS]}
                     onClick={() => debug.setPanelOpen(!debug.panelOpen())}
                   >
                     <Icon name="bug" class="h-3.5 w-3.5" />
                     Debug
                   </button>
-                  <a class={`${ABOUT_ACTION_CLASS} ${ABOUT_ACTION_IDLE_CLASS}`} href="https://github.com/foursmith/vr" target="_blank" rel="noreferrer">
+                  <a class={[ABOUT_ACTION_CLASS, ABOUT_ACTION_IDLE_CLASS]} href="https://github.com/foursmith/vr" target="_blank" rel="noreferrer">
                     <Icon name="github" class="h-3.5 w-3.5" />
                     GitHub
                   </a>

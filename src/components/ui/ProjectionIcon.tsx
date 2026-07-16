@@ -1,8 +1,9 @@
 import type { PROJECTION_OPTIONS } from "@foursmith/player-core/config"
+import type { JSX } from "@solidjs/web"
 
 type ProjectionMode = (typeof PROJECTION_OPTIONS)[number]["component"]
 
-export function ProjectionIcon(props: { projection: ProjectionMode, class?: string }) {
+export function ProjectionIcon(props: { projection: ProjectionMode, class?: JSX.ClassValue }) {
   const artwork = () => {
     switch (props.projection) {
       case "sbs_180_eqr":

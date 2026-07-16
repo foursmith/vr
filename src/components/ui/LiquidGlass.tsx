@@ -1,11 +1,9 @@
 import type { JSX } from "@solidjs/web"
 import { createEffect, createMemo, createSignal } from "solid-js"
 
-type ClassValue = string | false | undefined | Array<string | false | undefined>
-
 interface LiquidGlassProps {
   children: JSX.Element
-  class?: ClassValue
+  class?: JSX.ClassValue
   style?: JSX.CSSProperties | string
   onMouseEnter?: JSX.EventHandlerUnion<HTMLDivElement, MouseEvent>
   onMouseLeave?: JSX.EventHandlerUnion<HTMLDivElement, MouseEvent>

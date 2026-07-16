@@ -1,3 +1,4 @@
+import type { JSX } from "@solidjs/web"
 import { LiquidGlass } from "./LiquidGlass"
 import { ProgressTrack } from "./ProgressTrack"
 
@@ -9,8 +10,8 @@ export function GlassRange(props: {
   progress: number
   label: string
   valueLabel?: string
-  class?: string
-  inputClass?: string
+  class?: JSX.ClassValue
+  inputClass?: JSX.ClassValue
   disabled?: boolean
   onInput: (value: number) => void
   onChange?: (value: number) => void
@@ -29,7 +30,7 @@ export function GlassRange(props: {
         disabled={props.disabled}
         aria-label={props.label}
         aria-valuetext={props.valueLabel}
-        class={`glass-range-input absolute inset-0 z-10 h-full w-full appearance-none bg-transparent ${props.inputClass ?? "cursor-pointer"}`}
+        class={["glass-range-input absolute inset-0 z-10 h-full w-full appearance-none bg-transparent", props.inputClass ?? "cursor-pointer"]}
         onPointerDown={() => props.onPointerDown?.()}
         onPointerUp={event => props.onPointerUp?.(event.pointerType)}
         onPointerCancel={() => props.onPointerCancel?.()}

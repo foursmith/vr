@@ -114,11 +114,12 @@ export function ProjectionSelect(props: {
                     role="option"
                     aria-selected={index() === props.value ? "true" : "false"}
                     data-index={index()}
-                    class={`flex min-h-0 w-full items-center gap-3 rounded-xl border-0 px-2.5 text-left text-xs font-medium outline-none ${
+                    class={[
+                      "flex min-h-0 w-full items-center gap-3 rounded-xl border-0 px-2.5 text-left text-xs font-medium outline-none",
                       index() === props.value
                         ? "bg-white/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.1)]"
-                        : "bg-transparent text-white/68 hover:!bg-white/7 hover:text-white focus-visible:!bg-white/10 focus-visible:text-white"
-                    }`}
+                        : "bg-transparent text-white/68 hover:!bg-white/7 hover:text-white focus-visible:!bg-white/10 focus-visible:text-white",
+                    ]}
                     onFocus={() => setFocusedIndex(index())}
                     onClick={() => select(index())}
                   >
