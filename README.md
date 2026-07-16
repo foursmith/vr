@@ -51,11 +51,6 @@ For the best experience, use Chrome, Edge, or another Chromium-based desktop bro
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/foursmith/vr)
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ffoursmith%2Fvr&root-directory=.)
 
-Cloudflare's automatic Git deployment publishes the `devr` Worker to
-`dev.vr.foursmith.com`. Production is deployed to `vr.foursmith.com` by the
-`Deploy production` GitHub Actions workflow whenever a GitHub Release is
-published, or when the workflow is run manually. The workflow requires
-`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` repository secrets.
 
 ## Local media server
 
