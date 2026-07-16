@@ -10,6 +10,19 @@
   <p><a href="https://vr.foursmith.com/"><strong>Open Foursmith VR →</strong></a></p>
 </div>
 
+## Demo Video
+
+[▶ Watch the demo video](doc/demo.mp4)
+
+<div align="center">
+  <video src="https://github.com/foursmith/vr/raw/refs/heads/main/doc/demo.mp4"
+         width="800"
+         controls
+         loop
+         muted>
+  </video>
+</div>
+
 ## Features
 
 - **Enjoy VR without a headset.** Turn immersive video into a comfortable, easy-to-follow 2D view and simply sit back and watch.
