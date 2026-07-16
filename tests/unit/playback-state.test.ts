@@ -28,58 +28,25 @@ describe("player state persistence", () => {
     warning.mockRestore()
   })
 
-  it("enables resume after movement when stored preferences predate it", () => {
+  it("rejects preferences that do not match the current schema", () => {
     localStorage.setItem("foursmith-vr:preferences", JSON.stringify({ volume: 0.5 }))
-    expect(loadGlobalPreferences().resumeFaceAutoCenterAfterViewChange).toBe(true)
+    expect(loadGlobalPreferences()).toEqual(DEFAULT_GLOBAL_PREFERENCES)
   })
 
-  it("validates global preferences at the storage boundary", () => {
+  it("rejects invalid preference values instead of normalizing them", () => {
     localStorage.setItem("foursmith-vr:preferences", JSON.stringify({
+      ...DEFAULT_GLOBAL_PREFERENCES,
       volume: 5,
-      playbackRate: 0,
-      qualityId: 2.6,
-      renderFrameRateId: 99,
-      splitScreen: false,
-      faceAutoCenter: false,
-      resumeFaceAutoCenterAfterViewChange: true,
-      faceCenteringMode: "system",
-      subtitlesEnabled: false,
-      repeatMode: "folder",
-      exportFrameRateId: 0,
-      exportQualityId: 1,
     }))
-    expect(loadGlobalPreferences()).toEqual({
-      volume: 1,
-      playbackRate: 0.25,
-      qualityId: 3,
-      renderFrameRateId: 3,
-      splitScreen: false,
-      faceAutoCenter: false,
-      resumeFaceAutoCenterAfterViewChange: true,
-      autoResumePlayback: false,
-      subtitlesEnabled: false,
-      repeatMode: "folder",
-    })
+    expect(loadGlobalPreferences()).toEqual(DEFAULT_GLOBAL_PREFERENCES)
   })
 
-  it("ignores the removed detector mode when migrating preferences", () => {
+  it("rejects preferences containing removed fields", () => {
     localStorage.setItem("foursmith-vr:preferences", JSON.stringify({
       ...DEFAULT_GLOBAL_PREFERENCES,
-      faceAutoCenter: true,
       faceCenteringMode: "system",
     }))
-    expect(loadGlobalPreferences()).toMatchObject({
-      faceAutoCenter: true,
-    })
-    expect(loadGlobalPreferences()).not.toHaveProperty("faceCenteringMode")
-  })
-
-  it("ignores the removed precision tracking preference", () => {
-    localStorage.setItem("foursmith-vr:preferences", JSON.stringify({
-      ...DEFAULT_GLOBAL_PREFERENCES,
-      faceTrackingPro: true,
-    }))
-    expect(loadGlobalPreferences()).not.toHaveProperty("faceTrackingPro")
+    expect(loadGlobalPreferences()).toEqual(DEFAULT_GLOBAL_PREFERENCES)
   })
 
   it("saves global preferences as one value", () => {
@@ -88,12 +55,12 @@ describe("player state persistence", () => {
     expect(loadGlobalPreferences()).toEqual(preferences)
   })
 
-  it("migrates the legacy playlist repeat mode to folder repeat", () => {
+  it("rejects removed preference values", () => {
     localStorage.setItem("foursmith-vr:preferences", JSON.stringify({
       ...DEFAULT_GLOBAL_PREFERENCES,
       repeatMode: "playlist",
     }))
-    expect(loadGlobalPreferences().repeatMode).toBe("folder")
+    expect(loadGlobalPreferences()).toEqual(DEFAULT_GLOBAL_PREFERENCES)
   })
 
   it("creates stable state keys for files and URLs", () => {
@@ -113,26 +80,23 @@ describe("player state persistence", () => {
     expect(loadLastPlayback()).toEqual(playback)
   })
 
-  it("migrates the legacy projection id field", () => {
+  it("rejects playback snapshots using removed projection fields", () => {
     localStorage.setItem("foursmith-vr:last-playback", JSON.stringify({
       key: "url:movie.mp4",
       position: 18.5,
       presetId: 2,
     }))
-    expect(loadLastPlayback()).toEqual({
-      key: "url:movie.mp4",
-      position: 18.5,
-      projectionId: 5,
-    })
+    expect(loadLastPlayback()).toBeUndefined()
   })
 
   it.each([
-    { key: "", position: 18.5, projectionId: 2 },
-    { key: "url:movie.mp4", projectionId: 2 },
-    { key: "url:movie.mp4", position: Number.NaN, projectionId: 2 },
-    { key: "url:movie.mp4", position: -1, projectionId: 2 },
+    { key: "", position: 18.5, projection: "tb_360_eqr" },
+    { key: "url:movie.mp4", projection: "tb_360_eqr" },
+    { key: "url:movie.mp4", position: Number.NaN, projection: "tb_360_eqr" },
+    { key: "url:movie.mp4", position: -1, projection: "tb_360_eqr" },
     { key: "url:movie.mp4", position: 18.5 },
-    { key: "url:movie.mp4", position: 18.5, projectionId: 7 },
+    { key: "url:movie.mp4", position: 18.5, projection: "unknown" },
+    { key: "url:movie.mp4", position: 18.5, projection: "tb_360_eqr", projectionId: 2 },
   ])("rejects an invalid last playback snapshot", (playback) => {
     localStorage.setItem("foursmith-vr:last-playback", JSON.stringify(playback))
     expect(loadLastPlayback()).toBeUndefined()

@@ -45,56 +45,65 @@ const DATABASE_VERSION = 8
 const VIDEO_STATE_STORE_NAME = "video-state"
 const UPDATED_AT_INDEX_NAME = "updated-at"
 const MAX_VIDEO_STATE_RECORDS = 200
-
-// Projection used to be persisted only as its array index. Keep the original
-// order here so existing playback records survive changes to the menu order.
-const LEGACY_PROJECTION_COMPONENTS = [
-  "sbs_180_eqr",
-  "sbs_180_fe",
-  "tb_360_eqr",
-  "flat_2d",
-  "m_180_eqr",
-  "mono_360_eqr",
-  "m_180_fe",
-] as const
+const GLOBAL_PREFERENCE_KEYS = Object.keys(DEFAULT_GLOBAL_PREFERENCES)
+const PLAYBACK_KEYS = ["key", "position", "projection"]
+const VIDEO_PLAYBACK_KEYS = [...PLAYBACK_KEYS, "updatedAt"]
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null
 
-const numberInRange = (value: unknown, fallback: number, min: number, max: number) =>
-  typeof value === "number" && Number.isFinite(value)
-    ? Math.min(max, Math.max(min, value))
-    : fallback
+const hasExactKeys = (value: Record<string, unknown>, keys: string[]) => {
+  const storedKeys = Object.keys(value)
+  return storedKeys.length === keys.length && storedKeys.every(key => keys.includes(key))
+}
 
-const booleanOr = (value: unknown, fallback: boolean) => typeof value === "boolean" ? value : fallback
+const isNumberInRange = (value: unknown, min: number, max: number): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value >= min && value <= max
+
+const isIntegerInRange = (value: unknown, min: number, max: number): value is number =>
+  isNumberInRange(value, min, max) && Number.isInteger(value)
 
 const isRepeatMode = (value: unknown): value is RepeatMode =>
   value === "off" || value === "folder" || value === "file"
 
-const repeatModeFromStorage = (value: unknown): RepeatMode =>
-  value === "playlist" ? "folder" : isRepeatMode(value) ? value : DEFAULT_GLOBAL_PREFERENCES.repeatMode
+const validGlobalPreferences = (value: unknown): GlobalPreferences | undefined => {
+  if (
+    !isRecord(value)
+    || !hasExactKeys(value, GLOBAL_PREFERENCE_KEYS)
+    || !isNumberInRange(value.volume, 0, 1)
+    || !isNumberInRange(value.playbackRate, 0.25, 4)
+    || !isIntegerInRange(value.qualityId, 0, 3)
+    || !isIntegerInRange(value.renderFrameRateId, 1, 3)
+    || typeof value.splitScreen !== "boolean"
+    || typeof value.faceAutoCenter !== "boolean"
+    || typeof value.resumeFaceAutoCenterAfterViewChange !== "boolean"
+    || typeof value.autoResumePlayback !== "boolean"
+    || typeof value.subtitlesEnabled !== "boolean"
+    || !isRepeatMode(value.repeatMode)
+  ) {
+    return
+  }
+
+  return {
+    volume: value.volume,
+    playbackRate: value.playbackRate,
+    qualityId: value.qualityId,
+    renderFrameRateId: value.renderFrameRateId,
+    splitScreen: value.splitScreen,
+    faceAutoCenter: value.faceAutoCenter,
+    resumeFaceAutoCenterAfterViewChange: value.resumeFaceAutoCenterAfterViewChange,
+    autoResumePlayback: value.autoResumePlayback,
+    subtitlesEnabled: value.subtitlesEnabled,
+    repeatMode: value.repeatMode,
+  }
+}
 
 export function loadGlobalPreferences(storage: Storage = localStorage): GlobalPreferences {
   try {
     const raw = storage.getItem(GLOBAL_PREFERENCES_KEY)
     if (!raw) return { ...DEFAULT_GLOBAL_PREFERENCES }
     const parsed: unknown = JSON.parse(raw)
-    if (!isRecord(parsed)) return { ...DEFAULT_GLOBAL_PREFERENCES }
-    return {
-      volume: numberInRange(parsed.volume, DEFAULT_GLOBAL_PREFERENCES.volume, 0, 1),
-      playbackRate: numberInRange(parsed.playbackRate, DEFAULT_GLOBAL_PREFERENCES.playbackRate, 0.25, 4),
-      qualityId: Math.round(numberInRange(parsed.qualityId, DEFAULT_GLOBAL_PREFERENCES.qualityId, 0, 3)),
-      renderFrameRateId: Math.round(numberInRange(parsed.renderFrameRateId, DEFAULT_GLOBAL_PREFERENCES.renderFrameRateId, 1, 3)),
-      splitScreen: booleanOr(parsed.splitScreen, DEFAULT_GLOBAL_PREFERENCES.splitScreen),
-      faceAutoCenter: booleanOr(parsed.faceAutoCenter, DEFAULT_GLOBAL_PREFERENCES.faceAutoCenter),
-      resumeFaceAutoCenterAfterViewChange: booleanOr(
-        parsed.resumeFaceAutoCenterAfterViewChange,
-        DEFAULT_GLOBAL_PREFERENCES.resumeFaceAutoCenterAfterViewChange,
-      ),
-      autoResumePlayback: booleanOr(parsed.autoResumePlayback, DEFAULT_GLOBAL_PREFERENCES.autoResumePlayback),
-      subtitlesEnabled: booleanOr(parsed.subtitlesEnabled, DEFAULT_GLOBAL_PREFERENCES.subtitlesEnabled),
-      repeatMode: repeatModeFromStorage(parsed.repeatMode),
-    }
+    return validGlobalPreferences(parsed) ?? { ...DEFAULT_GLOBAL_PREFERENCES }
   } catch (error) {
     console.warn("global preferences could not be loaded", error)
     return { ...DEFAULT_GLOBAL_PREFERENCES }
@@ -134,14 +143,9 @@ export function videoStateKey(resource: { name: string, file?: File, url?: strin
   return identity ? fsvrMediaKey(identity) : `url:${resource.url ?? resource.name}`
 }
 
-const validPlayback = (value: unknown): LastPlayback | undefined => {
-  if (!isRecord(value)) return
-  const storedProjectionId = value.projectionId ?? value.presetId
-  const projectionId = typeof value.projection === "string"
-    ? PROJECTION_OPTIONS.findIndex(option => option.component === value.projection)
-    : typeof storedProjectionId === "number" && Number.isInteger(storedProjectionId)
-      ? PROJECTION_OPTIONS.findIndex(option => option.component === LEGACY_PROJECTION_COMPONENTS[storedProjectionId])
-      : -1
+const validPlayback = (value: unknown, keys = PLAYBACK_KEYS): LastPlayback | undefined => {
+  if (!isRecord(value) || !hasExactKeys(value, keys)) return
+  const projectionId = PROJECTION_OPTIONS.findIndex(option => option.component === value.projection)
   if (
     typeof value.key !== "string"
     || !value.key
@@ -170,7 +174,8 @@ export function loadLastPlayback(storage: Storage = localStorage) {
 export function saveLastPlayback(playback: LastPlayback, storage: Storage = localStorage) {
   try {
     storage.setItem(LAST_PLAYBACK_KEY, JSON.stringify({
-      ...playback,
+      key: playback.key,
+      position: playback.position,
       projection: PROJECTION_OPTIONS[playback.projectionId]?.component,
     }))
   } catch (error) {
@@ -205,7 +210,7 @@ const openDatabase = () => {
 }
 
 const validVideoPlaybackState = (value: unknown): VideoPlaybackState | undefined => {
-  const playback = validPlayback(value)
+  const playback = validPlayback(value, VIDEO_PLAYBACK_KEYS)
   if (!playback || !isRecord(value) || typeof value.updatedAt !== "number" || !Number.isFinite(value.updatedAt) || value.updatedAt < 0) return
   return { ...playback, updatedAt: value.updatedAt }
 }
@@ -225,7 +230,9 @@ export async function saveVideoPlaybackState(state: VideoPlaybackState) {
     const transaction = database.transaction(VIDEO_STATE_STORE_NAME, "readwrite")
     const store = transaction.objectStore(VIDEO_STATE_STORE_NAME)
     store.put({
-      ...state,
+      key: state.key,
+      position: state.position,
+      updatedAt: state.updatedAt,
       projection: PROJECTION_OPTIONS[state.projectionId]?.component,
     })
     const keysRequest = store.index(UPDATED_AT_INDEX_NAME).getAllKeys()
