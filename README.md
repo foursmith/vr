@@ -137,4 +137,7 @@ When changing the Web UI, follow the project's [SolidJS 2 migration guide](doc/M
 
 ## License
 
-Foursmith VR is licensed under the [Mozilla Public License 2.0](LICENSE). Code by GPT 5.6 Sol. Taste by me.
+Foursmith VR is licensed under the [Mozilla Public License 2.0](LICENSE).
+
+Code by GPT 5.6 Sol.
+Taste by [ ourongxing](https://github.com/ourongxing).
