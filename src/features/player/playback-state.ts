@@ -1,3 +1,5 @@
+import { PROJECTION_OPTIONS } from "@foursmith/player-core/config"
+
 export type RepeatMode = "off" | "folder" | "file"
 
 export interface GlobalPreferences {
@@ -43,6 +45,18 @@ const DATABASE_VERSION = 8
 const VIDEO_STATE_STORE_NAME = "video-state"
 const UPDATED_AT_INDEX_NAME = "updated-at"
 const MAX_VIDEO_STATE_RECORDS = 200
+
+// Projection used to be persisted only as its array index. Keep the original
+// order here so existing playback records survive changes to the menu order.
+const LEGACY_PROJECTION_COMPONENTS = [
+  "sbs_180_eqr",
+  "sbs_180_fe",
+  "tb_360_eqr",
+  "flat_2d",
+  "m_180_eqr",
+  "mono_360_eqr",
+  "m_180_fe",
+] as const
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null
@@ -122,17 +136,20 @@ export function videoStateKey(resource: { name: string, file?: File, url?: strin
 
 const validPlayback = (value: unknown): LastPlayback | undefined => {
   if (!isRecord(value)) return
-  const projectionId = value.projectionId ?? value.presetId
+  const storedProjectionId = value.projectionId ?? value.presetId
+  const projectionId = typeof value.projection === "string"
+    ? PROJECTION_OPTIONS.findIndex(option => option.component === value.projection)
+    : typeof storedProjectionId === "number" && Number.isInteger(storedProjectionId)
+      ? PROJECTION_OPTIONS.findIndex(option => option.component === LEGACY_PROJECTION_COMPONENTS[storedProjectionId])
+      : -1
   if (
     typeof value.key !== "string"
     || !value.key
     || typeof value.position !== "number"
     || !Number.isFinite(value.position)
     || value.position < 0
-    || typeof projectionId !== "number"
-    || !Number.isInteger(projectionId)
     || projectionId < 0
-    || projectionId > 3
+    || projectionId >= PROJECTION_OPTIONS.length
   ) {
     return
   }
@@ -152,7 +169,10 @@ export function loadLastPlayback(storage: Storage = localStorage) {
 
 export function saveLastPlayback(playback: LastPlayback, storage: Storage = localStorage) {
   try {
-    storage.setItem(LAST_PLAYBACK_KEY, JSON.stringify(playback))
+    storage.setItem(LAST_PLAYBACK_KEY, JSON.stringify({
+      ...playback,
+      projection: PROJECTION_OPTIONS[playback.projectionId]?.component,
+    }))
   } catch (error) {
     console.warn("last playback could not be saved", error)
   }
@@ -204,7 +224,10 @@ export async function saveVideoPlaybackState(state: VideoPlaybackState) {
   await new Promise<void>((resolve, reject) => {
     const transaction = database.transaction(VIDEO_STATE_STORE_NAME, "readwrite")
     const store = transaction.objectStore(VIDEO_STATE_STORE_NAME)
-    store.put(state)
+    store.put({
+      ...state,
+      projection: PROJECTION_OPTIONS[state.projectionId]?.component,
+    })
     const keysRequest = store.index(UPDATED_AT_INDEX_NAME).getAllKeys()
     keysRequest.onsuccess = () => {
       const excess = keysRequest.result.length - MAX_VIDEO_STATE_RECORDS

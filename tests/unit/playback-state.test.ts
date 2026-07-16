@@ -122,7 +122,7 @@ describe("player state persistence", () => {
     expect(loadLastPlayback()).toEqual({
       key: "url:movie.mp4",
       position: 18.5,
-      projectionId: 2,
+      projectionId: 5,
     })
   })
 
@@ -132,7 +132,7 @@ describe("player state persistence", () => {
     { key: "url:movie.mp4", position: Number.NaN, projectionId: 2 },
     { key: "url:movie.mp4", position: -1, projectionId: 2 },
     { key: "url:movie.mp4", position: 18.5 },
-    { key: "url:movie.mp4", position: 18.5, projectionId: 4 },
+    { key: "url:movie.mp4", position: 18.5, projectionId: 7 },
   ])("rejects an invalid last playback snapshot", (playback) => {
     localStorage.setItem("foursmith-vr:last-playback", JSON.stringify(playback))
     expect(loadLastPlayback()).toBeUndefined()

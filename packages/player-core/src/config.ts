@@ -1,11 +1,11 @@
 export const PROJECTION_OPTIONS = [
   { label: "SBS 180 EQR", component: "sbs_180_eqr" },
   { label: "SBS 180 FE", component: "sbs_180_fe" },
+  { label: "Mono 360 EQR", component: "mono_360_eqr" },
+  { label: "Mono 180 EQR", component: "m_180_eqr" },
+  { label: "Mono 180 FE", component: "m_180_fe" },
   { label: "TB 360 EQR", component: "tb_360_eqr" },
   { label: "Flat 2D", component: "flat_2d" },
-  { label: "Mono 180 EQR", component: "m_180_eqr" },
-  { label: "Mono 360 EQR", component: "mono_360_eqr" },
-  { label: "Mono 180 FE", component: "m_180_fe" },
 ] as const
 
 export const QUALITY_OPTIONS = [

@@ -3,11 +3,72 @@ import type { PROJECTION_OPTIONS } from "@foursmith/player-core/config"
 type ProjectionMode = (typeof PROJECTION_OPTIONS)[number]["component"]
 
 export function ProjectionIcon(props: { projection: ProjectionMode, class?: string }) {
-  const isSbs = () => props.projection.startsWith("sbs_")
-  const isTb = () => props.projection.startsWith("tb_")
-  const isFisheye = () => props.projection.endsWith("_fe")
-  const isFlat = () => props.projection === "flat_2d"
-  const is360 = () => props.projection.includes("_360_")
+  const artwork = () => {
+    switch (props.projection) {
+      case "sbs_180_eqr":
+        return (
+          <>
+            <rect x="2" y="7" width="20" height="10" rx="1.8" />
+            <path d="M12 7v10" />
+            <g opacity=".46" stroke-width="1.05">
+              <path d="M2.25 12h19.5M7 7.25v9.5M17 7.25v9.5" />
+            </g>
+          </>
+        )
+      case "sbs_180_fe":
+        return (
+          <>
+            <rect x="2" y="7" width="20" height="10" rx="1.8" />
+            <path d="M12 7v10" opacity=".55" stroke-width="1.05" />
+            <circle cx="7" cy="12" r="3.65" />
+            <circle cx="17" cy="12" r="3.65" />
+          </>
+        )
+      case "mono_360_eqr":
+        return (
+          <>
+            <rect x="2" y="7" width="20" height="10" rx="1.8" />
+            <g opacity=".46" stroke-width="1.05">
+              <path d="M2.25 12h19.5M7 7.25v9.5M12 7.25v9.5M17 7.25v9.5" />
+            </g>
+          </>
+        )
+      case "m_180_eqr":
+        return (
+          <>
+            <rect x="4.5" y="4.5" width="15" height="15" rx="2" />
+            <g opacity=".46" stroke-width="1.05">
+              <path d="M4.75 9.5h14.5M4.75 14.5h14.5M9.5 4.75v14.5M14.5 4.75v14.5" />
+            </g>
+          </>
+        )
+      case "m_180_fe":
+        return (
+          <>
+            <rect x="4.5" y="4.5" width="15" height="15" rx="2" />
+            <circle cx="12" cy="12" r="5.65" />
+            <circle cx="12" cy="12" r="1.15" opacity=".5" stroke-width="1.05" />
+          </>
+        )
+      case "tb_360_eqr":
+        return (
+          <>
+            <rect x="4" y="4" width="16" height="16" rx="2" />
+            <path d="M4 12h16" />
+            <g opacity=".46" stroke-width="1.05">
+              <path d="M4.25 8h15.5M4.25 16h15.5M8 4.25v15.5M12 4.25v15.5M16 4.25v15.5" />
+            </g>
+          </>
+        )
+      case "flat_2d":
+        return (
+          <>
+            <rect x="2" y="6.5" width="20" height="11.25" rx="1.8" />
+            <path d="M8.5 20.5h7M12 17.75v2.75" />
+          </>
+        )
+    }
+  }
 
   return (
     <svg
@@ -15,39 +76,13 @@ export function ProjectionIcon(props: { projection: ProjectionMode, class?: stri
       class={props.class ?? "h-4.5 w-4.5"}
       viewBox="0 0 24 24"
       fill="none"
+      stroke="currentColor"
+      stroke-width="1.65"
+      stroke-linecap="round"
+      stroke-linejoin="round"
       xmlns="http://www.w3.org/2000/svg"
     >
-      {isFlat()
-        ? (
-            <>
-              <rect x="3.25" y="5.75" width="17.5" height="12.5" rx="2.25" stroke="currentColor" stroke-width="1.7" />
-              <path d="M7 18.25h10M9.25 21h5.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
-              <path d="M7.25 9.25h9.5v5.5h-9.5z" stroke="currentColor" stroke-width="1.25" opacity=".48" />
-            </>
-          )
-        : isFisheye()
-          ? (
-              <>
-                <circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.7" />
-                <circle cx="12" cy="12" r="5.25" stroke="currentColor" stroke-width="1.25" opacity=".5" />
-                <path d="M12 3.5c2.05 2.2 3.1 5.04 3.1 8.5S14.05 18.3 12 20.5C9.95 18.3 8.9 15.46 8.9 12S9.95 5.7 12 3.5Z" stroke="currentColor" stroke-width="1.15" opacity=".72" />
-                {isSbs() && <path d="M12 3.5v17" stroke="currentColor" stroke-width="1.45" />}
-              </>
-            )
-          : (
-              <>
-                <path
-                  d={is360() ? "M3.25 7.25C5.7 4.95 8.6 3.8 12 3.8s6.3 1.15 8.75 3.45v9.5C18.3 19.05 15.4 20.2 12 20.2s-6.3-1.15-8.75-3.45v-9.5Z" : "M4 7.4C6.1 5.35 8.75 4.3 12 4.3s5.9 1.05 8 3.1v9.2c-2.1 2.05-4.75 3.1-8 3.1s-5.9-1.05-8-3.1V7.4Z"}
-                  stroke="currentColor"
-                  stroke-width="1.7"
-                  stroke-linejoin="round"
-                />
-                <path d="M4 12h16M12 4.2c-1.7 2.05-2.55 4.65-2.55 7.8s.85 5.75 2.55 7.8M12 4.2c1.7 2.05 2.55 4.65 2.55 7.8s-.85 5.75-2.55 7.8" stroke="currentColor" stroke-width="1.1" opacity=".52" />
-                {isSbs() && <path d="M12 4.2v15.6" stroke="currentColor" stroke-width="1.5" />}
-                {isTb() && <path d="M3.4 12h17.2" stroke="currentColor" stroke-width="1.5" />}
-                {!isSbs() && !isTb() && <circle cx="12" cy="12" r="1.2" fill="currentColor" />}
-              </>
-            )}
+      {artwork()}
     </svg>
   )
 }
