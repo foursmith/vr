@@ -10,11 +10,10 @@
   <p><a href="https://vr.foursmith.com/"><strong>Open Foursmith VR →</strong></a></p>
 </div>
 
-## Demo Video
-
-https://cdn.jsdelivr.net/gh/foursmith/vr@main/doc/demo.mp4
+## Demo Video (Safe For Work)
 
 [▶ Watch the demo video](https://cdn.jsdelivr.net/gh/foursmith/vr@main/doc/demo.mp4)
+
 </div>
 
 ## Features
