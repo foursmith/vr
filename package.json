@@ -1,7 +1,7 @@
 {
   "name": "foursmith-vr",
   "type": "module",
-  "version": "0.1.1-beta.1",
+  "version": "0.2.0",
   "private": true,
   "author": {
     "url": "https://github.com/ourongxing/",
