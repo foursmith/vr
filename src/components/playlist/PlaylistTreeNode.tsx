@@ -5,7 +5,8 @@ import { Icon } from "../ui/Icon"
 function SourceFolderIcon(props: { expanded: boolean, source?: PlaylistSourceKind }) {
   const folderColor = () => {
     if (props.source === "dlna") return "#a78bfa"
-    return "#e9ad58"
+    if (props.source === "local") return "#e9ad58"
+    return undefined
   }
   const badgeIcon = () => {
     if (props.source === "dlna") return "source-dlna" as const
@@ -13,9 +14,11 @@ function SourceFolderIcon(props: { expanded: boolean, source?: PlaylistSourceKin
   }
 
   return (
-    <span aria-hidden="true" class="relative h-4.5 w-5 shrink-0" style={{ color: folderColor() }}>
+    <span aria-hidden="true" class="relative h-4.5 w-5 shrink-0 text-accent" style={{ color: folderColor() }}>
       <Icon name={props.expanded ? "folder-open-fill" : "folder-fill"} class="absolute left-0 top-0 h-4.5 w-4.5 text-current" />
-      <Icon name={badgeIcon()} class="absolute bottom-0 right-0 size-3 text-[#f4fbff]/70" />
+      <Show when={props.source && props.source !== "browser"}>
+        <Icon name={badgeIcon()} class="absolute bottom-0 right-0 size-3 text-[#f4fbff]/70" />
+      </Show>
     </span>
   )
 }
@@ -32,10 +35,6 @@ export function PlaylistTreeNode(props: {
   const displayName = () => props.node.kind === "video"
     ? props.node.name.replace(/\.[^.]+$/, "")
     : props.node.name
-  const iconName = () => {
-    if (props.node.kind === "folder") return isExpanded() ? "folder-open" as const : "folder" as const
-    return "file-video" as const
-  }
   return (
     <li
       role="treeitem"
@@ -65,11 +64,11 @@ export function PlaylistTreeNode(props: {
           </span>
         </Show>
         <Show
-          when={props.node.kind === "folder" && props.node.sourceKind && props.node.sourceKind !== "browser"}
+          when={props.node.kind === "folder"}
           fallback={(
             <Icon
-              name={iconName()}
-              class={["h-4 w-4 shrink-0", props.node.kind === "folder" ? "text-accent" : "text-white/52 group-hover:text-white/74"]}
+              name="file-video"
+              class="h-4 w-4 shrink-0 text-white/52 group-hover:text-white/74"
             />
           )}
         >
