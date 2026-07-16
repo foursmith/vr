@@ -221,7 +221,9 @@ export function PlayerStage(props: { controller: PlayerController }) {
 
       <div
         ref={registerUiSurface}
-        class={`absolute right-3 top-3 z-30 flex items-center gap-2 transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:right-6 sm:top-6 ${
+        class={`absolute right-3 z-30 flex items-center gap-2 transition-[top,transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:right-6 sm:top-6 ${
+          display.fullscreen() ? "top-12" : "top-3"
+        } ${
           controlsVisible() ? "pointer-events-auto translate-x-0 opacity-100" : "pointer-events-none translate-x-[calc(100%+1.5rem)] opacity-0"
         }`}
         aria-hidden={controlsVisible() ? "false" : "true"}
@@ -237,20 +239,20 @@ export function PlayerStage(props: { controller: PlayerController }) {
         <Show when={faceAutoCenterPaused()}>
           <div data-face-centering-resume class="shrink-0">
             <IconButton
-              class="!h-8 !w-8"
+              class="!h-8 !w-8 max-sm:!h-10 max-sm:!w-10"
               label="Resume portrait centering"
               title="Resume portrait centering"
               icon="scan-face"
-              iconClass="h-4 w-4"
+              iconClass="h-4 w-4 max-sm:h-5 max-sm:w-5"
               onClick={resumeFaceAutoCenter}
             />
           </div>
         </Show>
         <IconButton
-          class="!h-8 !w-8"
+          class="!h-8 !w-8 max-sm:!h-10 max-sm:!w-10"
           label="Settings"
           icon="settings"
-          iconClass="h-4 w-4"
+          iconClass="h-4 w-4 max-sm:h-5 max-sm:w-5"
           onClick={() => setSettingsOpen(true)}
         />
       </div>

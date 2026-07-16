@@ -17,6 +17,9 @@ export interface PlaylistPanelController {
     registerUiSurface: (element: HTMLElement) => void
     setControlsHold: (reason: "focus", held: boolean) => void
   }
+  display: {
+    fullscreen: () => boolean
+  }
   playback: {
     repeatMode: () => RepeatMode
     setRepeatMode: (mode: RepeatMode) => void
@@ -49,6 +52,7 @@ export function PlaylistPanel(props: { controller: PlaylistPanelController }) {
   const controller = untrack(() => props.controller)
   const [playlistExpanded, setPlaylistExpanded] = createSignal(true)
   const { registerUiSurface, setControlsHold } = controller.controls
+  const { fullscreen } = controller.display
   const { repeatMode, setRepeatMode } = controller.playback
   const { scanDlna, state: serverState } = controller.server
   const {
@@ -70,8 +74,10 @@ export function PlaylistPanel(props: { controller: PlaylistPanelController }) {
   return (
     <div
       ref={registerUiSurface}
-      class={`pointer-events-auto absolute left-1 top-1 z-30 max-h-[calc(100dvh-14.75rem)] transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:left-4 sm:top-4 sm:max-h-[calc(100dvh-13.5rem)] ${
-        playlistExpanded() ? "w-[min(18rem,calc(100vw-1.5rem))] sm:w-72" : "h-12 w-12"
+      class={`pointer-events-auto absolute left-1 z-30 max-h-[calc(100dvh-14.75rem)] transition-[top,transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:left-4 sm:top-4 sm:max-h-[calc(100dvh-13.5rem)] ${
+        fullscreen() ? "top-10" : "top-1"
+      } ${
+        playlistExpanded() ? "w-[min(18rem,calc(100vw-1.5rem))] sm:w-72" : "h-14 w-14 sm:h-12 sm:w-12"
       } ${
         visible() ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-[calc(100%+1.5rem)] opacity-0"
       }`}
@@ -88,8 +94,8 @@ export function PlaylistPanel(props: { controller: PlaylistPanelController }) {
       <IconButton
         label={playlistExpanded() ? "Close playlist" : "Open playlist"}
         icon="playlist"
-        iconClass="h-4 w-4"
-        class={`!h-8 !w-8 ${playlistExpanded() ? "!absolute left-2 top-2 z-1" : "ml-2 mt-2"}`}
+        iconClass="h-4 w-4 max-sm:h-5 max-sm:w-5"
+        class={`!h-8 !w-8 max-sm:!h-10 max-sm:!w-10 ${playlistExpanded() ? "!absolute left-2 top-2 z-1" : "ml-2 mt-2"}`}
         pressed={playlistExpanded()}
         expanded={playlistExpanded()}
         controls="playlist-panel-content"
@@ -107,7 +113,7 @@ export function PlaylistPanel(props: { controller: PlaylistPanelController }) {
             class="flex max-h-[calc(100dvh-14.75rem)] w-full flex-col overflow-hidden rounded-[20px] text-white sm:max-h-[calc(100dvh-13.5rem)]"
             aria-label="Playlist"
           >
-            <header class="flex shrink-0 items-center gap-2 p-2 pl-12">
+            <header class="flex shrink-0 items-center gap-2 p-2 pl-14 max-sm:h-14 sm:pl-12">
               <div class="min-w-0 flex-1 text-sm font-semibold tracking-tight text-white/94">Playlist</div>
               <IconButton
                 label={`Playback mode: ${currentRepeatMode().label}`}
