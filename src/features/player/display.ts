@@ -1,6 +1,6 @@
-import type { CameraView } from "@foursmith/player-core/config"
-import { DEFAULT_FORWARD, QUALITY_OPTIONS } from "@foursmith/player-core/config"
+import type { CameraView } from "../vr/config"
 import { createSignal, createStore } from "solid-js"
+import { DEFAULT_FORWARD, QUALITY_OPTIONS } from "../vr/config"
 
 type ValueUpdate<T> = T | ((current: T) => T)
 interface ViewRef { current: CameraView }

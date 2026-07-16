@@ -1,4 +1,4 @@
-import { PROJECTION_OPTIONS } from "@foursmith/player-core/config"
+import { PROJECTION_OPTIONS } from "../vr/config"
 
 export const SHORTCUT_DEFINITIONS = [
   { label: "Play / pause", key: "Space" },

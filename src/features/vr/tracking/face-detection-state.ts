@@ -1,12 +1,43 @@
-import type { FaceDetectionRange } from "../face-tracking/protocol"
+import type { FaceDetectionRange } from "../detection/protocol"
 import type { PanoramaScanTile } from "./face-sampling"
-import type { PanoramaRecoveryScan } from "./panorama-recovery"
-import { advancePanoramaRecovery, createPanoramaRecoveryScan, requestPanoramaRefinement } from "./panorama-recovery"
 
 // Keep doc/PORTRAIT_CENTERING.md synchronized with detection-state transitions.
 
 export const PANORAMA_RECOVERY_RETRY_BASE_MS = 500
 export const PANORAMA_RECOVERY_RETRY_MAX_MS = 4000
+
+export interface PanoramaRecoveryScan {
+  tiles: PanoramaScanTile[]
+  index: number
+  refinement?: PanoramaScanTile
+  refinementUsed: boolean
+}
+
+export const createPanoramaRecoveryScan = (tiles: PanoramaScanTile[]): PanoramaRecoveryScan => ({
+  tiles,
+  index: 0,
+  refinementUsed: false,
+})
+
+export const getActivePanoramaRecoveryTile = (scan: PanoramaRecoveryScan) =>
+  scan.refinement ?? scan.tiles[scan.index]
+
+export const requestPanoramaRefinement = (
+  scan: PanoramaRecoveryScan,
+  tile: PanoramaScanTile,
+) => {
+  if (scan.refinement || scan.refinementUsed) return false
+  scan.refinement = tile
+  scan.refinementUsed = true
+  return true
+}
+
+export const advancePanoramaRecovery = (scan: PanoramaRecoveryScan) => {
+  scan.refinement = undefined
+  if (scan.index + 1 >= scan.tiles.length) return false
+  scan.index += 1
+  return true
+}
 
 interface DetectionStateBase {
   misses: number

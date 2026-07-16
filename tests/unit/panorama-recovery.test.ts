@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { advancePanoramaRecovery, createPanoramaRecoveryScan, getActivePanoramaRecoveryTile, requestPanoramaRefinement } from "../../src/features/vr/panorama-recovery"
+import { advancePanoramaRecovery, createPanoramaRecoveryScan, getActivePanoramaRecoveryTile, requestPanoramaRefinement } from "../../src/features/vr/tracking/face-detection-state"
 
 const tiles = Array.from({ length: 5 }, (_, index) => ({ yaw: index * 30, pitch: 0, fov: 130 }))
 

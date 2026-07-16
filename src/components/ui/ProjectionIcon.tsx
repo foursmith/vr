@@ -1,5 +1,5 @@
-import type { PROJECTION_OPTIONS } from "@foursmith/player-core/config"
 import type { JSX } from "@solidjs/web"
+import type { PROJECTION_OPTIONS } from "../../features/vr/config"
 
 type ProjectionMode = (typeof PROJECTION_OPTIONS)[number]["component"]
 

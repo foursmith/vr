@@ -5,7 +5,6 @@
     "": {
       "name": "foursmith-vr",
       "dependencies": {
-        "@foursmith/player-core": "workspace:*",
         "@mediapipe/tasks-vision": "^0.10.35",
         "@msvargas97/pico.js": "1.0.2",
         "@solidjs/web": "^2.0.0-beta.15",
@@ -48,17 +47,6 @@
       "devDependencies": {
         "@types/bun": "latest",
         "@typescript/native-preview": "catalog:",
-      },
-    },
-    "packages/player-core": {
-      "name": "@foursmith/player-core",
-      "version": "0.1.0",
-      "devDependencies": {
-        "@types/three": "^0.185.0",
-        "@typescript/native-preview": "catalog:",
-      },
-      "peerDependencies": {
-        "three": "^0.185.1",
       },
     },
   },
@@ -387,8 +375,6 @@
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.7.2", "", { "dependencies": { "@eslint/core": "^1.2.1", "levn": "^0.4.1" } }, "sha512-+CNAzxglkrpNf/kKywqQfk74QjtceuOE7Qm+AF8miRvPF/wmmK5+OJOgVh3AVTT3RP2mH3+FOaxlE5v72owk0A=="],
 
     "@exodus/bytes": ["@exodus/bytes@1.15.1", "", { "peerDependencies": { "@noble/hashes": "^1.8.0 || ^2.0.0" }, "optionalPeers": ["@noble/hashes"] }, "sha512-S6mL0yNB/Abt9Ei4tq8gDhcczc4S3+vQ4ra7vxnAf+YHC02srtqxKKZghx2Dq6p0e66THKwR6r8N6P95wEty7Q=="],
-
-    "@foursmith/player-core": ["@foursmith/player-core@workspace:packages/player-core"],
 
     "@humanfs/core": ["@humanfs/core@0.19.2", "", { "dependencies": { "@humanfs/types": "^0.15.0" } }, "sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA=="],
 

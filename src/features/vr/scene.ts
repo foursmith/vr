@@ -1,41 +1,12 @@
-import type { CameraView, ProjectionMode, ProjectionQuality } from "@foursmith/player-core"
-import type { FaceDetectionRange, FaceInferenceResult } from "../face-tracking/protocol"
-import type { DetectionMode, FaceAutoCenterState, FaceBox, FaceMovementHint, PanoramaSample } from "./face-auto-center"
-import type { FaceInferenceActivity } from "./frame-scheduler"
-import { createVrPlayerCore, DEFAULT_FOV, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS } from "@foursmith/player-core"
-import { MathUtils, Vector3 } from "three"
-import {
-  applyDetections,
-  constrainFaceAutoCenterView,
-  estimateFaceCenteringDuration,
-  FACE_CENTER_MAX_FORWARD,
-  getFaceAutoCenterManualResumeAt,
-  getFaceCenteringPlan,
-  getFaceCenteringVelocity,
-  getFaceForwardVelocity,
-  getFaceMovementHint,
-  getManualZoomForwardTarget,
-  getPredictedFaceDirection,
-  mapSampleFaceToPanorama,
-  pauseFaceAutoCenter,
-  resumeFaceAutoCenter,
-  setPanoramaTarget,
-  setViewportTarget,
-  smoothFaceCenteringVelocity,
-  updateFaceMotion,
-} from "./face-auto-center"
-import { acceptFaceDetection, applyPanoramaDetectionMiss, applyViewportDetection, createFaceDetectionState, getActivePanoramaScan, getFaceDetectionMode, getFaceDetectionRange, getFaceDetectionRetryAt, prepareFaceDetection } from "./face-detection-state"
-import {
-  createPerspectivePanoramaSample,
-  drawSampleBoxes,
-  drawSampleStatus,
-  drawViewportInferenceSample,
-  getPanoramaRefinementTile,
-  getPanoramaScanTiles,
-  isPanoramaCandidateReliable,
-} from "./face-sampling"
-import { FACE_CENTER_SHORT_MOVE_ETA_MS, faceInferencePeriod, movingFaceInferencePeriod, scheduleFrame, shouldRunFaceInference } from "./frame-scheduler"
-import { getActivePanoramaRecoveryTile } from "./panorama-recovery"
+import type { CameraView, ProjectionMode, ProjectionQuality } from "./config"
+import type { FaceAutoCenterController } from "./tracking/face-auto-center-controller"
+import type { FaceMovementHint } from "./tracking/face-center-movement"
+import { DEFAULT_FOV, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS } from "./config"
+import { createManualViewInput } from "./control/manual-view-input"
+import { scheduleFrame } from "./rendering/render-cadence-policy"
+import { createVrRenderRuntime } from "./rendering/vr-render-runtime"
+import { createFaceAutoCenterController } from "./tracking/face-auto-center-controller"
+import { createVrDiagnostics } from "./vr-diagnostics"
 
 export { DEFAULT_FOV, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS }
 export type { CameraView, ProjectionMode, ProjectionQuality }
@@ -46,49 +17,64 @@ export interface ProjectionBoundaryWarning {
   source: "auto" | "manual"
 }
 
-const WHEEL_ZOOM_SPEED = 0.0016
-const TRACKPAD_PINCH_ZOOM_SPEED = 0.01
-const KEYBOARD_ZOOM_SCALE = 1.1
-const PANORAMA_DIRECTION_ANCHOR_WEIGHT = 1.35
-const FACE_TARGET_GRACE_MS = 900
-const VIEWPORT_SAMPLE_WIDTH = 320
-const PANORAMA_SAMPLE_WIDTH = 320
-const MAX_SPLIT_SCREEN_PANELS = 3
-const MIN_SPLIT_SCREEN_ASPECT = 9 / 16
 const SPHERE_SURFACE_DISTANCE = 100
 const FLAT_SURFACE_DISTANCE = 65
 
-interface RenderViewport { x: number, y: number, width: number, height: number }
+const createFaceMovementOverlay = (element: HTMLElement, isEnabled: () => boolean) => {
+  const horizontalGroup = element.querySelector<HTMLElement>("[data-face-horizontal-group]")
+  const horizontalIcon = element.querySelector<HTMLElement>("[data-face-horizontal-icon]")
+  const horizontalValue = element.querySelector<HTMLElement>("[data-face-horizontal-value]")
+  const verticalGroup = element.querySelector<HTMLElement>("[data-face-vertical-group]")
+  const verticalIcon = element.querySelector<HTMLElement>("[data-face-vertical-icon]")
+  const verticalValue = element.querySelector<HTMLElement>("[data-face-vertical-value]")
+  const depthGroup = element.querySelector<HTMLElement>("[data-face-depth-group]")
+  const depthTarget = element.querySelector<HTMLElement>("[data-face-depth-target]")
+  const depthValue = element.querySelector<HTMLElement>("[data-face-depth-value]")
+  let visible = !element.hidden
+  let lastText = element.getAttribute("aria-label") ?? ""
+  let lastDepth: "nearer" | "farther" | undefined
 
-interface OverlayState {
-  hint?: FaceMovementHint
-}
+  const hide = () => {
+    if (!visible) return
+    element.hidden = true
+    visible = false
+  }
 
-interface PlaybackQualitySnapshot {
-  dropped: number
-  total: number
-}
-
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
-
-const percentile = (values: number[], fraction: number) => {
-  if (values.length === 0) return 0
-  const sorted = [...values].sort((a, b) => a - b)
-  return sorted[Math.max(0, Math.ceil(sorted.length * fraction) - 1)] ?? 0
-}
-
-const getRenderViewports = (width: number, height: number, splitScreen: boolean): RenderViewport[] => {
-  if (!splitScreen || width <= height) return [{ x: 0, y: 0, width, height }]
-
-  const panelCount = Math.min(MAX_SPLIT_SCREEN_PANELS, Math.max(1, Math.floor(width / (height * MIN_SPLIT_SCREEN_ASPECT))))
-  const panelWidth = width / panelCount
-
-  return Array.from({ length: panelCount }, (_, index) => ({
-    x: panelWidth * index,
-    y: 0,
-    width: panelWidth,
-    height,
-  }))
+  return {
+    setHint(nextHint?: FaceMovementHint) {
+      const hint = isEnabled() ? nextHint : undefined
+      if (!hint) {
+        hide()
+        return
+      }
+      if (lastText !== hint.text) {
+        element.setAttribute("aria-label", hint.text)
+        lastText = hint.text
+      }
+      horizontalGroup?.classList.toggle("hidden", !hint.horizontal)
+      horizontalGroup?.classList.toggle("flex", Boolean(hint.horizontal))
+      if (horizontalIcon) horizontalIcon.textContent = hint.horizontal?.direction === "right" ? "→" : "←"
+      if (horizontalValue) horizontalValue.textContent = hint.horizontal?.value ?? ""
+      verticalGroup?.classList.toggle("hidden", !hint.vertical)
+      verticalGroup?.classList.toggle("flex", Boolean(hint.vertical))
+      if (verticalIcon) verticalIcon.textContent = hint.vertical?.direction === "up" ? "↑" : "↓"
+      if (verticalValue) verticalValue.textContent = hint.vertical?.value ?? ""
+      if (lastDepth !== hint.depth) {
+        depthGroup?.classList.toggle("hidden", !hint.depth)
+        depthGroup?.classList.toggle("flex", Boolean(hint.depth))
+        if (depthTarget && hint.depth) {
+          depthTarget.style.transform = `scale(${hint.depth === "nearer" ? 1.45 : 0.62})`
+        }
+        lastDepth = hint.depth
+      }
+      if (depthValue) depthValue.textContent = hint.depthValue ?? ""
+      if (!visible) {
+        element.hidden = false
+        visible = true
+      }
+    },
+    hide,
+  }
 }
 
 export interface VrSceneOptions {
@@ -127,259 +113,30 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
 
   const mount = initialOptions.mount
   const sampleCanvas = initialOptions.sampleCanvas
-  const inferenceCanvas = sampleCanvas.ownerDocument.createElement("canvas")
   const video = initialOptions.video
   const options = { ...initialOptions, video }
-  const horizontalGroup = options.hintElement.querySelector<HTMLElement>("[data-face-horizontal-group]")
-  const horizontalIcon = options.hintElement.querySelector<HTMLElement>("[data-face-horizontal-icon]")
-  const horizontalValue = options.hintElement.querySelector<HTMLElement>("[data-face-horizontal-value]")
-  const verticalGroup = options.hintElement.querySelector<HTMLElement>("[data-face-vertical-group]")
-  const verticalIcon = options.hintElement.querySelector<HTMLElement>("[data-face-vertical-icon]")
-  const verticalValue = options.hintElement.querySelector<HTMLElement>("[data-face-vertical-value]")
-  const depthGroup = options.hintElement.querySelector<HTMLElement>("[data-face-depth-group]")
-  const depthTarget = options.hintElement.querySelector<HTMLElement>("[data-face-depth-target]")
-  const depthValue = options.hintElement.querySelector<HTMLElement>("[data-face-depth-value]")
+  const movementOverlay = createFaceMovementOverlay(options.hintElement, () => options.debugPanelOpen)
   let disposed = false
-  let temporaryManualPauseActive = false
-  let manualFaceCenterResumeTimer: number | undefined
   let frameId = 0
   let videoFrameCallbackId = 0
   let pendingVideoFrameAt: number | undefined
-  let videoSourceFrameRate = 0
-  let previousVideoMediaTime: number | undefined
-  let previousPresentedFrames: number | undefined
-  const recentVideoFrameRates: number[] = []
-  const readPlaybackQuality = (): PlaybackQualitySnapshot | undefined => {
-    if (typeof video.getVideoPlaybackQuality === "function") {
-      const quality = video.getVideoPlaybackQuality()
-      return { dropped: quality.droppedVideoFrames, total: quality.totalVideoFrames }
-    }
-    const legacyVideo = video as HTMLVideoElement & {
-      webkitDecodedFrameCount?: number
-      webkitDroppedFrameCount?: number
-    }
-    if (typeof legacyVideo.webkitDecodedFrameCount === "number" && typeof legacyVideo.webkitDroppedFrameCount === "number") {
-      return { dropped: legacyVideo.webkitDroppedFrameCount, total: legacyVideo.webkitDecodedFrameCount }
-    }
-  }
-  let lastPlaybackQuality: PlaybackQualitySnapshot | undefined
-  let videoCallbackCount = 0
-  let videoCallbackFrameGaps = 0
-  let previousVideoCallbackAt: number | undefined
-  const recentVideoCallbackIntervals: number[] = []
-  const recentVideoCallbackLateness: number[] = []
-  const recentVideoProcessingTimes: number[] = []
-  let scheduledRenderSkips = 0
-  let missedRenderDeadlines = 0
-  const recentRenderDeadlineLateness: number[] = []
-  let waitingEvents = 0
-  let stalledEvents = 0
-  let bufferingStartedAt: number | undefined
-  let bufferingDurationMs = 0
-  let lastMediaEvent = "init"
-  let lastMediaEventAt = performance.now()
-  const recentLongTasks: { at: number, duration: number }[] = []
-  const recordMediaEvent = (name: string) => {
-    if (!options.debugPanelOpen) return
-    lastMediaEvent = name
-    lastMediaEventAt = performance.now()
-  }
-  const resetPlaybackDiagnostics = () => {
-    lastPlaybackQuality = options.debugPanelOpen ? readPlaybackQuality() : undefined
-    videoCallbackCount = 0
-    videoCallbackFrameGaps = 0
-    previousVideoCallbackAt = undefined
-    recentVideoCallbackIntervals.length = 0
-    recentVideoCallbackLateness.length = 0
-    recentVideoProcessingTimes.length = 0
-    scheduledRenderSkips = 0
-    missedRenderDeadlines = 0
-    recentRenderDeadlineLateness.length = 0
-    waitingEvents = 0
-    stalledEvents = 0
-    bufferingStartedAt = undefined
-    bufferingDurationMs = 0
-    lastMediaEvent = "reset"
-    lastMediaEventAt = performance.now()
-    recentLongTasks.length = 0
-  }
-  const resetVideoFrameRate = () => {
-    pendingVideoFrameAt = undefined
-    videoSourceFrameRate = 0
-    previousVideoMediaTime = undefined
-    previousPresentedFrames = undefined
-    recentVideoFrameRates.length = 0
-  }
-  const sampleVideoFrameRate = (metadata: VideoFrameCallbackMetadata) => {
-    if (previousVideoMediaTime !== undefined && previousPresentedFrames !== undefined) {
-      const mediaDelta = metadata.mediaTime - previousVideoMediaTime
-      const frameDelta = metadata.presentedFrames - previousPresentedFrames
-      const frameRate = frameDelta / mediaDelta
-      if (mediaDelta > 0 && mediaDelta <= 1 && frameDelta > 0 && frameRate >= 1 && frameRate <= 240) {
-        recentVideoFrameRates.push(frameRate)
-        if (recentVideoFrameRates.length > 60) recentVideoFrameRates.shift()
-        const sortedFrameRates = [...recentVideoFrameRates].sort((a, b) => a - b)
-        videoSourceFrameRate = sortedFrameRates[Math.floor(sortedFrameRates.length / 2)]
-      }
-    }
-    previousVideoMediaTime = metadata.mediaTime
-    previousPresentedFrames = metadata.presentedFrames
-  }
   let frameCapture: ((canvas: HTMLCanvasElement) => void) | undefined
   let lastFrameAt = performance.now()
   let nextPlaybackFrameAt: number | undefined
-  let fpsSampleStartedAt = lastFrameAt
-  let fpsFrameCount = 0
-  const recentFrameTimes: number[] = []
-  const recentRenderTimes: number[] = []
-  let lastRenderMs = 0
-  let recentInferenceCompletions: number[] = []
-  const recentInferenceTimes: number[] = []
-  let lastInferenceMs = 0
-  let lastCaptureMs = 0
-  let inferenceActivity: FaceInferenceActivity = "searching"
-  let rescanDuringMovement = false
-  let automaticProjectionBoundary: ProjectionBoundaryWarning | undefined
-  let detectionState = createFaceDetectionState()
-  const resetDetectionState = () => (detectionState = createFaceDetectionState())
-  let lastInputSize = "--"
-  let skippedInferenceFrames = 0
-  let overlayVisible = !options.hintElement.hidden
-  let lastOverlayText = options.hintElement.getAttribute("aria-label") ?? ""
-  let lastOverlayDepth: "nearer" | "farther" | undefined
-  const initialViewport = getRenderViewports(
-    Math.max(1, mount.clientWidth),
-    Math.max(1, mount.clientHeight),
-    options.splitScreen,
-  )[0]
-  const core = createVrPlayerCore({
+  const renderRuntime = createVrRenderRuntime({
     video,
-    projection: options.projection,
-    quality: options.quality,
-    width: mount.clientWidth,
-    height: mount.clientHeight,
-    aspect: initialViewport.width / initialViewport.height,
-    devicePixelRatio: window.devicePixelRatio || 1,
+    mount,
+    projection: () => options.projection,
+    quality: () => options.quality,
+    splitScreen: () => options.splitScreen,
+    viewRef: options.viewRef,
   })
-  const { camera, renderer, scene, texture } = core
-  let gpuRenderer = "--"
-  let longTaskObserver: PerformanceObserver | undefined
-  const startDebugDiagnostics = () => {
-    resetPlaybackDiagnostics()
-    const gl = renderer.getContext()
-    const rendererInfo = gl.getExtension("WEBGL_debug_renderer_info")
-    gpuRenderer = String(rendererInfo
-      ? gl.getParameter(rendererInfo.UNMASKED_RENDERER_WEBGL)
-      : gl.getParameter(gl.RENDERER))
-    if (typeof PerformanceObserver === "undefined") return
-    longTaskObserver = new PerformanceObserver((list) => {
-      if (!options.debugPanelOpen) return
-      const observedAt = performance.now()
-      list.getEntries().forEach(entry => recentLongTasks.push({ at: observedAt, duration: entry.duration }))
-      if (recentLongTasks.length > 200) recentLongTasks.splice(0, recentLongTasks.length - 200)
-    })
-    try {
-      longTaskObserver.observe({ type: "longtask", buffered: false })
-    } catch {
-      longTaskObserver.disconnect()
-      longTaskObserver = undefined
-    }
-  }
-  const stopDebugDiagnostics = () => {
-    longTaskObserver?.disconnect()
-    longTaskObserver = undefined
-    gpuRenderer = "--"
-    resetPlaybackDiagnostics()
-    resetVideoFrameRate()
-    recentFrameTimes.length = 0
-    recentRenderTimes.length = 0
-  }
-  if (options.debugPanelOpen) startDebugDiagnostics()
-  renderer.domElement.className = "block h-dvh w-full touch-none saturate-105 contrast-102"
-  const applyRenderQuality = () => {
-    core.setQuality(options.quality, window.devicePixelRatio || 1)
-    core.setSize(mount.clientWidth, mount.clientHeight, camera.aspect)
-    renderer.domElement.style.imageRendering = "auto"
-    renderer.domElement.dataset.quality = options.quality
-    renderer.domElement.dataset.pixelRatio = renderer.getPixelRatio().toFixed(2)
-  }
-  applyRenderQuality()
-  mount.appendChild(renderer.domElement)
+  const { camera } = renderRuntime
+  const applyRenderQuality = () => renderRuntime.setQuality(options.quality)
 
-  const faceState: FaceAutoCenterState = {
-    faces: [],
-    detectionMode: "viewport",
-    nextDetectionAt: 0,
-    lastDetectionAt: 0,
-    isMoving: false,
-    yawVelocity: 0,
-    pitchVelocity: 0,
-    forwardVelocity: 0,
-    lastErrorAt: 0,
-  }
-  const sampleContext = sampleCanvas.getContext("2d", { alpha: false, willReadFrequently: true })
-  const inferenceContext = inferenceCanvas.getContext("2d", { alpha: false, willReadFrequently: true })
-  const getFpsMetricsElement = () =>
-    options.fpsElement.querySelector<HTMLElement>("[data-debug-metrics]") ?? options.fpsElement
-  const debugLogElement = options.fpsElement.querySelector<HTMLElement>("[data-debug-log]")
-  const cameraForward = new Vector3()
   const getFaceSurfaceDistance = (projection: ProjectionMode) =>
     projection === "flat_2d" ? FLAT_SURFACE_DISTANCE : SPHERE_SURFACE_DISTANCE
-  const applyCameraPose = () => {
-    camera.rotation.set(MathUtils.degToRad(options.viewRef.current.pitch), MathUtils.degToRad(options.viewRef.current.yaw), 0, "YXZ")
-    cameraForward
-      .set(0, 0, -1)
-      .applyEuler(camera.rotation)
-      .multiplyScalar(options.viewRef.current.forward)
-    camera.position.copy(cameraForward)
-  }
-  interface DetectedFace {
-    boundingBox: { x: number, y: number, width: number, height: number }
-    score?: number
-  }
-  interface FaceDetectorBackend {
-    detect: (
-      source: ImageBitmapSource,
-      detectionRange: FaceDetectionRange,
-    ) => Promise<DetectedFace[]>
-    destroy: () => void
-  }
-  let faceDetector: FaceDetectorBackend | undefined
-  let faceDetectorPromise: Promise<FaceDetectorBackend> | undefined
-  let faceDetectorGeneration = 0
-  let inferenceInFlight = false
-  let inferenceGeneration = 0
-
-  const ensureFaceDetector = () => {
-    if (faceDetector) return Promise.resolve(faceDetector)
-    if (faceDetectorPromise) return faceDetectorPromise
-    const generation = faceDetectorGeneration
-    const loading: Promise<FaceDetectorBackend> = import("../../mediapipe-face-detector-client")
-      .then(module => module.createMediaPipeFaceDetectorClient())
-    faceDetectorPromise = loading.then((detector) => {
-      if (disposed || generation !== faceDetectorGeneration) {
-        detector.destroy()
-        throw new Error("Face detector initialization was superseded")
-      }
-      faceDetector = detector
-      return detector
-    }).catch((error) => {
-      if (generation === faceDetectorGeneration) faceDetectorPromise = undefined
-      throw error
-    })
-    return faceDetectorPromise
-  }
-
-  const releaseFaceDetector = () => {
-    faceDetectorGeneration += 1
-    faceDetector?.destroy()
-    faceDetector = undefined
-    faceDetectorPromise = undefined
-    inferenceCanvas.width = 1
-    inferenceCanvas.height = 1
-    sampleCanvas.width = 1
-    sampleCanvas.height = 1
-  }
+  let autoCenter!: FaceAutoCenterController
 
   const hasCurrentVideoFrame = () =>
     video.videoWidth > 0
@@ -398,39 +155,54 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     frameId = window.requestAnimationFrame(render)
   }
 
-  const setOverlay = (overlay: OverlayState) => {
-    const hint = options.debugPanelOpen ? overlay.hint : undefined
-    if (hint) {
-      if (lastOverlayText !== hint.text) {
-        options.hintElement.setAttribute("aria-label", hint.text)
-        lastOverlayText = hint.text
+  const diagnostics = createVrDiagnostics({
+    video,
+    panelElement: options.fpsElement,
+    getGpuLabel: renderRuntime.getGpuLabel,
+    getSnapshot: () => {
+      const tracking = autoCenter.snapshot()
+      return {
+        projection: options.projection,
+        quality: options.quality,
+        frameRate: options.frameRate,
+        splitCount: renderRuntime.getSplitCount(),
+        viewport: { width: mount.clientWidth, height: mount.clientHeight },
+        canvas: renderRuntime.getCanvasMetrics(),
+        faceAutoCenter: options.faceAutoCenter,
+        tracking: {
+          ...tracking,
+          view: {
+            yaw: options.viewRef.current.yaw,
+            pitch: options.viewRef.current.pitch,
+            forward: options.viewRef.current.forward,
+          },
+        },
       }
-      horizontalGroup?.classList.toggle("hidden", !hint.horizontal)
-      horizontalGroup?.classList.toggle("flex", Boolean(hint.horizontal))
-      if (horizontalIcon) horizontalIcon.textContent = hint.horizontal?.direction === "right" ? "→" : "←"
-      if (horizontalValue) horizontalValue.textContent = hint.horizontal?.value ?? ""
-      verticalGroup?.classList.toggle("hidden", !hint.vertical)
-      verticalGroup?.classList.toggle("flex", Boolean(hint.vertical))
-      if (verticalIcon) verticalIcon.textContent = hint.vertical?.direction === "up" ? "↑" : "↓"
-      if (verticalValue) verticalValue.textContent = hint.vertical?.value ?? ""
-      if (lastOverlayDepth !== hint.depth) {
-        depthGroup?.classList.toggle("hidden", !hint.depth)
-        depthGroup?.classList.toggle("flex", Boolean(hint.depth))
-        if (depthTarget && hint.depth) {
-          depthTarget.style.transform = `scale(${hint.depth === "nearer" ? 1.45 : 0.62})`
-        }
-        lastOverlayDepth = hint.depth
-      }
-      if (depthValue) depthValue.textContent = hint.depthValue ?? ""
-      if (!overlayVisible) {
-        options.hintElement.hidden = false
-        overlayVisible = true
-      }
-    } else if (overlayVisible) {
-      options.hintElement.hidden = true
-      overlayVisible = false
-    }
-  }
+    },
+  })
+  autoCenter = createFaceAutoCenterController({
+    video,
+    camera,
+    sampleCanvas,
+    capture: {
+      captureViewport: renderRuntime.captureViewportInference,
+      capturePanoramaTile: renderRuntime.capturePanoramaTile,
+    },
+    getProjection: () => options.projection,
+    getFrameRate: () => options.frameRate,
+    getView: () => options.viewRef.current,
+    getEnabled: () => options.faceAutoCenter,
+    getHidden: () => options.hidden,
+    getResumeAfterViewChange: () => options.resumeFaceAutoCenterAfterViewChange,
+    getDebugEnabled: () => options.debugPanelOpen,
+    getSurfaceDistance: getFaceSurfaceDistance,
+    onDiagnosticEvent: diagnostics.recordTracking,
+    onOverlayHint: movementOverlay.setHint,
+    onPauseChange: options.onFaceAutoCenterPauseChange,
+    onBoundaryWarning: axis => options.onProjectionBoundaryWarning({ axis, source: "auto" }),
+    requestRender,
+  })
+  diagnostics.setEnabled(options.debugPanelOpen)
 
   const updateVisibility = () => {
     options.root.classList.toggle("opacity-0", options.hidden)
@@ -439,134 +211,27 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     options.sampleCanvas.classList.toggle("hidden", !options.debugPanelOpen || !options.faceAutoCenter)
     options.fpsElement.classList.toggle("hidden", !options.debugPanelOpen)
     if (!options.debugPanelOpen) {
-      setOverlay({})
-      getFpsMetricsElement().textContent = "Waiting for frames…"
-      fpsFrameCount = 0
-      fpsSampleStartedAt = performance.now()
-      recentFrameTimes.length = 0
-      recentRenderTimes.length = 0
-      lastRenderMs = 0
-      recentInferenceCompletions = []
-      lastInferenceMs = 0
-      lastCaptureMs = 0
-      lastInputSize = "--"
-      skippedInferenceFrames = 0
+      movementOverlay.hide()
     }
-  }
-
-  const updatePerformanceMetrics = (now: number, frameTimeMs: number) => {
-    fpsFrameCount += 1
-    if (frameTimeMs > 0 && frameTimeMs < 1000) {
-      recentFrameTimes.push(frameTimeMs)
-      if (recentFrameTimes.length > 180) recentFrameTimes.shift()
-    }
-
-    const elapsed = now - fpsSampleStartedAt
-    if (elapsed < 500) return
-
-    const fps = Math.max(1, Math.round((fpsFrameCount * 1000) / elapsed))
-    const p95 = percentile(recentFrameTimes, 0.95)
-    const renderP95 = percentile(recentRenderTimes, 0.95)
-    recentInferenceCompletions = recentInferenceCompletions.filter(time => now - time <= 2000)
-    const trackingSpan = recentInferenceCompletions.length > 1
-      ? recentInferenceCompletions[recentInferenceCompletions.length - 1] - recentInferenceCompletions[0]
-      : 0
-    const trackingHz = trackingSpan > 0
-      ? ((recentInferenceCompletions.length - 1) * 1000) / trackingSpan
-      : 0
-
-    const splitCount = getRenderViewports(mount.clientWidth, mount.clientHeight, options.splitScreen).length
-    const renderStrategy = splitCount <= 1
-      ? "Single view"
-      : `Split ${splitCount} · render ${splitCount}×`
-    const videoFrameRateLabel = videoSourceFrameRate
-      ? String(Math.round(videoSourceFrameRate * 100) / 100)
-      : "--"
-    const playbackQuality = readPlaybackQuality()
-    const decodedSinceSample = playbackQuality && lastPlaybackQuality
-      ? Math.max(0, playbackQuality.total - lastPlaybackQuality.total)
-      : 0
-    const droppedSinceSample = playbackQuality && lastPlaybackQuality
-      ? Math.max(0, playbackQuality.dropped - lastPlaybackQuality.dropped)
-      : 0
-    const droppedPercent = decodedSinceSample > 0 ? (droppedSinceSample / decodedSinceSample) * 100 : 0
-    const callbackRate = (videoCallbackCount * 1000) / elapsed
-    const callbackP95 = percentile(recentVideoCallbackIntervals, 0.95)
-    const callbackLateP95 = percentile(recentVideoCallbackLateness, 0.95)
-    const processingP95 = percentile(recentVideoProcessingTimes, 0.95)
-    const deadlineLateP95 = percentile(recentRenderDeadlineLateness, 0.95)
-    const inferenceP95 = percentile(recentInferenceTimes, 0.95)
-    while (recentLongTasks[0] && now - recentLongTasks[0].at > 5000) recentLongTasks.shift()
-    const longTaskDuration = recentLongTasks.reduce((total, task) => total + task.duration, 0)
-    const longTaskMax = recentLongTasks.reduce((maximum, task) => Math.max(maximum, task.duration), 0)
-    const bufferingMs = bufferingDurationMs + (bufferingStartedAt === undefined ? 0 : now - bufferingStartedAt)
-    const bufferedEnd = video.buffered.length > 0 ? video.buffered.end(video.buffered.length - 1) : video.currentTime
-    const bufferedAhead = Math.max(0, bufferedEnd - video.currentTime)
-    const faceSampleAge = faceState.motion ? Math.max(0, now - faceState.motion.lastSeenAt) / 1000 : 0
-    const currentMotion = faceState.motion && faceSampleAge < 1.5 ? faceState.motion : undefined
-    const forwardTarget = faceState.target?.forward
-    const centeringPlan = faceState.target
-      ? getFaceCenteringPlan(faceState.target, camera, options.viewRef.current, options.projection, faceState.isMoving)
-      : undefined
-
-    getFpsMetricsElement().textContent = [
-      `RENDER   ${fps} fps · ${p95.toFixed(1)} ms p95`,
-      `VIDEO    ${video.videoWidth || "--"}×${video.videoHeight || "--"} · ${videoFrameRateLabel} fps · drop ${playbackQuality?.dropped ?? "--"}/${playbackQuality?.total ?? "--"}`,
-      `DECODE   +${droppedSinceSample}/${decodedSinceSample} (${droppedPercent.toFixed(1)}%) · process ${processingP95.toFixed(1)} ms p95`,
-      `CALLBACK ${callbackRate.toFixed(1)} Hz · ${callbackP95.toFixed(1)} ms p95 · late ${callbackLateP95.toFixed(1)} ms`,
-      `SCHED    skip ${scheduledRenderSkips} · miss ${missedRenderDeadlines} · late ${deadlineLateP95.toFixed(1)} ms`,
-      `MAIN     long ${recentLongTasks.length}/5s · ${longTaskDuration.toFixed(0)} ms · max ${longTaskMax.toFixed(0)} ms`,
-      `VIEW     ${renderStrategy}`,
-      `CPU      ${lastRenderMs.toFixed(2)} ms · ${renderP95.toFixed(2)} p95`,
-      `TRACK    ${trackingHz.toFixed(1)} Hz · ${lastInferenceMs.toFixed(1)} ms · ${inferenceActivity}`,
-      `MOTION   ${(currentMotion?.speed ?? 0).toFixed(2)}/s · away ${Math.max(0, currentMotion?.recedingSpeed ?? 0).toFixed(2)}`,
-      `DEPTH    ${options.viewRef.current.forward.toFixed(1)} → ${forwardTarget?.toFixed(1) ?? "--"} · v ${faceState.forwardVelocity.toFixed(2)}`,
-      `FACE     size ${currentMotion?.size.toFixed(2) ?? "--"} · age ${faceSampleAge.toFixed(1)}s`,
-      `CAPTURE  ${lastCaptureMs.toFixed(1)} ms · skip ${skippedInferenceFrames}`,
-      `ENGINE   ${faceDetector ? "MediaPipe" : "Idle"} · ${lastInputSize}`,
-    ].join("\n")
-    if (debugLogElement && options.fpsElement.dataset.debugRecording === "true") {
-      debugLogElement.textContent = [
-        `MEDIA time=${video.currentTime.toFixed(2)}s duration=${Number.isFinite(video.duration) ? video.duration.toFixed(2) : "--"}s rate=${video.playbackRate.toFixed(2)} paused=${video.paused} seeking=${video.seeking} ended=${video.ended}`,
-        `BUFFER ready=${video.readyState} network=${video.networkState} ahead=${bufferedAhead.toFixed(2)}s waiting=${waitingEvents} stalled=${stalledEvents} total=${bufferingMs.toFixed(0)}ms last=${lastMediaEvent}@${Math.max(0, now - lastMediaEventAt).toFixed(0)}ms`,
-        `DECODE source=${video.videoWidth}×${video.videoHeight}@${videoFrameRateLabel}fps dropped=${playbackQuality?.dropped ?? "--"}/${playbackQuality?.total ?? "--"} sample=${droppedSinceSample}/${decodedSinceSample} processP95=${processingP95.toFixed(2)}ms qualityApi=${Boolean(playbackQuality)}`,
-        `CALLBACK rate=${callbackRate.toFixed(1)}Hz intervalP95=${callbackP95.toFixed(2)}ms lateP95=${callbackLateP95.toFixed(2)}ms gaps=${videoCallbackFrameGaps} rvfc=${"requestVideoFrameCallback" in video}`,
-        `RENDER target=${options.frameRate}fps actual=${fps}fps frameP95=${p95.toFixed(2)}ms cpuP95=${renderP95.toFixed(2)}ms schedulerSkips=${scheduledRenderSkips} deadlineMisses=${missedRenderDeadlines} deadlineLateP95=${deadlineLateP95.toFixed(2)}ms`,
-        `WORKLOAD faceCenter=${options.faceAutoCenter} tracking=${trackingHz.toFixed(1)}Hz inferenceP95=${inferenceP95.toFixed(2)}ms capture=${lastCaptureMs.toFixed(2)}ms activity=${inferenceActivity}`,
-        `CENTER phase=${detectionState.phase} mode=${faceState.target?.mode ?? "--"} moving=${faceState.isMoving} rescan=${rescanDuringMovement} retry=${Math.max(0, getFaceDetectionRetryAt(detectionState) - now).toFixed(0)}ms view=${options.viewRef.current.yaw.toFixed(2)},${options.viewRef.current.pitch.toFixed(2)},${options.viewRef.current.forward.toFixed(2)} target=${faceState.target?.yaw?.toFixed(2) ?? "--"},${faceState.target?.pitch?.toFixed(2) ?? "--"},${faceState.target?.forward?.toFixed(2) ?? "--"} error=${centeringPlan?.error.yawOffset.toFixed(2) ?? "--"},${centeringPlan?.error.pitchOffset.toFixed(2) ?? "--"},${centeringPlan?.error.forwardOffset.toFixed(2) ?? "--"} blocked=${centeringPlan?.blockedAxis ?? automaticProjectionBoundary?.axis ?? "--"}`,
-        `MAIN longTasks=${recentLongTasks.length}/5s total=${longTaskDuration.toFixed(0)}ms max=${longTaskMax.toFixed(0)}ms`,
-        `ENV projection=${options.projection} viewport=${mount.clientWidth}×${mount.clientHeight} canvas=${renderer.domElement.width}×${renderer.domElement.height} dpr=${renderer.getPixelRatio().toFixed(2)} quality=${options.quality} split=${splitCount} gpu=${gpuRenderer}`,
-      ].join("\n")
-    }
-    lastPlaybackQuality = playbackQuality
-    videoCallbackCount = 0
-    scheduledRenderSkips = 0
-    missedRenderDeadlines = 0
-    fpsFrameCount = 0
-    fpsSampleStartedAt = now
   }
 
   const resize = () => {
-    const width = Math.max(1, mount.clientWidth)
-    const height = Math.max(1, mount.clientHeight)
-    const primaryViewport = getRenderViewports(width, height, options.splitScreen)[0]
-    core.setSize(width, height, primaryViewport.width / primaryViewport.height)
+    renderRuntime.resize()
     requestRender()
   }
 
   const rebuildProjection = () => {
-    core.setProjection(options.projection)
+    renderRuntime.setProjection(options.projection)
   }
 
   const onMetadata = () => {
-    texture.needsUpdate = true
-    resetVideoFrameRate()
-    resetPlaybackDiagnostics()
-    recordMediaEvent("loadedmetadata")
+    renderRuntime.invalidateTexture()
+    pendingVideoFrameAt = undefined
+    diagnostics.resetVideoFrameMetrics()
+    diagnostics.resetPlayback()
+    diagnostics.recordMediaEvent("loadedmetadata")
     rebuildProjection()
-    faceState.motion = undefined
-    resetDetectionState()
-    faceState.nextDetectionAt = 0
+    autoCenter.handleMetadata()
     requestRender()
   }
   video.addEventListener("loadedmetadata", onMetadata)
@@ -577,47 +242,25 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       nextPlaybackFrameAt = undefined
       lastFrameAt = performance.now()
     }
-    if (event.type === "playing" && bufferingStartedAt !== undefined) {
-      bufferingDurationMs += performance.now() - bufferingStartedAt
-      bufferingStartedAt = undefined
-    }
-    recordMediaEvent(event.type)
-    faceState.nextDetectionAt = 0
+    if (event.type === "playing") diagnostics.recordPlaying()
+    else diagnostics.recordMediaEvent(event.type)
+    autoCenter.requestDetection()
     requestRender()
   }
   const onVideoPause = () => {
-    recordMediaEvent("pause")
-    inferenceGeneration += 1
-    faceState.faces = []
-    faceState.target = undefined
-    faceState.motion = undefined
-    resetDetectionState()
-    faceState.yawVelocity = 0
-    faceState.pitchVelocity = 0
-    faceState.forwardVelocity = 0
-    faceState.isMoving = false
-    automaticProjectionBoundary = undefined
-    setOverlay({})
-    requestRender()
+    diagnostics.recordMediaEvent("pause")
+    autoCenter.handleVideoPause()
   }
   const onVideoSeeking = () => {
-    resetVideoFrameRate()
+    pendingVideoFrameAt = undefined
+    diagnostics.resetVideoFrameMetrics()
     nextPlaybackFrameAt = undefined
     lastFrameAt = performance.now()
-    recordMediaEvent("seeking")
+    diagnostics.recordMediaEvent("seeking")
   }
-  const onVideoWaiting = () => {
-    if (!options.debugPanelOpen) return
-    waitingEvents += 1
-    bufferingStartedAt ??= performance.now()
-    recordMediaEvent("waiting")
-  }
-  const onVideoStalled = () => {
-    if (!options.debugPanelOpen) return
-    stalledEvents += 1
-    recordMediaEvent("stalled")
-  }
-  const onVideoError = () => recordMediaEvent(`error:${video.error?.code ?? "unknown"}`)
+  const onVideoWaiting = () => diagnostics.recordWaiting()
+  const onVideoStalled = () => diagnostics.recordStalled()
+  const onVideoError = () => diagnostics.recordMediaEvent(`error:${video.error?.code ?? "unknown"}`)
   video.addEventListener("playing", onVideoActivity)
   video.addEventListener("pause", onVideoPause)
   video.addEventListener("seeking", onVideoSeeking)
@@ -628,24 +271,21 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   video.addEventListener("error", onVideoError)
 
   const resetRenderCadence = (event: "focus" | "visible") => {
-    recordMediaEvent(event)
+    diagnostics.recordMediaEvent(event)
     pendingVideoFrameAt = undefined
     nextPlaybackFrameAt = undefined
-    previousVideoCallbackAt = undefined
-    recentVideoCallbackIntervals.length = 0
-    recentVideoCallbackLateness.length = 0
-    recentRenderDeadlineLateness.length = 0
+    diagnostics.resetCadence()
     lastFrameAt = performance.now()
-    faceState.nextDetectionAt = 0
+    autoCenter.requestDetection()
     requestRender()
   }
   const onVisibilityChange = () => {
     if (document.hidden) {
-      recordMediaEvent("hidden")
-      inferenceGeneration += 1
+      diagnostics.recordMediaEvent("hidden")
+      autoCenter.invalidateInference()
       pendingVideoFrameAt = undefined
       nextPlaybackFrameAt = undefined
-      previousVideoCallbackAt = undefined
+      diagnostics.resetCadence()
       stopScheduledRender()
       return
     }
@@ -654,7 +294,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   const onWindowFocus = () => {
     if (!document.hidden) resetRenderCadence("focus")
   }
-  const onWindowBlur = () => recordMediaEvent("blur")
+  const onWindowBlur = () => diagnostics.recordMediaEvent("blur")
   document.addEventListener("visibilitychange", onVisibilityChange)
   window.addEventListener("focus", onWindowFocus)
   window.addEventListener("blur", onWindowBlur)
@@ -663,18 +303,7 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     const onVideoFrame = (now: DOMHighResTimeStamp, metadata: VideoFrameCallbackMetadata) => {
       if (disposed) return
       pendingVideoFrameAt = metadata.mediaTime * 1000
-      if (options.debugPanelOpen) {
-        videoCallbackCount += 1
-        if (previousVideoCallbackAt !== undefined) recentVideoCallbackIntervals.push(now - previousVideoCallbackAt)
-        previousVideoCallbackAt = now
-        recentVideoCallbackLateness.push(Math.max(0, now - metadata.expectedDisplayTime))
-        if (metadata.processingDuration !== undefined) recentVideoProcessingTimes.push(metadata.processingDuration * 1000)
-        if (previousPresentedFrames !== undefined) videoCallbackFrameGaps += Math.max(0, metadata.presentedFrames - previousPresentedFrames - 1)
-        if (recentVideoCallbackIntervals.length > 180) recentVideoCallbackIntervals.shift()
-        if (recentVideoCallbackLateness.length > 180) recentVideoCallbackLateness.shift()
-        if (recentVideoProcessingTimes.length > 180) recentVideoProcessingTimes.shift()
-        sampleVideoFrameRate(metadata)
-      }
+      diagnostics.recordVideoFrame(now, metadata)
       videoFrameCallbackId = video.requestVideoFrameCallback(onVideoFrame)
       requestRender()
     }
@@ -684,648 +313,26 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   const resizeObserver = new ResizeObserver(resize)
   resizeObserver.observe(mount)
 
-  const setManualFaceCenterPaused = (paused: boolean) => {
-    if (paused === Boolean(faceState.manuallyPaused)) return
-    inferenceGeneration += 1
-    if (paused) pauseFaceAutoCenter(faceState)
-    else resumeFaceAutoCenter(faceState)
-    automaticProjectionBoundary = undefined
-    resetDetectionState()
-    options.onFaceAutoCenterPauseChange(paused)
-    setOverlay({})
-    requestRender()
-  }
-
-  const clearManualFaceCenterResume = () => {
-    if (manualFaceCenterResumeTimer !== undefined) window.clearTimeout(manualFaceCenterResumeTimer)
-    manualFaceCenterResumeTimer = undefined
-    if (temporaryManualPauseActive) options.viewRef.current.pausedUntil = 0
-    temporaryManualPauseActive = false
-  }
-
-  const pauseFaceCenterForManualInput = () => {
-    if (!options.faceAutoCenter) return
-    const now = performance.now()
-    const resumeAt = getFaceAutoCenterManualResumeAt(now, options.resumeFaceAutoCenterAfterViewChange)
-    if (!Number.isFinite(resumeAt)) {
-      clearManualFaceCenterResume()
-      setManualFaceCenterPaused(true)
-      return
-    }
-
-    if (!temporaryManualPauseActive) {
-      temporaryManualPauseActive = true
-      const wasManuallyPaused = Boolean(faceState.manuallyPaused)
-      inferenceGeneration += 1
-      pauseFaceAutoCenter(faceState)
-      resumeFaceAutoCenter(faceState)
-      automaticProjectionBoundary = undefined
-      resetDetectionState()
-      if (wasManuallyPaused) options.onFaceAutoCenterPauseChange(false)
-      setOverlay({})
-    }
-    options.viewRef.current.pausedUntil = resumeAt
-    if (manualFaceCenterResumeTimer !== undefined) window.clearTimeout(manualFaceCenterResumeTimer)
-    manualFaceCenterResumeTimer = window.setTimeout(() => {
-      manualFaceCenterResumeTimer = undefined
-      if (disposed || !temporaryManualPauseActive) return
-      temporaryManualPauseActive = false
-      options.viewRef.current.pausedUntil = 0
-      faceState.nextDetectionAt = 0
-      requestRender()
-    }, Math.max(0, resumeAt - performance.now()))
-    requestRender()
-  }
-
-  const dragging = { active: false, pointerId: 0, x: 0, y: 0 }
-  const touchPoints = new Map<number, { x: number, y: number }>()
-  let pinch: { pointerIds: [number, number], distance: number, forward: number } | undefined
-
-  const inspectProjectionBoundary = (axis: "yaw" | "pitch" | "forward", proposedValue: number) => {
-    const current = options.viewRef.current
-    const proposed = { yaw: current.yaw, pitch: current.pitch, forward: current.forward, [axis]: proposedValue }
-    const constrained = constrainFaceAutoCenterView(options.projection, camera, current, proposed)
-    const blocked = Math.abs(constrained[axis] - proposedValue) > 0.0001
-    return { blocked, constrainedValue: constrained[axis] }
-  }
-
-  const applyManualAxis = (axis: "yaw" | "pitch" | "forward", proposedValue: number) => {
-    const boundary = inspectProjectionBoundary(axis, proposedValue)
-    if (options.debugPanelOpen && boundary.blocked) {
-      options.onProjectionBoundaryWarning({ axis, source: "manual" })
-    }
-    const appliedValue = options.debugPanelOpen ? proposedValue : boundary.constrainedValue
-    const changed = Math.abs(appliedValue - options.viewRef.current[axis]) > 0.0001
-    options.viewRef.current[axis] = appliedValue
-    return changed
-  }
-
-  const applyManualForward = (nextForward: number) => {
-    const current = options.viewRef.current
-    if (nextForward === current.forward) return
-    if (!applyManualAxis("forward", nextForward)) return
-    pauseFaceCenterForManualInput()
-    requestRender()
-  }
-
-  const startTouchPinch = () => {
-    const points = Array.from(touchPoints.entries()).slice(0, 2)
-    if (points.length < 2) {
-      pinch = undefined
-      return
-    }
-    const [[firstId, first], [secondId, second]] = points
-    pinch = {
-      pointerIds: [firstId, secondId],
-      distance: Math.max(1, Math.hypot(second.x - first.x, second.y - first.y)),
-      forward: options.viewRef.current.forward,
-    }
-    dragging.active = false
-  }
-
-  const onPointerDown = (event: PointerEvent) => {
-    if (event.pointerType === "mouse" && event.button !== 0) return
-    if (event.pointerType === "touch") {
-      touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY })
-      renderer.domElement.setPointerCapture?.(event.pointerId)
-      if (touchPoints.size > 1) {
-        startTouchPinch()
-      } else {
-        dragging.active = true
-        dragging.pointerId = event.pointerId
-        dragging.x = event.clientX
-        dragging.y = event.clientY
-      }
-      requestRender()
-      return
-    }
-    dragging.active = true
-    dragging.pointerId = event.pointerId
-    dragging.x = event.clientX
-    dragging.y = event.clientY
-    renderer.domElement.setPointerCapture?.(event.pointerId)
-    requestRender()
-  }
-  const onPointerMove = (event: PointerEvent) => {
-    if (event.pointerType === "touch" && touchPoints.has(event.pointerId)) {
-      touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY })
-      if (pinch) {
-        const [firstId, secondId] = pinch.pointerIds
-        const first = touchPoints.get(firstId)
-        const second = touchPoints.get(secondId)
-        if (!first || !second) {
-          startTouchPinch()
-          return
-        }
-        const distance = Math.max(1, Math.hypot(second.x - first.x, second.y - first.y))
-        applyManualForward(getManualZoomForwardTarget(
-          pinch.forward,
-          distance / pinch.distance,
-          getFaceSurfaceDistance(options.projection),
-        ))
-        return
-      }
-    }
-    if (!dragging.active || dragging.pointerId !== event.pointerId) return
-    if (event.pointerType === "mouse" && (event.buttons & 1) === 0) {
-      dragging.active = false
-      if (renderer.domElement.hasPointerCapture?.(event.pointerId)) renderer.domElement.releasePointerCapture?.(event.pointerId)
-      requestRender()
-      return
-    }
-    const dx = event.clientX - dragging.x
-    const dy = event.clientY - dragging.y
-    dragging.x = event.clientX
-    dragging.y = event.clientY
-    const nextYaw = options.viewRef.current.yaw + dx * 0.08
-    const nextPitch = clamp(options.viewRef.current.pitch + dy * 0.08, -85, 85)
-    const yawChanged = applyManualAxis("yaw", nextYaw)
-    const pitchChanged = applyManualAxis("pitch", nextPitch)
-    if (yawChanged || pitchChanged) pauseFaceCenterForManualInput()
-    requestRender()
-  }
-  const onPointerUp = (event: PointerEvent) => {
-    if (event.pointerType === "touch" && touchPoints.has(event.pointerId)) {
-      touchPoints.delete(event.pointerId)
-      if (renderer.domElement.hasPointerCapture?.(event.pointerId)) renderer.domElement.releasePointerCapture?.(event.pointerId)
-      pinch = undefined
-      if (touchPoints.size > 1) {
-        startTouchPinch()
-      } else {
-        const remaining = touchPoints.entries().next().value as [number, { x: number, y: number }] | undefined
-        dragging.active = Boolean(remaining)
-        if (remaining) {
-          dragging.pointerId = remaining[0]
-          dragging.x = remaining[1].x
-          dragging.y = remaining[1].y
-        }
-      }
-      requestRender()
-      return
-    }
-    if (!dragging.active || dragging.pointerId !== event.pointerId) return
-    dragging.active = false
-    if (renderer.domElement.hasPointerCapture?.(event.pointerId)) renderer.domElement.releasePointerCapture?.(event.pointerId)
-    requestRender()
-  }
-  const onWheel = (event: WheelEvent) => {
-    event.preventDefault()
-    const deltaScale = event.deltaMode === WheelEvent.DOM_DELTA_LINE
-      ? 16
-      : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
-        ? mount.clientHeight
-        : 1
-    const speed = event.ctrlKey ? TRACKPAD_PINCH_ZOOM_SPEED : WHEEL_ZOOM_SPEED
-    applyManualForward(getManualZoomForwardTarget(
-      options.viewRef.current.forward,
-      Math.exp(-event.deltaY * deltaScale * speed),
-      getFaceSurfaceDistance(options.projection),
-    ))
-  }
-
-  renderer.domElement.addEventListener("pointerdown", onPointerDown)
-  renderer.domElement.addEventListener("pointermove", onPointerMove)
-  renderer.domElement.addEventListener("pointerup", onPointerUp)
-  renderer.domElement.addEventListener("pointercancel", onPointerUp)
-  renderer.domElement.addEventListener("wheel", onWheel, { passive: false })
-
-  const updateInferenceSchedule = (
-    now: number,
-    completedInferenceMs = 0,
-    scheduleOverride?: { activity: FaceInferenceActivity, period: number },
-  ) => {
-    const sortedInferenceTimes = [...recentInferenceTimes].sort((a, b) => a - b)
-    const p95Index = Math.max(0, Math.ceil(sortedInferenceTimes.length * 0.95) - 1)
-    const inferenceP95 = sortedInferenceTimes[p95Index] ?? 0
-    const target = faceState.target
-    const targetPlan = target
-      ? getFaceCenteringPlan(target, camera, options.viewRef.current, options.projection, faceState.isMoving)
-      : undefined
-    const targetError = targetPlan?.error
-    const targetNeedsMovement = targetError?.needsMovement ?? false
-    const movementBlocked = Boolean(targetPlan?.blockedAxis && !targetNeedsMovement)
-    const effectiveScheduleOverride = movementBlocked ? undefined : scheduleOverride
-    if (effectiveScheduleOverride) inferenceActivity = effectiveScheduleOverride.activity
-    else if (detectionState.phase === "panorama-scan") inferenceActivity = "recovery"
-    else if (detectionState.phase !== "tracking" || !target) inferenceActivity = "searching"
-    else if (faceState.isMoving || (!movementBlocked && (faceState.offCenterSince !== undefined || targetNeedsMovement))) inferenceActivity = "active"
-    else inferenceActivity = "stable"
-    const motion = faceState.motion && now - faceState.motion.lastSeenAt < 1500 ? faceState.motion : undefined
-    const adaptivePeriod = effectiveScheduleOverride?.period
-      ?? (faceState.isMoving && rescanDuringMovement && target && targetError
-        ? movingFaceInferencePeriod(estimateFaceCenteringDuration(targetError, {
-            yaw: faceState.yawVelocity,
-            pitch: faceState.pitchVelocity,
-            forward: faceState.forwardVelocity,
-          }, target.mode), inferenceP95)
-        : faceInferencePeriod(options.frameRate, inferenceP95, inferenceActivity, motion))
-    // Keep the adaptive period measured from inference start to inference start.
-    faceState.nextDetectionAt = Math.max(
-      now + Math.max(0, adaptivePeriod - completedInferenceMs),
-      getFaceDetectionRetryAt(detectionState),
-    )
-    return adaptivePeriod
-  }
-
-  const clearStaleTrackingAfterMiss = (time: number) => {
-    if (faceState.target && time - faceState.target.lastSeenAt > FACE_TARGET_GRACE_MS) {
-      faceState.target = undefined
-    }
-    if (detectionState.misses >= 3 && !faceState.target) {
-      faceState.selectedFace = undefined
-    }
-  }
-
-  const applyInferenceResult = (
-    result: FaceInferenceResult,
-    detectionMode: DetectionMode,
-    panoramaSample: PanoramaSample | undefined,
-    projection: ProjectionMode,
-  ) => {
-    const time = result.timestamp
-    const completedAt = performance.now()
-    lastInferenceMs = result.inferenceMs
-    recentInferenceTimes.push(result.inferenceMs)
-    if (recentInferenceTimes.length > 20) recentInferenceTimes.shift()
-    // These timestamps only feed the debug meter. Keeping them while the meter
-    // is closed would make the array grow for the entire playback session.
-    if (options.debugPanelOpen) recentInferenceCompletions.push(completedAt)
-    let foundFace = false
-    let preserveSchedule = false
-
-    if (detectionMode === "panorama" && panoramaSample) {
-      faceState.detectionMode = "panorama"
-      const sampleFaces = new Map<FaceBox, FaceBox>()
-      const face = applyDetections(faceState, result.faces, time, "panorama", {
-        x: panoramaSample.center.x,
-        y: panoramaSample.center.y,
-        weight: PANORAMA_DIRECTION_ANCHOR_WEIGHT,
-        wrapX: panoramaSample.wraps,
-      }, (sampleFace) => {
-        const mappedFace = mapSampleFaceToPanorama(sampleFace, panoramaSample)
-        sampleFaces.set(mappedFace, sampleFace)
-        return mappedFace
-      })
-      const sampleFace = face ? sampleFaces.get(face) : undefined
-      if (face && isPanoramaCandidateReliable(sampleFace)) {
-        foundFace = setPanoramaTarget(faceState, face, time, projection, camera)
-        if (foundFace) detectionState = acceptFaceDetection()
-      } else {
-        detectionState = applyPanoramaDetectionMiss(
-          detectionState,
-          time,
-          face ? getPanoramaRefinementTile(projection, face) : undefined,
-        )
-      }
-    } else {
-      faceState.detectionMode = "viewport"
-      const face = applyDetections(faceState, result.faces, time, "viewport")
-      if (face) updateFaceMotion(faceState, face, time, camera, options.viewRef.current)
-      foundFace = setViewportTarget(
-        faceState,
-        face,
-        time,
-        camera,
-        options.viewRef.current,
-        undefined,
-        getFaceSurfaceDistance(projection),
-      )
-      const view = options.viewRef.current
-      const transition = applyViewportDetection(detectionState, foundFace, () => getPanoramaScanTiles(
-        projection,
-        view.yaw,
-        view.pitch,
-        getPredictedFaceDirection(faceState, time, projection),
-      ))
-      detectionState = transition.state
-      preserveSchedule = transition.preserveSchedule
-    }
-
-    if (!foundFace) clearStaleTrackingAfterMiss(time)
-    if (options.debugPanelOpen && sampleContext) {
-      if (foundFace) {
-        sampleCanvas.width = inferenceCanvas.width
-        sampleCanvas.height = inferenceCanvas.height
-        sampleContext.drawImage(inferenceCanvas, 0, 0)
-        drawSampleBoxes(faceState, sampleCanvas, sampleContext, performance.now(), faceState.detectionMode)
-      } else if (detectionMode === "viewport") {
-        sampleCanvas.width = inferenceCanvas.width
-        sampleCanvas.height = inferenceCanvas.height
-        sampleContext.drawImage(inferenceCanvas, 0, 0)
-        drawSampleStatus(sampleCanvas, sampleContext, "No face detected")
-      }
-    }
-    return preserveSchedule
-  }
-
-  const renderSceneViewports = () => {
-    const viewports = getRenderViewports(mount.clientWidth, mount.clientHeight, options.splitScreen)
-    renderer.setScissorTest(viewports.length > 1)
-    renderer.setViewport(0, 0, mount.clientWidth, mount.clientHeight)
-    renderer.setScissor(0, 0, mount.clientWidth, mount.clientHeight)
-    viewports.forEach((viewport) => {
-      renderer.setViewport(viewport.x, viewport.y, viewport.width, viewport.height)
-      renderer.setScissor(viewport.x, viewport.y, viewport.width, viewport.height)
-      renderer.render(scene, camera)
-    })
-    renderer.setScissorTest(false)
-  }
-
-  const capturePanoramaInferenceSample = (projection: ProjectionMode) => {
-    const scan = getActivePanoramaScan(detectionState)
-    const tile = scan && getActivePanoramaRecoveryTile(scan)
-    if (!tile) return undefined
-    const savedCamera = {
-      aspect: camera.aspect,
-      fov: camera.fov,
-      zoom: camera.zoom,
-      x: camera.rotation.x,
-      y: camera.rotation.y,
-      z: camera.rotation.z,
-      order: camera.rotation.order,
-      positionX: camera.position.x,
-      positionY: camera.position.y,
-      positionZ: camera.position.z,
-    }
-    const side = Math.max(1, Math.min(mount.clientWidth, mount.clientHeight))
-    const sidePixels = Math.min(
-      renderer.domElement.width,
-      renderer.domElement.height,
-      Math.max(1, Math.round(side * renderer.getPixelRatio())),
-    )
-
-    let size: ReturnType<typeof drawViewportInferenceSample>
-    try {
-      camera.aspect = 1
-      camera.fov = tile.fov
-      camera.zoom = 1
-      camera.position.set(0, 0, 0)
-      camera.rotation.set(MathUtils.degToRad(tile.pitch), MathUtils.degToRad(tile.yaw), 0, "YXZ")
-      camera.updateProjectionMatrix()
-      renderer.setScissorTest(true)
-      renderer.setViewport(0, 0, side, side)
-      renderer.setScissor(0, 0, side, side)
-      renderer.render(scene, camera)
-
-      size = drawViewportInferenceSample(
-        inferenceCanvas,
-        inferenceContext!,
-        renderer.domElement,
-        0,
-        renderer.domElement.height - sidePixels,
-        sidePixels,
-        sidePixels,
-        PANORAMA_SAMPLE_WIDTH,
-      )
-    } finally {
-      camera.aspect = savedCamera.aspect
-      camera.fov = savedCamera.fov
-      camera.zoom = savedCamera.zoom
-      camera.position.set(savedCamera.positionX, savedCamera.positionY, savedCamera.positionZ)
-      camera.rotation.set(savedCamera.x, savedCamera.y, savedCamera.z, savedCamera.order)
-      camera.updateProjectionMatrix()
-      renderSceneViewports()
-    }
-
-    return size ? createPerspectivePanoramaSample(projection, tile) : undefined
-  }
-
-  const submitInference = (now: number) => {
-    if (!inferenceContext || inferenceInFlight) return
-
-    const captureStartedAt = performance.now()
-    detectionState = prepareFaceDetection(detectionState, now)
-    const detectionMode: DetectionMode = getFaceDetectionMode(detectionState)
-    const detectionRange = getFaceDetectionRange(detectionState)
-    let panoramaSample: PanoramaSample | undefined
-    let inputWidth = 0
-    let inputHeight = 0
-    let completedInferenceMs = 0
-    let completedScheduleOverride: { activity: FaceInferenceActivity, period: number } | undefined
-    const projection = options.projection
-
-    try {
-      if (detectionMode === "panorama") {
-        panoramaSample = capturePanoramaInferenceSample(projection)
-        if (!panoramaSample) return
-        inputWidth = inferenceCanvas.width
-        inputHeight = inferenceCanvas.height
-      } else {
-        const renderViewports = getRenderViewports(renderer.domElement.width, renderer.domElement.height, options.splitScreen)
-        const sourceRect = renderViewports[Math.floor(renderViewports.length / 2)]
-        // Copy synchronously into the small reusable canvas. Creating an
-        // ImageBitmap directly from the WebGL canvas can retain its full-size
-        // backing buffer until the asynchronous capture has completed.
-        const size = drawViewportInferenceSample(
-          inferenceCanvas,
-          inferenceContext,
-          renderer.domElement,
-          sourceRect.x,
-          sourceRect.y,
-          sourceRect.width,
-          sourceRect.height,
-          VIEWPORT_SAMPLE_WIDTH,
-        )
-        if (!size) return
-        inputWidth = size.width
-        inputHeight = size.height
-      }
-    } catch (error) {
-      if (now - faceState.lastErrorAt > 3000) {
-        faceState.lastErrorAt = now
-        console.warn("face auto center could not capture inference frame", error)
-      }
-      updateInferenceSchedule(now)
-      return
-    }
-
-    const generation = inferenceGeneration
-    lastInputSize = `${inputWidth}×${inputHeight}`
-    inferenceInFlight = true
-    const inferencePeriodAtStart = updateInferenceSchedule(now)
-    const inferenceActivityAtStart = inferenceActivity
-    void ensureFaceDetector()
-      .then((detector) => {
-        lastCaptureMs = performance.now() - captureStartedAt
-        return detector.detect(inferenceCanvas, detectionRange)
-      })
-      .then((faces) => {
-        completedInferenceMs = performance.now() - captureStartedAt
-        if (disposed || generation !== inferenceGeneration || video.paused || !options.faceAutoCenter || options.hidden) return
-        const result: FaceInferenceResult = {
-          id: 0,
-          type: "result",
-          timestamp: now,
-          faces: faces.map(face => ({
-            x: face.boundingBox.x / inputWidth,
-            y: face.boundingBox.y / inputHeight,
-            width: face.boundingBox.width / inputWidth,
-            height: face.boundingBox.height / inputHeight,
-            score: face.score ?? 1,
-          })),
-          inferenceMs: completedInferenceMs,
-        }
-        if (applyInferenceResult(result, detectionMode, panoramaSample, projection)) {
-          completedScheduleOverride = { activity: inferenceActivityAtStart, period: inferencePeriodAtStart }
-        }
-      })
-      .catch((error) => {
-        if (disposed || generation !== inferenceGeneration) return
-        if (performance.now() - faceState.lastErrorAt > 3000) {
-          faceState.lastErrorAt = performance.now()
-          console.warn("face tracking worker inference failed", error)
-        }
-      })
-      .finally(() => {
-        inferenceInFlight = false
-        if (!disposed && generation === inferenceGeneration) {
-          updateInferenceSchedule(
-            performance.now(),
-            completedInferenceMs,
-            rescanDuringMovement ? undefined : completedScheduleOverride,
-          )
-          requestRender()
-        }
-      })
-  }
-
-  const runFaceAutoCenter = (now: number, delta: number) => {
-    if (!sampleContext) return
-
-    if (video.paused) {
-      faceState.yawVelocity = 0
-      faceState.pitchVelocity = 0
-      faceState.forwardVelocity = 0
-      faceState.isMoving = false
-      automaticProjectionBoundary = undefined
-      setOverlay({})
-      return
-    }
-
-    if (!options.faceAutoCenter || options.hidden) {
-      faceState.faces = []
-      faceState.target = undefined
-      faceState.motion = undefined
-      resetDetectionState()
-      faceState.yawVelocity = 0
-      faceState.pitchVelocity = 0
-      faceState.forwardVelocity = 0
-      faceState.isMoving = false
-      automaticProjectionBoundary = undefined
-      setOverlay({})
-      return
-    }
-
-    if (!video.videoWidth || !video.videoHeight || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
-      faceState.faces = []
-      faceState.target = undefined
-      faceState.motion = undefined
-      resetDetectionState()
-      faceState.yawVelocity = 0
-      faceState.pitchVelocity = 0
-      faceState.forwardVelocity = 0
-      faceState.isMoving = false
-      automaticProjectionBoundary = undefined
-      setOverlay({})
-      return
-    }
-
-    if (faceState.manuallyPaused || now < options.viewRef.current.pausedUntil) return
-
-    if (shouldRunFaceInference(now, faceState.nextDetectionAt, faceState.isMoving, rescanDuringMovement)) {
-      if (inferenceInFlight) {
-        skippedInferenceFrames += 1
-        updateInferenceSchedule(now)
-      } else {
-        submitInference(now)
-      }
-    }
-
-    const wasMoving = faceState.isMoving
-    const frameDelta = clamp(delta || 1 / 60, 1 / 240, 0.05)
-    const updateVelocity = (current: number, desired: number) =>
-      smoothFaceCenteringVelocity(current, desired, frameDelta * 1000)
-    const applyPlannedMovement = (plannedBoundaryAxis?: ProjectionBoundaryWarning["axis"]) => {
-      const current = options.viewRef.current
-      automaticProjectionBoundary = undefined
-      const proposed = {
-        yaw: current.yaw + faceState.yawVelocity * frameDelta,
-        pitch: clamp(current.pitch + faceState.pitchVelocity * frameDelta, -85, 85),
-        forward: Math.min(current.forward + faceState.forwardVelocity * frameDelta, FACE_CENTER_MAX_FORWARD),
-      }
-      const constrained = constrainFaceAutoCenterView(options.projection, camera, current, proposed)
-      const blockedAxes = (["yaw", "pitch", "forward"] as const).filter(axis =>
-        Math.abs(constrained[axis] - proposed[axis]) > 0.0001)
-      const blockedAxis = blockedAxes[0]
-      current.yaw = constrained.yaw
-      current.pitch = constrained.pitch
-      current.forward = constrained.forward
-      if (blockedAxes.includes("yaw")) faceState.yawVelocity = 0
-      if (blockedAxes.includes("pitch")) faceState.pitchVelocity = 0
-      if (blockedAxes.includes("forward")) faceState.forwardVelocity = 0
-      faceState.isMoving = faceState.yawVelocity !== 0 || faceState.pitchVelocity !== 0 || faceState.forwardVelocity !== 0
-      const settledBoundaryAxis = !faceState.isMoving ? (blockedAxis ?? plannedBoundaryAxis) : undefined
-      if (settledBoundaryAxis) {
-        automaticProjectionBoundary = { axis: settledBoundaryAxis, source: "auto" }
-        if (options.debugPanelOpen) options.onProjectionBoundaryWarning(automaticProjectionBoundary)
-      }
-    }
-    const target = faceState.target
-    const targetMaxAge = faceState.isMoving ? 4500 : 1100
-    if (!target || now - target.lastSeenAt > targetMaxAge) {
-      faceState.yawVelocity = updateVelocity(faceState.yawVelocity, 0)
-      faceState.pitchVelocity = updateVelocity(faceState.pitchVelocity, 0)
-      faceState.forwardVelocity = updateVelocity(faceState.forwardVelocity, 0)
-      applyPlannedMovement()
-      if (wasMoving && !faceState.isMoving) {
-        rescanDuringMovement = false
-        faceState.nextDetectionAt = 0
-      }
-      setOverlay({})
-      return
-    }
-
-    const plan = getFaceCenteringPlan(target, camera, options.viewRef.current, options.projection, faceState.isMoving)
-    const x = plan.error.yawOffset
-    const y = plan.error.pitchOffset
-    const forward = plan.error.forwardOffset
-    const hint = getFaceMovementHint(plan.error)
-
-    setOverlay({ hint })
-    if (!x && !y && !forward) faceState.offCenterSince = undefined
-    else faceState.offCenterSince ??= now
-    const desiredYawVelocity = getFaceCenteringVelocity(x, target.mode)
-    const desiredPitchVelocity = getFaceCenteringVelocity(y, target.mode)
-    const desiredForwardVelocity = getFaceForwardVelocity(forward)
-    const movementDuration = !wasMoving
-      ? estimateFaceCenteringDuration(plan.error, {
-          yaw: faceState.yawVelocity,
-          pitch: faceState.pitchVelocity,
-          forward: faceState.forwardVelocity,
-        }, target.mode)
-      : 0
-    faceState.yawVelocity = x ? updateVelocity(faceState.yawVelocity, desiredYawVelocity) : 0
-    faceState.pitchVelocity = y ? updateVelocity(faceState.pitchVelocity, desiredPitchVelocity) : 0
-    faceState.forwardVelocity = forward ? updateVelocity(faceState.forwardVelocity, desiredForwardVelocity) : 0
-    applyPlannedMovement(plan.blockedAxis)
-    if (!wasMoving && faceState.isMoving) {
-      rescanDuringMovement = movementDuration > FACE_CENTER_SHORT_MOVE_ETA_MS
-      if (rescanDuringMovement) {
-        faceState.nextDetectionAt = now + movingFaceInferencePeriod(movementDuration, lastInferenceMs)
-      }
-    } else if (wasMoving && !faceState.isMoving) {
-      rescanDuringMovement = false
-      faceState.nextDetectionAt = 0
-    }
-  }
+  const manualInput = createManualViewInput({
+    element: renderRuntime.canvas,
+    camera,
+    getView: () => options.viewRef.current,
+    getProjection: () => options.projection,
+    getSurfaceDistance: () => getFaceSurfaceDistance(options.projection),
+    getViewportHeight: () => mount.clientHeight,
+    isDebugEnabled: () => options.debugPanelOpen,
+    onBoundaryWarning: axis => options.onProjectionBoundaryWarning({ axis, source: "manual" }),
+    onEffectiveViewChange: autoCenter.pauseForManualInput,
+    requestRender,
+  })
 
   function render(now: number) {
     if (disposed) return
     frameId = 0
     const videoFrameAt = pendingVideoFrameAt
     pendingVideoFrameAt = undefined
-    const videoFrameDriven = videoFrameAt !== undefined && !dragging.active && !faceState.isMoving
-    const scheduleMode = dragging.active || faceState.isMoving || (("requestVideoFrameCallback" in video) && !videoFrameDriven)
+    const videoFrameDriven = videoFrameAt !== undefined && !manualInput.isInteracting() && !autoCenter.isMoving()
+    const scheduleMode = manualInput.isInteracting() || autoCenter.isMoving() || (("requestVideoFrameCallback" in video) && !videoFrameDriven)
       ? "interaction"
       : "playback"
     const scheduleNow = videoFrameDriven ? videoFrameAt : now
@@ -1333,34 +340,37 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     const schedule = scheduleFrame(scheduleNow, options.frameRate, nextPlaybackFrameAt, scheduleMode)
     nextPlaybackFrameAt = schedule.nextFrameAt
     if (!schedule.render) {
-      if (options.debugPanelOpen) scheduledRenderSkips += 1
+      diagnostics.recordSchedule({ rendered: false, targetFrameRate: options.frameRate })
       if (!("requestVideoFrameCallback" in video)) requestRender()
       return
     }
-    if (options.debugPanelOpen && scheduleMode === "playback" && playbackDeadline !== undefined) {
-      const deadlineLateness = Math.max(0, scheduleNow - playbackDeadline)
-      recentRenderDeadlineLateness.push(deadlineLateness)
-      if (recentRenderDeadlineLateness.length > 180) recentRenderDeadlineLateness.shift()
-      if (deadlineLateness > (1000 / Math.max(1, options.frameRate)) * 0.5) missedRenderDeadlines += 1
-    }
+    const deadlineLateness = scheduleMode === "playback" && playbackDeadline !== undefined
+      ? Math.max(0, scheduleNow - playbackDeadline)
+      : undefined
+    diagnostics.recordSchedule({
+      rendered: true,
+      deadlineLatenessMs: deadlineLateness,
+      targetFrameRate: options.frameRate,
+    })
     const delta = (now - lastFrameAt) / 1000
     lastFrameAt = now
-    applyCameraPose()
+    renderRuntime.applyCameraPose()
     const renderStartedAt = options.debugPanelOpen ? performance.now() : 0
-    renderSceneViewports()
-    frameCapture?.(renderer.domElement)
+    renderRuntime.renderVisibleViewports()
+    frameCapture?.(renderRuntime.canvas)
     if (options.debugPanelOpen) {
-      lastRenderMs = performance.now() - renderStartedAt
-      recentRenderTimes.push(lastRenderMs)
-      if (recentRenderTimes.length > 180) recentRenderTimes.shift()
-      updatePerformanceMetrics(now, delta * 1000)
+      diagnostics.recordRenderedFrame({
+        now,
+        frameTimeMs: delta * 1000,
+        renderMs: performance.now() - renderStartedAt,
+      })
     }
     // Sample immediately after rendering so WebGL does not need an expensive
     // preserveDrawingBuffer allocation just for face tracking.
-    runFaceAutoCenter(now, delta)
+    autoCenter.runAfterRender(now, delta)
 
     if (options.hidden || video.paused || !hasCurrentVideoFrame()) return
-    if (dragging.active || faceState.isMoving) {
+    if (manualInput.isInteracting() || autoCenter.isMoving()) {
       requestRender()
       return
     }
@@ -1371,50 +381,27 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
   requestRender()
 
   return {
-    getOutputCanvas: () => renderer.domElement,
+    getOutputCanvas: () => renderRuntime.canvas,
     setFrameCapture: capture => (frameCapture = capture),
-    adjustForward: direction => applyManualForward(getManualZoomForwardTarget(
-      options.viewRef.current.forward,
-      KEYBOARD_ZOOM_SCALE ** direction,
-      getFaceSurfaceDistance(options.projection),
-    )),
-    pauseFaceAutoCenter: pauseFaceCenterForManualInput,
-    resumeFaceAutoCenter: () => setManualFaceCenterPaused(false),
+    adjustForward: direction => manualInput.adjustForward(direction),
+    pauseFaceAutoCenter: autoCenter.pauseForManualInput,
+    resumeFaceAutoCenter: autoCenter.resume,
     update(nextOptions) {
       if (nextOptions.frameRate !== undefined && nextOptions.frameRate !== options.frameRate) {
         nextPlaybackFrameAt = undefined
-        faceState.nextDetectionAt = 0
+        autoCenter.requestDetection()
       }
       const shouldRebuild = nextOptions.projection !== undefined
       const opensDebugPanel = nextOptions.debugPanelOpen === true && !options.debugPanelOpen
       const closesDebugPanel = nextOptions.debugPanelOpen === false && options.debugPanelOpen
-      const invalidatesInference
-        = nextOptions.projection !== undefined
-          || nextOptions.hidden !== undefined
-          || nextOptions.faceAutoCenter !== undefined
-      if (invalidatesInference) inferenceGeneration += 1
-      if (nextOptions.faceAutoCenter === false) releaseFaceDetector()
-      Object.assign(options, nextOptions)
-      if (opensDebugPanel) startDebugDiagnostics()
-      if (closesDebugPanel) stopDebugDiagnostics()
-      if (nextOptions.resumeFaceAutoCenterAfterViewChange === false && temporaryManualPauseActive) {
-        clearManualFaceCenterResume()
-        setManualFaceCenterPaused(true)
+      if (nextOptions.projection !== undefined || nextOptions.hidden !== undefined) {
+        autoCenter.invalidateInference()
       }
-      if (nextOptions.faceAutoCenter === false) clearManualFaceCenterResume()
-      if (!options.faceAutoCenter && faceState.manuallyPaused) setManualFaceCenterPaused(false)
-      if (opensDebugPanel) {
-        fpsFrameCount = 0
-        fpsSampleStartedAt = performance.now()
-        recentFrameTimes.length = 0
-        recentRenderTimes.length = 0
-        lastRenderMs = 0
-        recentInferenceCompletions = []
-        lastInferenceMs = 0
-        lastCaptureMs = 0
-        lastInputSize = "--"
-        skippedInferenceFrames = 0
-        getFpsMetricsElement().textContent = "Waiting for frames…"
+      Object.assign(options, nextOptions)
+      if (nextOptions.faceAutoCenter !== undefined) autoCenter.setEnabled(options.faceAutoCenter)
+      if (opensDebugPanel || closesDebugPanel) diagnostics.setEnabled(options.debugPanelOpen)
+      if (nextOptions.resumeFaceAutoCenterAfterViewChange !== undefined) {
+        autoCenter.setResumeAfterViewChange(options.resumeFaceAutoCenterAfterViewChange)
       }
       if (nextOptions.quality !== undefined) {
         applyRenderQuality()
@@ -1428,47 +415,20 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
         stopScheduledRender()
       } else {
         if (nextOptions.faceAutoCenter === true || nextOptions.projection !== undefined) {
-          faceState.nextDetectionAt = 0
+          autoCenter.requestDetection()
         }
         requestRender()
       }
     },
     resetMedia() {
-      inferenceGeneration += 1
-      clearManualFaceCenterResume()
-      if (faceState.manuallyPaused) {
-        resumeFaceAutoCenter(faceState)
-        options.onFaceAutoCenterPauseChange(false)
-      }
+      autoCenter.resetMedia()
       stopScheduledRender()
-      faceState.faces = []
-      faceState.target = undefined
-      faceState.motion = undefined
-      resetDetectionState()
-      faceState.isMoving = false
-      faceState.yawVelocity = 0
-      faceState.pitchVelocity = 0
-      faceState.forwardVelocity = 0
-      faceState.nextDetectionAt = 0
-      automaticProjectionBoundary = undefined
-      setOverlay({})
-      resetVideoFrameRate()
-      resetPlaybackDiagnostics()
-      recentFrameTimes.length = 0
-      recentRenderTimes.length = 0
-      recentInferenceCompletions = []
-      recentInferenceTimes.length = 0
-      sampleCanvas.width = 1
-      sampleCanvas.height = 1
-      texture.needsUpdate = true
-      core.resetMedia()
+      pendingVideoFrameAt = undefined
+      diagnostics.resetMedia()
+      renderRuntime.resetMedia()
     },
     destroy() {
       disposed = true
-      clearManualFaceCenterResume()
-      inferenceGeneration += 1
-      releaseFaceDetector()
-      longTaskObserver?.disconnect()
       stopScheduledRender()
       if (videoFrameCallbackId) video.cancelVideoFrameCallback(videoFrameCallbackId)
       video.removeEventListener("loadedmetadata", onMetadata)
@@ -1484,15 +444,10 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       window.removeEventListener("focus", onWindowFocus)
       window.removeEventListener("blur", onWindowBlur)
       resizeObserver.disconnect()
-      renderer.domElement.removeEventListener("pointerdown", onPointerDown)
-      renderer.domElement.removeEventListener("pointermove", onPointerMove)
-      renderer.domElement.removeEventListener("pointerup", onPointerUp)
-      renderer.domElement.removeEventListener("pointercancel", onPointerUp)
-      renderer.domElement.removeEventListener("wheel", onWheel)
-      touchPoints.clear()
-      pinch = undefined
-      core.destroy()
-      renderer.domElement.remove()
+      manualInput.destroy()
+      autoCenter.destroy()
+      diagnostics.destroy()
+      renderRuntime.destroy()
     },
   }
 }

@@ -6,7 +6,7 @@ import type {
   Texture,
   VideoTexture,
 } from "three"
-import type { ProjectionMode, ProjectionQuality } from "./config"
+import type { ProjectionMode, ProjectionQuality } from "../config"
 import {
   BackSide,
   FrontSide,

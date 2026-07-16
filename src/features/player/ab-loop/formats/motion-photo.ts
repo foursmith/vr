@@ -1,4 +1,13 @@
+import type { AbExportFormatDefinition } from "../format"
+
 const XMP_NAMESPACE = "http://ns.adobe.com/xap/1.0/\0"
+
+const canvasToJpeg = (canvas: HTMLCanvasElement) => new Promise<Blob>((resolve, reject) => {
+  canvas.toBlob((blob) => {
+    if (blob) resolve(blob)
+    else reject(new Error("The photo cover could not be created."))
+  }, "image/jpeg", 0.92)
+})
 
 export async function createMotionPhoto(cover: Blob, video: Blob) {
   const coverBytes = new Uint8Array(await cover.arrayBuffer())
@@ -72,3 +81,23 @@ export async function createMotionPhoto(cover: Blob, video: Blob) {
     video,
   ], { type: "image/jpeg" })
 }
+
+export const MOTION_PHOTO_EXPORT_FORMAT = {
+  id: "motion-photo",
+  label: "Motion Photo",
+  extension: "jpg",
+  recordingMimeType: "video/mp4",
+  mimeTypes: [
+    "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+    "video/mp4;codecs=avc1,mp4a.40.2",
+    "video/mp4",
+  ],
+  prepareCapture: async (canvas: HTMLCanvasElement) => {
+    await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()))
+    return canvasToJpeg(canvas)
+  },
+  finalize: (video: Blob, cover?: Blob) => {
+    if (!cover) throw new Error("The Motion Photo cover could not be created.")
+    return createMotionPhoto(cover, video)
+  },
+} as const satisfies AbExportFormatDefinition

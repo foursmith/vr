@@ -257,7 +257,7 @@ export class FaceTrackerClient {
       // Keep this a classic worker; module workers reject importScripts().
       let worker: Worker
       try {
-        worker = new Worker(new URL("./worker.ts", import.meta.url))
+        worker = new Worker(new URL("./face-detector-worker.ts", import.meta.url))
       } catch (error) {
         rejectInitialization(error instanceof Error ? error : new Error(String(error)))
         return

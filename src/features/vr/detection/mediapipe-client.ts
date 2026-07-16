@@ -1,5 +1,5 @@
-import type { FaceDetectionRange } from "./features/face-tracking/protocol"
-import { getFaceTrackerClient, releaseFaceAutoCenterResources } from "./features/face-tracking/client"
+import type { FaceDetectionRange } from "./protocol"
+import { getFaceTrackerClient, releaseFaceAutoCenterResources } from "./face-tracker-client"
 
 export const createMediaPipeFaceDetectorClient = () => {
   const tracker = getFaceTrackerClient()

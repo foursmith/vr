@@ -58,7 +58,7 @@ Within the same mode and a gap of at most 1.5 seconds, a new detection is classi
 
 ### Recovery state machine
 
-Detection acquisition is owned by one discriminated `FaceDetectionState`. The scene controller does not keep parallel recovery flags, viewport-miss counters, scan references, or retry timestamps.
+Detection acquisition is owned by `FaceScanController` through one discriminated `FaceDetectionState`. The scene composition root does not keep parallel recovery flags, viewport-miss counters, scan references, or retry timestamps.
 
 | State | Capture and detector | Success | Miss or completion |
 | --- | --- | --- | --- |
@@ -114,7 +114,7 @@ Selection and recovery reliability are separate thresholds. A face with confiden
 
 ### Capture path
 
-For a recovery tile, the scene controller:
+For a recovery tile, `VrRenderRuntime` performs one atomic capture transaction:
 
 1. saves the visible camera projection, rotation, and forward position;
 2. returns the camera to the projection center and configures a square perspective view for the tile;
@@ -269,18 +269,32 @@ Changes to any of the following must update this document in the same change:
 
 Primary implementation files:
 
-- `src/features/vr/face-detection-state.ts`
-- `src/features/vr/face-sampling.ts`
-- `src/features/vr/face-auto-center.ts`
-- `src/features/vr/panorama-recovery.ts`
-- `src/features/vr/frame-scheduler.ts`
-- `src/features/vr/scene.ts`
+- `src/features/vr/tracking/face-detection-state.ts` (viewport/recovery transitions and panorama recovery progress)
+- `src/features/vr/tracking/face-sampling.ts`
+- `src/features/vr/detection/protocol.ts` (detector and worker contracts)
+- `src/features/vr/detection/face-tracker-client.ts` (worker selection, fallback, inference requests, and model resources)
+- `src/features/vr/detection/face-detector-worker.ts` (off-main-thread MediaPipe inference entry)
+- `src/features/vr/detection/mediapipe-client.ts` (normalized detector adapter)
+- `src/features/vr/detection/face-detector-service.ts` (detector backend lifecycle)
+- `src/features/vr/tracking/face-center-movement.ts` (camera constraints, centering motion, velocity, zoom targets, and per-frame movement transitions)
+- `src/features/vr/tracking/face-target-tracking.ts` (detection targets, coordinate mapping, identity selection, motion prediction, and state)
+- `src/features/vr/tracking/face-auto-center-controller.ts` (tracking aggregate ownership, manual override, media lifecycle, and immutable diagnostics snapshot)
+- `src/features/vr/tracking/face-scan-controller.ts` (inference scheduling, capture selection, recovery state, detector submission, and result application)
+- `src/features/vr/tracking/inference-schedule-policy.ts` (adaptive inference cadence)
+- `src/features/vr/rendering/render-cadence-policy.ts` (video and interaction render cadence)
+- `src/features/vr/config.ts` (projection modes, camera-view contract, and render-quality policy)
+- `src/features/vr/rendering/projection.ts` (projection geometry and UV mapping)
+- `src/features/vr/rendering/vr-player-renderer.ts` (Three.js camera, renderer, texture, and projection lifecycle)
+- `src/features/vr/rendering/vr-render-runtime.ts` (visible rendering, viewport layout, inference readback, and atomic recovery-tile capture)
+- `src/features/vr/scene.ts` (composition root and cross-module event ordering)
 
 Primary tests:
 
 - `tests/unit/face-detection-state.test.ts`
 - `tests/unit/face-sampling.test.ts`
 - `tests/unit/face-auto-center.test.ts`
+- `tests/unit/face-detector-service.test.ts`
+- `tests/unit/face-movement-step.test.ts`
 - `tests/unit/panorama-recovery.test.ts`
 - `tests/unit/frame-scheduler.test.ts`
 

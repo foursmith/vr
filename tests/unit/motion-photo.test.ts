@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { createMotionPhoto } from "../../src/lib/motion-photo"
+import { createMotionPhoto } from "../../src/features/player/ab-loop/formats/motion-photo"
 
 describe("motion photo", () => {
   it("injects Motion Photo XMP and appends the video to one JPEG", async () => {

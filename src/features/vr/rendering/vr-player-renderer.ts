@@ -1,5 +1,5 @@
 import type { WebGLRendererParameters } from "three"
-import type { ProjectionMode, ProjectionQuality } from "./config"
+import type { ProjectionMode, ProjectionQuality } from "../config"
 import {
   Color,
   PerspectiveCamera,
@@ -8,10 +8,10 @@ import {
   VideoTexture,
   WebGLRenderer,
 } from "three"
-import { DEFAULT_FOV, projectionPixelRatio } from "./config"
+import { DEFAULT_FOV, projectionPixelRatio } from "../config"
 import { createProjectionGroup, disposeObject } from "./projection"
 
-export interface VrPlayerCoreOptions {
+export interface VrPlayerRendererOptions {
   video: HTMLVideoElement
   canvas?: HTMLCanvasElement
   projection: ProjectionMode
@@ -24,7 +24,7 @@ export interface VrPlayerCoreOptions {
   renderer?: Omit<WebGLRendererParameters, "canvas">
 }
 
-export const createVrPlayerCore = (initialOptions: VrPlayerCoreOptions) => {
+export const createVrPlayerRenderer = (initialOptions: VrPlayerRendererOptions) => {
   const video = initialOptions.video
   let projectionMode = initialOptions.projection
   let quality = initialOptions.quality

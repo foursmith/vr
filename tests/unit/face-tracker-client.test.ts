@@ -1,6 +1,6 @@
-import type { FaceWorkerResponse } from "../../src/features/face-tracking/protocol"
+import type { FaceWorkerResponse } from "../../src/features/vr/detection/protocol"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { downloadFaceTrackingResources, FaceTrackerClient } from "../../src/features/face-tracking/client"
+import { downloadFaceTrackingResources, FaceTrackerClient } from "../../src/features/vr/detection/face-tracker-client"
 
 class FakeWorker {
   static instances: FakeWorker[] = []

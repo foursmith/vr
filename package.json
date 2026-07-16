@@ -12,8 +12,7 @@
   "homepage": "https://github.com/foursmith/vr",
   "workspaces": {
     "packages": [
-      "cli",
-      "packages/*"
+      "cli"
     ],
     "catalog": {
       "@typescript/native-preview": "^7.0.0-dev.20260707.2"
@@ -26,7 +25,6 @@
     "prepare": "simple-git-hooks",
     "preview": "bun run build && wrangler dev",
     "typecheck": "tsgo --noEmit",
-    "typecheck:player-core": "bun run --filter @foursmith/player-core typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "bun run test --coverage",
@@ -40,7 +38,6 @@
     "deploy": "bun run build && wrangler deploy"
   },
   "dependencies": {
-    "@foursmith/player-core": "workspace:*",
     "@mediapipe/tasks-vision": "^0.10.35",
     "@msvargas97/pico.js": "1.0.2",
     "@solidjs/web": "^2.0.0-beta.15",

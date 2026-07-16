@@ -3,9 +3,7 @@ import type { DlnaDevice } from "../sources/fsvr-client"
 import type { SubtitleCue } from "../subtitles/parser"
 import type { CameraView, ProjectionBoundaryWarning, VrSceneController } from "../vr/scene"
 import type { LastPlayback, RepeatMode } from "./playback-state"
-import { DEFAULT_FORWARD, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS } from "@foursmith/player-core/config"
 import { createEffect, createMemo, createSignal, createStore, onSettled } from "solid-js"
-import { createMotionPhoto } from "../../lib/motion-photo"
 import {
   applyPlaylistSource,
   buildPlaylistTree,
@@ -19,6 +17,8 @@ import {
 import { authenticateFsvr, detectFsvr, discoverFsvrDlna, hasFsvrAuth, loadFsvrDlnaDevices, loadFsvrEntries, loadFsvrPlaylist } from "../sources/fsvr-client"
 import { isFsvrHostMode } from "../sources/fsvr-runtime"
 import { activeSubtitleText, parseSubtitle } from "../subtitles/parser"
+import { DEFAULT_FORWARD, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS } from "../vr/config"
+import { createAbLoopController } from "./ab-loop/controller"
 import { createControls } from "./controls"
 import { createDisplay } from "./display"
 import { DEFAULT_GLOBAL_PREFERENCES, fsvrMediaIdentity, loadGlobalPreferences, loadLastPlayback, loadVideoPlaybackState, saveGlobalPreferences, saveLastPlayback, saveVideoPlaybackState, videoStateKey } from "./playback-state"
@@ -39,93 +39,12 @@ const VIDEO_RELEASE_SETTLE_MS = 160
 const VIDEO_EMPTY_TIMEOUT_MS = 1200
 const VIDEO_STATE_SAVE_INTERVAL_MS = 10_000
 const LAST_PLAYBACK_SAVE_INTERVAL_MS = 1_000
-export const MAX_AB_EXPORT_DURATION_SECONDS = 60
 export const VIDEO_FRAME_RATE_OPTIONS = [
   { label: "24 fps", value: 24 },
   { label: "30 fps", value: 30 },
   { label: "60 fps", value: 60 },
 ] as const
-export type AbExportFormat = "webm" | "mp4" | "motion-photo"
-export const AB_EXPORT_FORMAT_OPTIONS = [
-  { label: "WebM", value: "webm" },
-  { label: "MP4", value: "mp4" },
-  { label: "Motion Photo", value: "motion-photo" },
-] as const satisfies readonly { label: string, value: AbExportFormat }[]
 const EXPORT_VIDEO_BIT_RATES = [2_000_000, 4_000_000, 8_000_000, 12_000_000] as const
-
-type AbExportStatus = "idle" | "recording" | "done" | "error"
-type CapturableVideoElement = HTMLVideoElement & {
-  captureStream?: () => MediaStream
-  mozCaptureStream?: () => MediaStream
-}
-
-const AB_EXPORT_MIME_TYPES = {
-  webm: [
-    "video/webm;codecs=vp9,opus",
-    "video/webm;codecs=vp8,opus",
-    "video/webm",
-  ],
-  mp4: [
-    "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
-    "video/mp4;codecs=avc1,mp4a.40.2",
-    "video/mp4",
-  ],
-} as const
-
-type AbRecordingFormat = Exclude<AbExportFormat, "motion-photo">
-
-const abRecordingFormat = (format: AbExportFormat): AbRecordingFormat => format === "webm" ? "webm" : "mp4"
-
-const chooseAbExportMimeType = (format: AbExportFormat) =>
-  typeof MediaRecorder === "undefined"
-    ? undefined
-    : AB_EXPORT_MIME_TYPES[abRecordingFormat(format)].find(type => MediaRecorder.isTypeSupported(type))
-
-const isAbExportFormatSupported = (format: AbExportFormat) => Boolean(chooseAbExportMimeType(format))
-const abExportFormatLabel = (format: AbExportFormat) => {
-  if (format === "motion-photo") return "Motion Photo"
-  return format.toUpperCase()
-}
-
-const abExportBaseName = (sourceName: string, start: number, end: number) => {
-  const stem = sourceName.replace(/\.[^.]+$/, "").replace(/[\\/:*?"<>|]+/g, "-").trim() || "video"
-  const time = (value: number) => value.toFixed(1).replace(".", "-")
-  return `${stem}-AB-${time(start)}-${time(end)}`
-}
-
-const abExportFileName = (baseName: string, format: AbExportFormat) => {
-  if (format === "motion-photo") return `${baseName}.jpg`
-  return `${baseName}.${format}`
-}
-
-const canvasToJpeg = (canvas: HTMLCanvasElement) => new Promise<Blob>((resolve, reject) => {
-  canvas.toBlob((blob) => {
-    if (blob) resolve(blob)
-    else reject(new Error("The photo cover could not be created."))
-  }, "image/jpeg", 0.92)
-})
-
-const wrapCanvasText = (context: CanvasRenderingContext2D, text: string, maxWidth: number) => text
-  .split("\n")
-  .flatMap((paragraph) => {
-    if (!paragraph) return [""]
-    const tokens = paragraph.includes(" ")
-      ? paragraph.split(/(\s+)/).filter(Boolean)
-      : Array.from(paragraph)
-    const lines: string[] = []
-    let line = ""
-    tokens.forEach((token) => {
-      const candidate = line + token
-      if (line && context.measureText(candidate).width > maxWidth) {
-        lines.push(line.trimEnd())
-        line = token.trimStart()
-      } else {
-        line = candidate
-      }
-    })
-    if (line || !lines.length) lines.push(line.trimEnd())
-    return lines
-  })
 
 const playlistFolderIds = (nodes: PlaylistNode[], targetId: string, folderIds: string[] = []): string[] | undefined => {
   for (const node of nodes) {
@@ -282,13 +201,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   const [playbackRate, setPlaybackRate] = createSignal(initialPreferences.playbackRate)
   const [repeatMode, setRepeatMode] = createSignal<RepeatMode>(initialPreferences.repeatMode)
   const [autoResumePlayback, setAutoResumePlayback] = createSignal(initialPreferences.autoResumePlayback)
-  const [abLoop, setAbLoop] = createStore({ a: undefined as number | undefined, b: undefined as number | undefined })
-  const [abExport, setAbExport] = createStore({
-    status: "idle" as AbExportStatus,
-    progress: 0,
-    message: undefined as string | undefined,
-    format: "webm" as AbExportFormat,
-  })
   const [subtitleCues, setSubtitleCues] = createSignal<SubtitleCue[]>([])
   const [subtitlesEnabled, setSubtitlesEnabled] = createSignal(initialPreferences.subtitlesEnabled)
   const [subtitleFileName, setSubtitleFileName] = createSignal<string>()
@@ -347,6 +259,32 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     setProjectionId: setDisplayProjectionId,
     toggleFullscreen,
   } = displayModule.controller
+  const abLoopController = createAbLoopController({
+    getVideo: () => video,
+    getScene: () => scene,
+    getMount: () => vrMount,
+    getDuration: duration,
+    getFileName: fileName,
+    getFrameRate: () => VIDEO_FRAME_RATE_OPTIONS[renderFrameRateId() - 1]?.value ?? 30,
+    getVideoBitRate: () => EXPORT_VIDEO_BIT_RATES[qualityId()] ?? 4_000_000,
+    getSubtitleText: time => activeSubtitleText(subtitleCues(), time),
+    hasSubtitles: subtitlesEnabled,
+    hasVideo,
+    setCurrentTime,
+  })
+  const {
+    loop: abLoop,
+    exportState: abExport,
+    clear: clearAbLoop,
+    exportFormatSupported: abExportFormatSupported,
+    exportLoop: exportAbLoop,
+    hasLoop: hasAbLoop,
+    replay: replayAbLoop,
+    reset: resetAbLoop,
+    setEnd: setAbEnd,
+    setStart: setAbStart,
+    syncPlaybackTime: syncAbLoopTime,
+  } = abLoopController
   const controlsModule = createControls({ hasVideo, resourcesReady })
   const {
     activeSlider,
@@ -385,7 +323,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   )
   let loadingPromise: Promise<void> | undefined
   let appDisposed = false
-  let activeAbExport = false
 
   const activePlaybackSnapshot = (nextProjectionId = projectionId()): LastPlayback | undefined => {
     const key = activeVideoKey
@@ -482,12 +419,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       video.currentTime = resumeTime
     }
     const time = video.currentTime || 0
-    if (!activeAbExport && abLoop.a !== undefined && abLoop.b !== undefined && time >= abLoop.b) {
-      video.currentTime = abLoop.a
-      setCurrentTime(abLoop.a)
-      if (video.paused) void video.play()
-      return
-    }
+    if (syncAbLoopTime(time)) return
     setCurrentTime(time)
     setDuration(video.duration || 0)
     persistLastPlayback()
@@ -642,10 +574,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     if (playbackKey) writeLastPlayback(resumePlayback ?? { key: playbackKey, position: 0, projectionId: 0 })
     restoreProjection(resumePlayback?.projectionId ?? 0)
     resetTransientView()
-    setAbLoop((draft) => {
-      draft.a = undefined
-      draft.b = undefined
-    })
+    resetAbLoop()
     setFileName(resource.name)
     setSelectedPlaylistId(playlistId && (playlistFiles.has(playlistId) || playlistUrls.has(playlistId)) ? playlistId : undefined)
     const subtitleFile = playlistId ? playlistSubtitles.get(playlistId) : undefined
@@ -767,10 +696,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     setFileName(undefined)
     setSubtitleCues([])
     setSubtitleFileName(undefined)
-    setAbLoop((draft) => {
-      draft.a = undefined
-      draft.b = undefined
-    })
+    resetAbLoop()
   }
 
   const clearPlaylist = () => {
@@ -937,12 +863,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     await Promise.all(loadedFolderIds.map(id => loadRemoteFolder(id)))
   }
 
-  const replayCurrentVideo = () => {
-    video.currentTime = abLoop.a ?? 0
-    setCurrentTime(video.currentTime)
-    void video.play()
-  }
-
   const playbackFolderVideos = createMemo(() => videosInPlaybackFolder(playlist(), selectedPlaylistId()))
   const canPlayNext = createMemo(() => playbackFolderVideos().length > 1)
 
@@ -955,296 +875,12 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
   }
 
   const handlePlaybackEnded = () => {
-    if (repeatMode() === "file" || (abLoop.a !== undefined && abLoop.b !== undefined)) {
-      replayCurrentVideo()
+    if (repeatMode() === "file" || hasAbLoop()) {
+      replayAbLoop()
       return
     }
     if (repeatMode() === "off") return
     playNext()
-  }
-
-  const setAbStart = () => {
-    if (!hasVideo() || !Number.isFinite(video.currentTime)) return
-    const time = Math.min(duration() || video.currentTime, Math.max(0, video.currentTime))
-    setAbLoop((draft) => {
-      draft.a = time
-      draft.b = undefined
-    })
-    setAbExport((draft) => {
-      draft.status = "idle"
-      draft.progress = 0
-      draft.message = undefined
-    })
-  }
-
-  const setAbEnd = () => {
-    if (!hasVideo() || abLoop.a === undefined || !Number.isFinite(video.currentTime)) return
-    const time = Math.min(duration() || video.currentTime, Math.max(0, video.currentTime))
-    setAbLoop((draft) => {
-      if (draft.a !== undefined && time > draft.a) draft.b = time
-    })
-    setAbExport((draft) => {
-      draft.status = "idle"
-      draft.progress = 0
-      draft.message = undefined
-    })
-  }
-
-  const clearAbLoop = () => {
-    setAbLoop((draft) => {
-      draft.a = undefined
-      draft.b = undefined
-    })
-    setAbExport((draft) => {
-      draft.status = "idle"
-      draft.progress = 0
-      draft.message = undefined
-    })
-  }
-
-  const exportAbLoop = async (format: AbExportFormat = abExport.format) => {
-    if (activeAbExport || abLoop.a === undefined || abLoop.b === undefined) return
-    const start = abLoop.a
-    const end = abLoop.b
-    const clipDuration = end - start
-    if (!(clipDuration > 0) || clipDuration > MAX_AB_EXPORT_DURATION_SECONDS) {
-      setAbExport((draft) => {
-        draft.status = "error"
-        draft.message = `AB clips must be ${MAX_AB_EXPORT_DURATION_SECONDS} seconds or shorter.`
-      })
-      return
-    }
-
-    const exportScene = scene
-    const outputCanvas = exportScene?.getOutputCanvas()
-    if (!exportScene || !outputCanvas?.captureStream) {
-      setAbExport((draft) => {
-        draft.status = "error"
-        draft.message = "This browser cannot export the current view."
-      })
-      return
-    }
-    if (!isAbExportFormatSupported(format)) {
-      setAbExport((draft) => {
-        draft.status = "error"
-        draft.message = `${abExportFormatLabel(format)} export is not supported by this browser.`
-      })
-      return
-    }
-
-    const previousTime = video.currentTime
-    const previousRate = video.playbackRate
-    const wasPaused = video.paused
-    let stream: MediaStream | undefined
-    let recorder: MediaRecorder | undefined
-    let capturedStreams: MediaStream[] = []
-    let animationFrame: number | undefined
-    let timeout: number | undefined
-    let finishing = false
-    let timedOut = false
-    let removeCaptureListeners: (() => void) | undefined
-    let frameCaptureInstalled = false
-
-    activeAbExport = true
-    setAbExport((draft) => {
-      draft.status = "recording"
-      draft.progress = 0
-      draft.message = `Exporting ${abExportFormatLabel(format)}…`
-      draft.format = format
-    })
-
-    try {
-      video.pause()
-      video.playbackRate = 1
-      video.currentTime = start
-      setCurrentTime(start)
-
-      if (video.seeking) {
-        await new Promise<void>((resolve, reject) => {
-          let timer: number
-          let handleSeeked: () => void
-          let handleError: () => void
-          const cleanup = () => {
-            window.clearTimeout(timer)
-            video.removeEventListener("seeked", handleSeeked)
-            video.removeEventListener("error", handleError)
-          }
-          handleSeeked = () => {
-            cleanup()
-            resolve()
-          }
-          handleError = () => {
-            cleanup()
-            reject(new Error("The video could not seek to point A."))
-          }
-          timer = window.setTimeout(() => {
-            cleanup()
-            reject(new Error("Timed out while preparing the clip."))
-          }, 5_000)
-          video.addEventListener("seeked", handleSeeked, { once: true })
-          video.addEventListener("error", handleError, { once: true })
-        })
-      }
-
-      const exportFrameRate = VIDEO_FRAME_RATE_OPTIONS[renderFrameRateId() - 1]?.value ?? 30
-      let captureCanvas = outputCanvas
-      if (subtitlesEnabled()) {
-        const exportCanvas = document.createElement("canvas")
-        const exportContext = exportCanvas.getContext("2d", { alpha: false })
-        if (!exportContext) throw new Error("The current view could not be composed.")
-        const drawExportFrame = (viewCanvas: HTMLCanvasElement) => {
-          if (exportCanvas.width !== viewCanvas.width || exportCanvas.height !== viewCanvas.height) {
-            exportCanvas.width = viewCanvas.width
-            exportCanvas.height = viewCanvas.height
-          }
-          exportContext.drawImage(viewCanvas, 0, 0, exportCanvas.width, exportCanvas.height)
-          const text = activeSubtitleText(subtitleCues(), video.currentTime)
-          if (text) {
-            const cssWidth = Math.max(1, viewCanvas.clientWidth || vrMount.clientWidth || exportCanvas.width)
-            const cssHeight = Math.max(1, viewCanvas.clientHeight || vrMount.clientHeight || exportCanvas.height)
-            const scale = exportCanvas.width / cssWidth
-            const fontSize = Math.min(28, Math.max(16, cssWidth * 0.022)) * scale
-            const lineHeight = fontSize * 1.38
-            const maxTextWidth = Math.min(cssWidth * 0.86, 1152) * scale
-            exportContext.font = `600 ${fontSize}px system-ui, -apple-system, sans-serif`
-            const lines = wrapCanvasText(exportContext, text, maxTextWidth)
-            const blockHeight = lines.length * lineHeight
-            const bottom = exportCanvas.height - cssHeight * 0.14 * (exportCanvas.height / cssHeight)
-            const top = bottom - blockHeight
-            exportContext.textAlign = "center"
-            exportContext.textBaseline = "top"
-            exportContext.lineJoin = "round"
-            exportContext.fillStyle = "#fff"
-            exportContext.strokeStyle = "rgba(0,0,0,0.82)"
-            exportContext.lineWidth = Math.max(2, 3 * scale)
-            lines.forEach((line, index) => {
-              const y = top + index * lineHeight
-              exportContext.strokeText(line, exportCanvas.width / 2, y)
-              exportContext.fillText(line, exportCanvas.width / 2, y)
-            })
-          }
-        }
-        drawExportFrame(outputCanvas)
-        exportScene.setFrameCapture(drawExportFrame)
-        frameCaptureInstalled = true
-        captureCanvas = exportCanvas
-      }
-      let motionPhotoCover: Blob | undefined
-      if (format === "motion-photo") {
-        await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()))
-        motionPhotoCover = await canvasToJpeg(captureCanvas)
-      }
-      const chunks: Blob[] = []
-      const viewStream = captureCanvas.captureStream(exportFrameRate)
-      const capturableVideo = video as CapturableVideoElement
-      const captureAudio = capturableVideo.captureStream ?? capturableVideo.mozCaptureStream
-      const audioStream = captureAudio?.call(capturableVideo)
-      capturedStreams = audioStream ? [viewStream, audioStream] : [viewStream]
-      stream = new MediaStream([
-        ...viewStream.getVideoTracks(),
-        ...(audioStream?.getAudioTracks() ?? []),
-      ])
-      if (!stream.getVideoTracks().length) throw new Error("The current view could not be captured.")
-      const mimeType = chooseAbExportMimeType(format)
-      recorder = new MediaRecorder(stream, {
-        ...(mimeType ? { mimeType } : {}),
-        videoBitsPerSecond: EXPORT_VIDEO_BIT_RATES[qualityId()] ?? 4_000_000,
-        audioBitsPerSecond: 128_000,
-      })
-      const recordingComplete = new Promise<void>((resolve, reject) => {
-        recorder!.addEventListener("dataavailable", (event: BlobEvent) => {
-          if (event.data.size) chunks.push(event.data)
-        })
-        recorder!.addEventListener("stop", () => resolve(), { once: true })
-        recorder!.addEventListener("error", () => reject(new Error("The browser could not encode this clip.")), { once: true })
-      })
-      const finishRecording = () => {
-        if (finishing) return
-        finishing = true
-        video.pause()
-        if (video.currentTime > end) video.currentTime = end
-        setCurrentTime(Math.min(video.currentTime, end))
-        if (recorder?.state !== "inactive") recorder?.stop()
-      }
-      const updateExportProgress = () => {
-        const progress = Math.min(100, Math.max(0, ((video.currentTime - start) / clipDuration) * 100))
-        setAbExport((draft) => {
-          draft.progress = Math.round(progress)
-        })
-        if (video.currentTime >= end || video.ended) {
-          finishRecording()
-          return
-        }
-        animationFrame = window.requestAnimationFrame(updateExportProgress)
-      }
-      const handleTimeUpdate = () => {
-        if (video.currentTime >= end) finishRecording()
-      }
-      video.addEventListener("timeupdate", handleTimeUpdate)
-      video.addEventListener("ended", finishRecording)
-      removeCaptureListeners = () => {
-        video.removeEventListener("timeupdate", handleTimeUpdate)
-        video.removeEventListener("ended", finishRecording)
-      }
-      timeout = window.setTimeout(() => {
-        timedOut = true
-        finishRecording()
-      }, (clipDuration + 8) * 1_000)
-
-      recorder.start(1_000)
-      animationFrame = window.requestAnimationFrame(updateExportProgress)
-      try {
-        await video.play()
-      } catch (error) {
-        finishRecording()
-        throw error
-      }
-      await recordingComplete
-
-      removeCaptureListeners()
-      removeCaptureListeners = undefined
-      if (timedOut) throw new Error("Export timed out before reaching point B.")
-      const recordingFormat = abRecordingFormat(format)
-      const videoBlob = new Blob(chunks, { type: recorder.mimeType || `video/${recordingFormat}` })
-      if (!videoBlob.size) throw new Error("The exported clip was empty.")
-      const baseName = abExportBaseName(fileName() ?? "video", start, end)
-      let blob = videoBlob
-      if (format === "motion-photo") {
-        if (!motionPhotoCover) throw new Error("The Motion Photo cover could not be created.")
-        blob = await createMotionPhoto(motionPhotoCover, videoBlob)
-      }
-      const name = abExportFileName(baseName, format)
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = url
-      link.download = name
-      link.click()
-      window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
-      setAbExport((draft) => {
-        draft.status = "done"
-        draft.progress = 100
-        draft.message = `Saved ${name}`
-      })
-    } catch (error) {
-      console.warn("AB clip export failed", error)
-      setAbExport((draft) => {
-        draft.status = "error"
-        draft.message = error instanceof Error ? error.message : "The clip could not be exported."
-      })
-    } finally {
-      if (animationFrame !== undefined) window.cancelAnimationFrame(animationFrame)
-      if (timeout !== undefined) window.clearTimeout(timeout)
-      if (frameCaptureInstalled) exportScene?.setFrameCapture()
-      removeCaptureListeners?.()
-      if (recorder && recorder.state !== "inactive") recorder.stop()
-      new Set(capturedStreams.flatMap(captured => captured.getTracks())).forEach(track => track.stop())
-      capturedStreams = []
-      video.playbackRate = previousRate
-      video.currentTime = previousTime
-      setCurrentTime(previousTime)
-      activeAbExport = false
-      if (!wasPaused) void video.play()
-    }
   }
 
   const handleVideoDrop = async (event: DragEvent) => {
@@ -1683,7 +1319,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       abExport,
       autoResumePlayback,
       clearAbLoop,
-      abExportFormatSupported: isAbExportFormatSupported,
+      abExportFormatSupported,
       exportAbLoop,
       handlePlaybackEnded,
       playing,

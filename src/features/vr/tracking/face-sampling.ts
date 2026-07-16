@@ -1,6 +1,6 @@
-import type { ProjectionMode } from "@foursmith/player-core"
-import type { NormalizedFace } from "../face-tracking/protocol"
-import type { FaceAutoCenterState, FaceBox, FaceWorldDirection, PanoramaSample } from "./face-auto-center"
+import type { ProjectionMode } from "../config"
+import type { NormalizedFace } from "../detection/protocol"
+import type { FaceAutoCenterState, FaceBox, FaceWorldDirection, PanoramaSample } from "./face-target-tracking"
 import { MathUtils } from "three"
 
 // Keep doc/PORTRAIT_CENTERING.md synchronized with scan geometry and sampling changes.
@@ -137,39 +137,6 @@ export const createPerspectivePanoramaSample = (
     wraps: yawSpan === 360,
     perspective: { ...tile, aspect, yawSpan },
   }
-}
-
-export const getViewportInferenceSampleSize = (sourceWidth: number, sourceHeight: number, sampleWidth: number) => {
-  if (!sourceWidth || !sourceHeight) return undefined
-  const width = Math.max(160, Math.round(sampleWidth))
-  return { width, height: Math.max(120, Math.round(width / (sourceWidth / sourceHeight))) }
-}
-
-export const drawViewportInferenceSample = (
-  canvas: HTMLCanvasElement,
-  context: CanvasRenderingContext2D,
-  source: CanvasImageSource,
-  sourceX: number,
-  sourceY: number,
-  sourceWidth: number,
-  sourceHeight: number,
-  sampleWidth: number,
-) => {
-  const size = getViewportInferenceSampleSize(sourceWidth, sourceHeight, sampleWidth)
-  if (!size) return undefined
-  resizeCanvas(canvas, size.width, size.height)
-  context.drawImage(
-    source,
-    sourceX,
-    sourceY,
-    sourceWidth,
-    sourceHeight,
-    0,
-    0,
-    size.width,
-    size.height,
-  )
-  return size
 }
 
 export const drawSampleBoxes = (

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { FACE_CENTER_MOVING_SCAN_MAX_PERIOD_MS, FACE_CENTER_MOVING_SCAN_MIN_PERIOD_MS, faceInferencePeriod, movingFaceInferencePeriod, scheduleFrame, shouldRunFaceInference } from "../../src/features/vr/frame-scheduler"
+import { scheduleFrame } from "../../src/features/vr/rendering/render-cadence-policy"
+import { FACE_CENTER_MOVING_SCAN_MAX_PERIOD_MS, FACE_CENTER_MOVING_SCAN_MIN_PERIOD_MS, faceInferencePeriod, movingFaceInferencePeriod, shouldRunFaceInference } from "../../src/features/vr/tracking/inference-schedule-policy"
 
 describe("frame scheduler", () => {
   it("holds a stable 24 fps average on a 60 Hz animation clock without drifting to 20 fps", () => {
