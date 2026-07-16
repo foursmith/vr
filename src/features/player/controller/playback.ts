@@ -56,14 +56,17 @@ export const createPlaybackController = (options: PlaybackControllerOptions) => 
     const video = options.getVideo()
     if (!Number.isFinite(video.duration)) return
     video.currentTime = Math.min(video.duration, Math.max(0, video.currentTime + amount))
+    if (video.paused) void video.play()
   }
 
   const seekTo = (time: number) => {
     const total = duration()
     if (!options.resourcesReady() || !total) return
     const nextTime = Math.min(total, Math.max(0, time))
-    options.getVideo().currentTime = nextTime
+    const video = options.getVideo()
+    video.currentTime = nextTime
     setCurrentTime(nextTime)
+    if (video.paused) void video.play()
   }
 
   const setVolumeLevel = (next: number) => {

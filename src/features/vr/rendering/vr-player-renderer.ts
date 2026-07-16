@@ -83,6 +83,12 @@ export const createVrPlayerRenderer = (initialOptions: VrPlayerRendererOptions) 
     get projection() {
       return projection
     },
+    clearMediaFrame: () => {
+      renderer.setRenderTarget(null)
+      renderer.setScissorTest(false)
+      renderer.setClearColor("#000", 1)
+      renderer.clear(true, true, true)
+    },
     render: () => renderer.render(scene, camera),
     resetMedia: () => {
       texture.needsUpdate = true

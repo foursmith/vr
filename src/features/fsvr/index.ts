@@ -19,7 +19,7 @@ interface ServerControllerOptions {
   autoResumePlayback: () => boolean
   clearPlaylist: () => void
   enabled: boolean
-  getLastPlayback: () => { key: string } | undefined
+  getLastPlaybackKey: () => string | undefined
   getVideoPlaybackKey: (resource: { name: string, url: string }) => string
   importPlaylist: (nodes: PlaylistNode[]) => Promise<void>
   isDisposed: () => boolean
@@ -53,10 +53,10 @@ export const createServerController = (options: ServerControllerOptions) => {
       draft.dlnaDevices = dlnaDevices
     })
 
-    const playback = options.getLastPlayback()
-    const identity = playback && fsvrMediaIdentity(playback.key)
+    const playbackKey = options.getLastPlaybackKey()
+    const identity = playbackKey ? fsvrMediaIdentity(playbackKey) : undefined
     const location = identity?.sourceId === "local" && localFsvrVideoLocation(identity.entryId)
-    if (!playback || !identity || !location || !nodes.some(node => node.remoteSourceId === "local")) return
+    if (!identity || !location || !nodes.some(node => node.remoteSourceId === "local")) return
 
     await Promise.resolve()
     for (const folderId of location.folderIds) {

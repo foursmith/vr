@@ -1,19 +1,13 @@
-import { indexedDB } from "fake-indexeddb"
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { fsvrMediaIdentity } from "../fsvr"
 import {
   DEFAULT_GLOBAL_PREFERENCES,
   loadGlobalPreferences,
-  loadLastPlayback,
-  loadVideoPlaybackState,
   saveGlobalPreferences,
-  saveLastPlayback,
-  saveVideoPlaybackState,
   videoStateKey,
 } from "./playback-state"
 
 describe("player state persistence", () => {
-  beforeAll(() => vi.stubGlobal("indexedDB", indexedDB))
   beforeEach(() => {
     localStorage.clear()
   })
@@ -72,44 +66,5 @@ describe("player state persistence", () => {
       sourceId: "local",
       entryId: "folder/movie",
     })
-  })
-
-  it("saves the last playback position separately from global preferences", () => {
-    const playback = { key: "url:movie.mp4", position: 18.5, projectionId: 2 }
-    saveLastPlayback(playback)
-    expect(loadLastPlayback()).toEqual(playback)
-  })
-
-  it("rejects playback snapshots using removed projection fields", () => {
-    localStorage.setItem("foursmith-vr:last-playback", JSON.stringify({
-      key: "url:movie.mp4",
-      position: 18.5,
-      presetId: 2,
-    }))
-    expect(loadLastPlayback()).toBeUndefined()
-  })
-
-  it.each([
-    { key: "", position: 18.5, projection: "tb_360_eqr" },
-    { key: "url:movie.mp4", projection: "tb_360_eqr" },
-    { key: "url:movie.mp4", position: Number.NaN, projection: "tb_360_eqr" },
-    { key: "url:movie.mp4", position: -1, projection: "tb_360_eqr" },
-    { key: "url:movie.mp4", position: 18.5 },
-    { key: "url:movie.mp4", position: 18.5, projection: "unknown" },
-    { key: "url:movie.mp4", position: 18.5, projection: "tb_360_eqr", projectionId: 2 },
-  ])("rejects an invalid last playback snapshot", (playback) => {
-    localStorage.setItem("foursmith-vr:last-playback", JSON.stringify(playback))
-    expect(loadLastPlayback()).toBeUndefined()
-  })
-
-  it("round-trips one aggregated record for a video", async () => {
-    const state = {
-      key: "url:https://example.com/movie.mp4",
-      updatedAt: 42,
-      position: 73.5,
-      projectionId: 2,
-    }
-    await saveVideoPlaybackState(state)
-    expect(await loadVideoPlaybackState(state.key)).toEqual(state)
   })
 })

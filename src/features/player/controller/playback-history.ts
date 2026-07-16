@@ -1,12 +1,16 @@
-import type { LastPlayback } from "../playback-state"
+import type { LastPlayback, VideoPlaybackState } from "../playback-storage"
 import {
-  loadLastPlayback,
-  loadVideoPlaybackState,
-  saveLastPlayback,
-  saveVideoPlaybackState,
-} from "../playback-state"
+  flushPendingPlayback,
+  loadLastPlaybackKey,
+  loadPendingPlayback,
+  persistVideoPlaybackState,
+  remapLastPlaybackKey,
+  resolveVideoPlaybackState,
+  saveLastPlaybackKey,
+  savePendingPlayback,
+} from "../playback-storage"
 
-const VIDEO_STATE_SAVE_INTERVAL_MS = 10_000
+const VIDEO_STATE_SAVE_INTERVAL_MS = 5_000
 const LAST_PLAYBACK_SAVE_INTERVAL_MS = 1_000
 
 interface PlaybackHistoryOptions {
@@ -16,7 +20,7 @@ interface PlaybackHistoryOptions {
 
 export const createPlaybackHistory = (options: PlaybackHistoryOptions) => {
   let activeVideoKey: string | undefined
-  let lastPlayback = loadLastPlayback()
+  let lastPlaybackKey = loadLastPlaybackKey()
   let lastPlaybackSavedAt = 0
   let videoStateSaveTimer: number | undefined
 
@@ -29,21 +33,20 @@ export const createPlaybackHistory = (options: PlaybackHistoryOptions) => {
     }
   }
 
-  const persistVideo = async (playback: LastPlayback) => {
+  const persistVideo = async (playback: LastPlayback | VideoPlaybackState) => {
     try {
-      await saveVideoPlaybackState({ ...playback, updatedAt: Date.now() })
+      await persistVideoPlaybackState({
+        ...playback,
+        updatedAt: "updatedAt" in playback ? playback.updatedAt : Date.now(),
+      })
     } catch (error) {
       console.warn("video playback state could not be saved", error)
     }
   }
 
-  const writeLast = (playback: LastPlayback) => {
-    lastPlayback = {
-      key: playback.key,
-      position: playback.position,
-      projectionId: playback.projectionId,
-    }
-    saveLastPlayback(lastPlayback)
+  const writeLast = (playback: LastPlayback | VideoPlaybackState) => {
+    lastPlaybackKey = playback.key
+    savePendingPlayback(playback)
     lastPlaybackSavedAt = Date.now()
   }
 
@@ -63,33 +66,43 @@ export const createPlaybackHistory = (options: PlaybackHistoryOptions) => {
     }, delay)
   }
 
-  const persistActive = () => {
+  const persistActive = async () => {
     if (videoStateSaveTimer !== undefined) window.clearTimeout(videoStateSaveTimer)
     videoStateSaveTimer = undefined
     const playback = activeSnapshot()
     if (!playback) return
     writeLast(playback)
-    void persistVideo(playback)
+    await persistVideo(playback)
   }
 
-  const activate = (key: string | undefined) => {
+  const activate = async (key: string | undefined) => {
     activeVideoKey = key
     if (!key) return
-    const resumePlayback = lastPlayback?.key === key ? lastPlayback : undefined
-    writeLast(resumePlayback ?? { key, position: 0, projectionId: 0 })
+    lastPlaybackKey = key
+    saveLastPlaybackKey(key)
+    const resumePlayback = await resolveVideoPlaybackState(key)
+    if (activeVideoKey !== key) return
     return resumePlayback
+  }
+
+  // localStorage is the synchronous write-back checkpoint for abrupt page
+  // closes. Merge it into IndexedDB as soon as the controller starts instead
+  // of waiting for the same video to be selected again.
+  if (loadPendingPlayback()) {
+    void flushPendingPlayback().catch(error => console.warn("last playback could not be flushed", error))
   }
 
   return {
     activate,
     deactivate: () => (activeVideoKey = undefined),
-    getLast: () => lastPlayback,
-    loadVideo: loadVideoPlaybackState,
+    getLastKey: () => lastPlaybackKey,
     persistActive,
     persistLast,
     persistVideo,
     remapLastKey: (key: string) => {
-      if (lastPlayback) lastPlayback = { ...lastPlayback, key }
+      if (!lastPlaybackKey || lastPlaybackKey === key) return
+      remapLastPlaybackKey(key)
+      lastPlaybackKey = key
     },
     scheduleSave,
     writeLast,

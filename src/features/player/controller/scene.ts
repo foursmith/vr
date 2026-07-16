@@ -132,11 +132,11 @@ export const createPlayerScene = (options: PlayerSceneOptions) => {
 
   return {
     debugPanelOpen,
+    clearMediaFrame: () => scene?.clearMediaFrame(),
     destroy,
     faceAutoCenterPaused,
     getMount: () => mount,
     getScene: () => scene,
-    isInitialized: () => initialized,
     loadingPercent: () => Math.round(Math.min(100, Math.max(0, loadingState.progress))),
     loadingState,
     pauseFaceAutoCenter: () => scene?.pauseFaceAutoCenter(),

@@ -2,10 +2,6 @@ import { fsvrMediaIdentity } from "../../fsvr"
 import { isVideoFile } from "../../playlist"
 import { videoStateKey } from "../playback-state"
 
-const VIDEO_SWITCH_DEBOUNCE_MS = 180
-const VIDEO_RELEASE_SETTLE_MS = 160
-const VIDEO_EMPTY_TIMEOUT_MS = 1200
-
 interface VideoResource {
   name: string
   file?: File
@@ -13,18 +9,17 @@ interface VideoResource {
 }
 
 interface MediaControllerOptions {
+  clearMediaFrame: () => void
   clearSubtitles: () => void
   getPlaylistSubtitle: (id: string | undefined) => { name: string, file?: File, url?: string } | undefined
   hasPlaylistResource: (id: string) => boolean
   initializeVideo: (video: HTMLVideoElement) => void
   isDisposed: () => boolean
-  isSceneInitialized: () => boolean
   loadSubtitle: (resource: { name: string, file?: File, url?: string } | undefined, generation: number) => void
-  loadVideoHistory: (key: string) => Promise<{ key: string, position: number, projectionId: number } | undefined>
   playbackHistory: {
-    activate: (key: string | undefined) => { key: string, position: number, projectionId: number } | undefined
+    activate: (key: string | undefined) => Promise<{ key: string, position: number, projectionId: number } | undefined>
     deactivate: () => void
-    persistActive: () => void
+    persistActive: () => Promise<void>
     persistLast: () => void
     persistVideo: (playback: { key: string, position: number, projectionId: number }) => Promise<void>
     scheduleSave: () => void
@@ -35,7 +30,6 @@ interface MediaControllerOptions {
   resetScene: () => void
   resetSceneMedia: () => void
   resetTransientView: () => void
-  resourcesReady: () => boolean
   restoreProjection: (projectionId: number) => void
   setCurrentTime: (time: number) => void
   setDuration: (duration: number) => void
@@ -56,6 +50,7 @@ export const createMediaController = (options: MediaControllerOptions) => {
   let pendingSwitch: { resource: VideoResource, playlistId?: string } | undefined
   let autoplayPending = false
   let pendingResumeTime: number | undefined
+  let playbackStatePending = false
 
   const syncTime = () => {
     if (pendingResumeTime !== undefined && Number.isFinite(video.duration)) {
@@ -67,6 +62,7 @@ export const createMediaController = (options: MediaControllerOptions) => {
     if (options.syncAbLoopTime(time)) return
     options.setCurrentTime(time)
     options.setDuration(video.duration || 0)
+    if (playbackStatePending) return
     options.playbackHistory.persistLast()
     options.playbackHistory.scheduleSave()
   }
@@ -81,42 +77,16 @@ export const createMediaController = (options: MediaControllerOptions) => {
     })
   }
 
-  const detachCurrentSource = async () => {
-    const previousUrl = fileUrl
-    fileUrl = undefined
-    video.pause()
-    if (video.currentSrc || video.getAttribute("src")) {
-      await new Promise<void>((resolve) => {
-        let completed = false
-        let timeout: number
-        const finish = () => {
-          if (completed) return
-          completed = true
-          window.clearTimeout(timeout)
-          video.removeEventListener("emptied", finish)
-          resolve()
-        }
-        timeout = window.setTimeout(finish, VIDEO_EMPTY_TIMEOUT_MS)
-        video.addEventListener("emptied", finish, { once: true })
-        video.removeAttribute("src")
-        video.load()
-      })
-    } else {
-      video.removeAttribute("src")
-      video.load()
-    }
-    if (previousUrl) URL.revokeObjectURL(previousUrl)
-    if (!options.isDisposed()) await new Promise<void>(resolve => window.setTimeout(resolve, VIDEO_RELEASE_SETTLE_MS))
-  }
-
-  const commitResource = async (resource: VideoResource, playlistId?: string) => {
+  const commitResource = (resource: VideoResource, playlistId?: string) => {
     const loadGeneration = ++generation
-    options.playbackHistory.persistActive()
+    void options.playbackHistory.persistActive()
     options.playbackHistory.deactivate()
     pendingResumeTime = undefined
-    options.resetSceneMedia()
-    await detachCurrentSource()
-    if (options.isDisposed() || loadGeneration !== generation || pendingSwitch) return
+    playbackStatePending = false
+    const previousUrl = fileUrl
+    video.pause()
+    options.clearMediaFrame()
+    if (options.isDisposed() || loadGeneration !== generation) return
 
     fileUrl = resource.file ? URL.createObjectURL(resource.file) : undefined
     options.setHasVideo(true)
@@ -125,8 +95,8 @@ export const createMediaController = (options: MediaControllerOptions) => {
     options.setDuration(0)
     const fsvrIdentity = resource.url && fsvrMediaIdentity(resource.url)
     const playbackKey = !fsvrIdentity || fsvrIdentity.sourceId === "local" ? videoStateKey(resource) : undefined
-    const resumePlayback = options.playbackHistory.activate(playbackKey)
-    options.restoreProjection(resumePlayback?.projectionId ?? 0)
+    playbackStatePending = Boolean(playbackKey)
+    const resumePlaybackPromise = options.playbackHistory.activate(playbackKey)
     options.resetTransientView()
     options.resetAbLoop()
     options.setFileName(resource.name)
@@ -136,32 +106,35 @@ export const createMediaController = (options: MediaControllerOptions) => {
     options.loadSubtitle(options.getPlaylistSubtitle(playlistId), loadGeneration)
     video.src = fileUrl ?? resource.url ?? ""
     video.load()
+    if (previousUrl) URL.revokeObjectURL(previousUrl)
+    requestPlayback(loadGeneration)
+    options.startInitialIdleCountdown()
+    window.setTimeout(() => {
+      if (loadGeneration === generation && !options.isDisposed()) options.resetSceneMedia()
+    }, 0)
 
-    if (resumePlayback) {
-      pendingResumeTime = resumePlayback.position
-      if (Number.isFinite(video.duration)) syncTime()
-      void options.playbackHistory.persistVideo(resumePlayback)
-    } else if (playbackKey) {
+    void (async () => {
+      let resumePlayback: Awaited<typeof resumePlaybackPromise>
       try {
-        const savedState = await options.loadVideoHistory(playbackKey)
-        if (savedState && loadGeneration === generation && !options.isDisposed()) {
-          options.restoreProjection(savedState.projectionId)
-          pendingResumeTime = savedState.position
-          options.playbackHistory.writeLast(savedState)
-          if (Number.isFinite(video.duration)) syncTime()
-        }
+        resumePlayback = await resumePlaybackPromise
       } catch (error) {
         console.warn("video playback state could not be loaded", error)
       }
-    }
-    if (loadGeneration !== generation || options.isDisposed()) return
-    if (options.isSceneInitialized() && options.resourcesReady()) {
+      if (loadGeneration !== generation || options.isDisposed()) return
+      playbackStatePending = false
+      if (resumePlayback) {
+        options.restoreProjection(resumePlayback.projectionId)
+        pendingResumeTime = resumePlayback.position
+        if (Number.isFinite(video.duration)) syncTime()
+      } else if (playbackKey) {
+        options.restoreProjection(0)
+        options.playbackHistory.writeLast({ key: playbackKey, position: 0, projectionId: 0 })
+      }
       requestPlayback(loadGeneration)
-      options.startInitialIdleCountdown()
-    }
+    })()
   }
 
-  const processPendingSwitch = async () => {
+  const processPendingSwitch = () => {
     if (switchInProgress) return
     switchInProgress = true
     try {
@@ -169,7 +142,7 @@ export const createMediaController = (options: MediaControllerOptions) => {
         if (options.isDisposed()) break
         const pending = pendingSwitch
         pendingSwitch = undefined
-        await commitResource(pending.resource, pending.playlistId)
+        commitResource(pending.resource, pending.playlistId)
       }
     } finally {
       switchInProgress = false
@@ -182,8 +155,8 @@ export const createMediaController = (options: MediaControllerOptions) => {
     if (switchTimer !== undefined) window.clearTimeout(switchTimer)
     switchTimer = window.setTimeout(() => {
       switchTimer = undefined
-      void processPendingSwitch()
-    }, fileUrl || switchInProgress ? VIDEO_SWITCH_DEBOUNCE_MS : 0)
+      processPendingSwitch()
+    }, 0)
   }
 
   const loadFile = (file: File, playlistId?: string) => {
@@ -208,10 +181,11 @@ export const createMediaController = (options: MediaControllerOptions) => {
   }
 
   const reset = () => {
-    options.playbackHistory.persistActive()
+    void options.playbackHistory.persistActive()
     generation += 1
     options.playbackHistory.deactivate()
     pendingResumeTime = undefined
+    playbackStatePending = false
     autoplayPending = false
     options.resetScene()
     video.pause()
@@ -228,8 +202,9 @@ export const createMediaController = (options: MediaControllerOptions) => {
     if (switchTimer !== undefined) window.clearTimeout(switchTimer)
     pendingSwitch = undefined
     autoplayPending = false
-    options.playbackHistory.persistActive()
+    void options.playbackHistory.persistActive()
     generation += 1
+    playbackStatePending = false
     video.pause()
     video.removeAttribute("src")
     video.load()

@@ -126,6 +126,7 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
             onInput={(value) => {
               if (!duration()) return
               setPendingTime(value)
+              seekTo(value)
             }}
             onChange={(value) => {
               if (!duration()) return

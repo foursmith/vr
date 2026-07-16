@@ -104,6 +104,7 @@ export interface VrSceneController {
   adjustForward: (direction: number) => void
   pauseFaceAutoCenter: () => void
   resumeFaceAutoCenter: () => void
+  clearMediaFrame: () => void
   resetMedia: () => void
   destroy: () => void
 }
@@ -386,6 +387,12 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
     adjustForward: direction => manualInput.adjustForward(direction),
     pauseFaceAutoCenter: autoCenter.pauseForManualInput,
     resumeFaceAutoCenter: autoCenter.resume,
+    clearMediaFrame() {
+      stopScheduledRender()
+      pendingVideoFrameAt = undefined
+      nextPlaybackFrameAt = undefined
+      renderRuntime.clearMediaFrame()
+    },
     update(nextOptions) {
       if (nextOptions.frameRate !== undefined && nextOptions.frameRate !== options.frameRate) {
         nextPlaybackFrameAt = undefined

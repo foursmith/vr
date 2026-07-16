@@ -59,6 +59,7 @@ export interface VrRenderRuntime {
   getSplitCount: () => number
   getCanvasMetrics: () => VrCanvasMetrics
   getGpuLabel: () => string
+  clearMediaFrame: () => void
   resetMedia: () => void
   destroy: () => void
 }
@@ -306,6 +307,7 @@ export const createVrRenderRuntime = (options: VrRenderRuntimeOptions): VrRender
         ? gl.getParameter(rendererInfo.UNMASKED_RENDERER_WEBGL)
         : gl.getParameter(gl.RENDERER))
     },
+    clearMediaFrame: core.clearMediaFrame,
     resetMedia: () => {
       texture.needsUpdate = true
       core.resetMedia()

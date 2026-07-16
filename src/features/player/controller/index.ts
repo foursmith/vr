@@ -170,27 +170,25 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     hideControls()
   }
   function persistActiveVideo() {
-    playbackHistory.persistActive()
+    void playbackHistory.persistActive()
   }
   function registerPlaybackActivity() {
     registerActivity("playback")
   }
   mediaModule = createMediaController({
+    clearMediaFrame: sceneModule.clearMediaFrame,
     clearSubtitles: subtitlesModule.clear,
     getPlaylistSubtitle: id => playlistModule.getSubtitle(id),
     hasPlaylistResource: id => playlistModule.hasPlayableResource(id),
     initializeVideo: initializeVideoElement,
     isDisposed: () => appDisposed,
-    isSceneInitialized: sceneModule.isInitialized,
     loadSubtitle: (resource, generation) => void subtitlesModule.load(resource, generation),
-    loadVideoHistory: playbackHistory.loadVideo,
     playbackHistory,
     resetAbLoop,
     resetPlayback: playbackModule.resetMedia,
     resetScene: sceneModule.reset,
     resetSceneMedia: sceneModule.resetMedia,
     resetTransientView,
-    resourcesReady,
     restoreProjection,
     setCurrentTime,
     setDuration,
@@ -206,7 +204,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     canImportLocalMedia,
     getFileInput: () => fileInput,
     getFolderInput: () => folderInput,
-    getLastPlaybackKey: () => playbackHistory.getLast()?.key,
+    getLastPlaybackKey: playbackHistory.getLastKey,
     getVideoPlaybackKey: videoStateKey,
     hasVideo,
     isRemoteSourceConnected: () => serverModule.state.status === "connected",
@@ -273,7 +271,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     autoResumePlayback,
     clearPlaylist: playlistModule.clearAll,
     enabled: connectFsvr,
-    getLastPlayback: playbackHistory.getLast,
+    getLastPlaybackKey: playbackHistory.getLastKey,
     getVideoPlaybackKey: videoStateKey,
     importPlaylist: nodes => playlistModule.importNodes(nodes, "when-empty"),
     isDisposed: () => appDisposed,
