@@ -16,7 +16,7 @@ export function MediaPickerButtons(props: {
       <div class="flex h-full w-full items-center">
         <button
           type="button"
-          class="flex h-full min-w-0 flex-1 items-center justify-center gap-1.5 rounded-l-full border-0 bg-transparent px-3 text-xs font-semibold text-white/82"
+          class="flex h-full min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-l-full border-0 bg-transparent px-3 text-xs font-semibold text-white/82"
           onClick={props.onChooseFiles}
         >
           <Icon name="file-video" class="h-3.5 w-3.5" />
@@ -25,7 +25,7 @@ export function MediaPickerButtons(props: {
         <span aria-hidden="true" class="h-4 w-px shrink-0 bg-white/12"></span>
         <button
           type="button"
-          class="flex h-full min-w-0 flex-1 items-center justify-center gap-1.5 rounded-r-full border-0 bg-transparent px-3 text-xs font-semibold text-white/82"
+          class="flex h-full min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-r-full border-0 bg-transparent px-3 text-xs font-semibold text-white/82"
           onClick={props.onChooseFolder}
         >
           <Icon name="folder" class="h-3.5 w-3.5" />
