@@ -17,7 +17,6 @@ export function PlayerStage(props: { controller: PlayerController }) {
   let pointerStart: { id: number, x: number, y: number } | undefined
   let lastPointerType = ""
   let suppressClick = false
-  let debugMetricsElement: HTMLDivElement | undefined
   let debugLogElement: HTMLPreElement | undefined
   let debugLogObserver: MutationObserver | undefined
   let debugLogStartedAt = 0
@@ -84,17 +83,17 @@ export function PlayerStage(props: { controller: PlayerController }) {
   }
 
   const captureDebugLogEntry = () => {
-    const metrics = debugMetricsElement?.textContent?.trim()
     const details = debugLogElement?.textContent?.trim()
-    if (!metrics || !details) return
+    if (!details) return
     const elapsed = (performance.now() - debugLogStartedAt) / 1000
-    debugLogEntries.push(`[+${elapsed.toFixed(3)}s]\n${metrics}\n${details}`)
+    debugLogEntries.push(`[+${elapsed.toFixed(3)}s]\n${details}`)
     if (debugLogEntries.length > MAX_DEBUG_LOG_ENTRIES) debugLogEntries.shift()
   }
 
   const stopDebugLogRecording = () => {
     debugLogObserver?.disconnect()
     debugLogObserver = undefined
+    debugLogElement?.closest<HTMLElement>("#fps-meter")?.removeAttribute("data-debug-recording")
     setIsRecordingLog(false)
   }
 
@@ -102,6 +101,8 @@ export function PlayerStage(props: { controller: PlayerController }) {
     debugLogEntries.length = 0
     debugLogStartedAt = performance.now()
     debugLogStartedOn = new Date().toISOString()
+    if (debugLogElement) debugLogElement.textContent = ""
+    debugLogElement?.closest<HTMLElement>("#fps-meter")?.setAttribute("data-debug-recording", "true")
     captureDebugLogEntry()
     if (debugLogElement) {
       debugLogObserver = new MutationObserver(captureDebugLogEntry)
@@ -113,8 +114,11 @@ export function PlayerStage(props: { controller: PlayerController }) {
   const copyDebugLog = async () => {
     stopDebugLogRecording()
     if (debugLogEntries.length === 0) return
+    const deviceNavigator = navigator as Navigator & { deviceMemory?: number }
     const log = [
-      `Tracking monitor log · ${debugLogStartedOn}`,
+      `Playback diagnostics log · ${debugLogStartedOn}`,
+      `USER_AGENT ${navigator.userAgent}`,
+      `DEVICE cores=${navigator.hardwareConcurrency || "--"} memory=${deviceNavigator.deviceMemory ?? "--"}GiB screen=${screen.width}×${screen.height} colorDepth=${screen.colorDepth} online=${navigator.onLine}`,
       ...debugLogEntries,
     ].join("\n\n")
     try {
@@ -179,7 +183,7 @@ export function PlayerStage(props: { controller: PlayerController }) {
                   {isRecordingLog() ? "Copy" : "Record"}
                 </button>
               </div>
-              <div ref={debugMetricsElement} data-debug-metrics class="whitespace-pre px-3 py-2.5 font-mono text-[9px] font-medium leading-[1.7] text-white/54">
+              <div data-debug-metrics class="whitespace-pre px-3 py-2.5 font-mono text-[9px] font-medium leading-[1.7] text-white/54">
                 Waiting for frames…
               </div>
               <pre ref={debugLogElement} data-debug-log class="hidden" aria-hidden="true"></pre>
