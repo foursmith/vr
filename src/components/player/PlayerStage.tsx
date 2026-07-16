@@ -2,13 +2,15 @@ import type { PlayerController } from "../../features/player/controller"
 import { createSignal, onSettled, Show, untrack } from "solid-js"
 import { Icon } from "../ui/Icon"
 import { IconButton } from "../ui/IconButton"
+import { SettingsModal } from "./SettingsModal"
 
 const SINGLE_CLICK_DELAY_MS = 250
 const CLICK_MOVE_THRESHOLD_PX = 8
 const MAX_DEBUG_LOG_ENTRIES = 2000
 
 export function PlayerStage(props: { controller: PlayerController }) {
-  const { controls, debug, display, frame, playback, subtitles } = untrack(() => props.controller)
+  const controller = untrack(() => props.controller)
+  const { controls, debug, display, frame, playback, subtitles } = controller
   const { controlsVisible, registerUiSurface, setControlsHold } = controls
   const { faceAutoCenterPaused, handlePlayerPointerDown, handlePlayerPointerUp, projectionBoundaryWarning, resumeFaceAutoCenter, setVideo, setVrMount, setVrRoot } = frame
   let singleClickTimer: number | undefined
@@ -22,6 +24,7 @@ export function PlayerStage(props: { controller: PlayerController }) {
   let debugLogStartedOn = ""
   const debugLogEntries: string[] = []
   const [isRecordingLog, setIsRecordingLog] = createSignal(false)
+  const [settingsOpen, setSettingsOpen] = createSignal(false)
 
   const cancelSingleClick = () => {
     if (singleClickTimer === undefined) return
@@ -216,32 +219,50 @@ export function PlayerStage(props: { controller: PlayerController }) {
         </div>
       </section>
 
-      <Show when={faceAutoCenterPaused()}>
-        <div
-          ref={registerUiSurface}
-          data-face-centering-resume
-          class={`absolute right-3 top-3 z-30 transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:right-6 sm:top-6 ${
-            controlsVisible() ? "pointer-events-auto translate-x-0 opacity-100" : "pointer-events-none translate-x-[calc(100%+1.5rem)] opacity-0"
-          }`}
-          aria-hidden={controlsVisible() ? "false" : "true"}
-          inert={!controlsVisible()}
-          onFocusIn={(event) => {
-            setControlsHold("focus", (event.target as HTMLElement).matches(":focus-visible"))
-          }}
-          onFocusOut={(event) => {
-            if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
-            setControlsHold("focus", false)
-          }}
-        >
-          <IconButton
-            label="Resume portrait centering"
-            title="Resume portrait centering"
-            icon="scan-face"
-            iconClass="h-5 w-5"
-            onClick={resumeFaceAutoCenter}
-          />
-        </div>
-      </Show>
+      <div
+        ref={registerUiSurface}
+        class={`absolute right-3 top-3 z-30 flex items-center gap-2 transition-[transform,opacity] duration-300 ease-[cubic-bezier(.22,.8,.24,1)] sm:right-6 sm:top-6 ${
+          controlsVisible() ? "pointer-events-auto translate-x-0 opacity-100" : "pointer-events-none translate-x-[calc(100%+1.5rem)] opacity-0"
+        }`}
+        aria-hidden={controlsVisible() ? "false" : "true"}
+        inert={!controlsVisible()}
+        onFocusIn={(event) => {
+          setControlsHold("focus", (event.target as HTMLElement).matches(":focus-visible"))
+        }}
+        onFocusOut={(event) => {
+          if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+          setControlsHold("focus", false)
+        }}
+      >
+        <Show when={faceAutoCenterPaused()}>
+          <div data-face-centering-resume class="shrink-0">
+            <IconButton
+              class="!h-8 !w-8"
+              label="Resume portrait centering"
+              title="Resume portrait centering"
+              icon="scan-face"
+              iconClass="h-4 w-4"
+              onClick={resumeFaceAutoCenter}
+            />
+          </div>
+        </Show>
+        <IconButton
+          class="!h-8 !w-8"
+          label="Settings"
+          icon="settings"
+          iconClass="h-4 w-4"
+          onClick={() => setSettingsOpen(true)}
+        />
+      </div>
+
+      <SettingsModal
+        controller={controller}
+        open={settingsOpen()}
+        onOpenChange={(open) => {
+          setSettingsOpen(open)
+          setControlsHold("settings", open)
+        }}
+      />
 
       <Show when={subtitles.text()}>
         <div

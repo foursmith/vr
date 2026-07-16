@@ -1,14 +1,12 @@
 import type { PlayerController } from "../../features/player/controller"
-import { createSignal, Show, untrack } from "solid-js"
+import { Show, untrack } from "solid-js"
 import { IconButton } from "../ui/IconButton"
 import { ControlSliderPopover } from "./ControlSliderPopover"
 import { PlaybackTimeline } from "./PlaybackTimeline"
 import { ProjectionSelect } from "./ProjectionSelect"
-import { SettingsModal } from "./SettingsModal"
 
 export function PlayerControls(props: { controller: PlayerController }) {
   const controller = untrack(() => props.controller)
-  const [settingsOpen, setSettingsOpen] = createSignal(false)
   let adjustmentsButton!: HTMLDivElement
   const { controls, display, playback, subtitles } = controller
   const {
@@ -79,8 +77,6 @@ export function PlayerControls(props: { controller: PlayerController }) {
                 onClick={() => toggleSlider("adjustments", adjustmentsButton)}
               />
             </div>
-
-            <IconButton label="Settings" icon="settings" onClick={() => setSettingsOpen(true)} />
             <IconButton
               label={fullscreen() ? "Exit fullscreen" : "Enter fullscreen"}
               icon={fullscreen() ? "corners-in" : "corners-out"}
@@ -92,14 +88,6 @@ export function PlayerControls(props: { controller: PlayerController }) {
 
         <PlaybackTimeline controller={controller} />
       </div>
-      <SettingsModal
-        controller={controller}
-        open={settingsOpen()}
-        onOpenChange={(open) => {
-          setSettingsOpen(open)
-          setControlsHold("settings", open)
-        }}
-      />
     </aside>
   )
 }
