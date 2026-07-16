@@ -4,7 +4,7 @@ import { timingSafeEqual } from "node:crypto"
 
 export const AUTH_COOKIE_NAME = "fsvr_password"
 const AUTH_COOKIE_MAX_AGE = 365 * 24 * 60 * 60
-const AUTH_COOKIE_ATTRIBUTES = "HttpOnly; Secure; SameSite=Strict; Path=/"
+const AUTH_COOKIE_ATTRIBUTES = "HttpOnly; SameSite=Strict; Path=/"
 
 export interface MediaServerOptions {
   hostname: string
@@ -34,8 +34,10 @@ const passwordMatches = (supplied: string | null | undefined, expected: string) 
   return suppliedBytes.length === expectedBytes.length && timingSafeEqual(suppliedBytes, expectedBytes)
 }
 
-const authCookie = (value: string, maxAge: number) =>
-  `${AUTH_COOKIE_NAME}=${encodeURIComponent(value)}; ${AUTH_COOKIE_ATTRIBUTES}; Max-Age=${maxAge}`
+const authCookie = (request: Request, value: string, maxAge: number) => {
+  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : ""
+  return `${AUTH_COOKIE_NAME}=${encodeURIComponent(value)}; ${AUTH_COOKIE_ATTRIBUTES}${secure}; Max-Age=${maxAge}`
+}
 
 const authenticated = <Path extends string>(
   password: string | undefined,
@@ -121,11 +123,11 @@ const createRoutes = (options: MediaServerOptions) => {
         const queryPassword = new URL(request.url).searchParams.get(AUTH_COOKIE_NAME)
         if (queryPassword !== null && options.password !== undefined) {
           if (!passwordMatches(queryPassword, options.password)) {
-            return errorResponse("unauthorized", 401, { "set-cookie": authCookie("", 0) })
+            return errorResponse("unauthorized", 401, { "set-cookie": authCookie(request, "", 0) })
           }
           return new Response(null, {
             status: 302,
-            headers: { "location": "/", "set-cookie": authCookie(queryPassword, AUTH_COOKIE_MAX_AGE) },
+            headers: { "location": "/", "set-cookie": authCookie(request, queryPassword, AUTH_COOKIE_MAX_AGE) },
           })
         }
         return json({
@@ -137,14 +139,14 @@ const createRoutes = (options: MediaServerOptions) => {
         if (options.password === undefined) return json({ authenticated: true })
         const body = await request.json().catch(() => undefined) as { password?: unknown } | undefined
         if (typeof body?.password !== "string" || !passwordMatches(body.password, options.password)) {
-          return errorResponse("unauthorized", 401, { "set-cookie": authCookie("", 0) })
+          return errorResponse("unauthorized", 401, { "set-cookie": authCookie(request, "", 0) })
         }
         return json({ authenticated: true }, {
-          headers: { "set-cookie": authCookie(body.password, AUTH_COOKIE_MAX_AGE) },
+          headers: { "set-cookie": authCookie(request, body.password, AUTH_COOKIE_MAX_AGE) },
         })
       },
-      DELETE: () => json({ authenticated: false }, {
-        headers: { "set-cookie": authCookie("", 0) },
+      DELETE: (request: Bun.BunRequest<"/api/v1/auth">) => json({ authenticated: false }, {
+        headers: { "set-cookie": authCookie(request, "", 0) },
       }),
     },
     "/api/v1/sources": {

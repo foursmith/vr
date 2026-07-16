@@ -110,7 +110,7 @@ describe("fsvr media server", () => {
     expect(authResponse.status).toBe(200)
     const authCookieHeader = authResponse.headers.get("set-cookie")!
     expect(authCookieHeader).toContain("HttpOnly")
-    expect(authCookieHeader).toContain("Secure")
+    expect(authCookieHeader).not.toContain("Secure")
     expect(authCookieHeader).toContain("SameSite=Strict")
     expect(authCookieHeader).toContain("Path=/")
     const authCookie = authCookieHeader.split(";", 1)[0]
@@ -124,7 +124,7 @@ describe("fsvr media server", () => {
       body: JSON.stringify({ password: "wrong" }),
     })
     expect(rejectedReplacement.status).toBe(401)
-    expect(rejectedReplacement.headers.get("set-cookie")).toBe("fsvr_password=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0")
+    expect(rejectedReplacement.headers.get("set-cookie")).toBe("fsvr_password=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0")
     const replacementAuth = await fetch(`${base}/api/v1/auth`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -182,6 +182,6 @@ describe("fsvr media server", () => {
 
     const logoutResponse = await fetch(`${base}/api/v1/auth`, { method: "DELETE", headers: { cookie: replacementCookie } })
     expect(logoutResponse.status).toBe(200)
-    expect(logoutResponse.headers.get("set-cookie")).toBe("fsvr_password=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0")
+    expect(logoutResponse.headers.get("set-cookie")).toBe("fsvr_password=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0")
   })
 })
