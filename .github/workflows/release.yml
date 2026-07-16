@@ -45,3 +45,8 @@ jobs:
           if [[ "$release_body" != *"<!-- docker-image -->"* ]]; then
             gh release edit "$GITHUB_REF_NAME" --notes "${release_body}${footer}"
           fi
+
+  deploy:
+    needs: release
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit

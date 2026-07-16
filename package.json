@@ -35,7 +35,8 @@
     "typecheck:cli": "bun run --filter fsvr typecheck",
     "test:cli": "bun run --filter fsvr test",
     "release": "bumpp",
-    "deploy": "bun run build && wrangler deploy"
+    "deploy": "bun run build && wrangler deploy --env \"\"",
+    "deploy:production": "bun run build && wrangler deploy --env production"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.35",

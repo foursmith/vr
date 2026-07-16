@@ -1,7 +1,13 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "vr",
+  "name": "devr",
   "compatibility_date": "2026-07-11",
+  "routes": [
+    {
+      "pattern": "dev.vr.foursmith.com",
+      "custom_domain": true
+    }
+  ],
   "observability": {
     "enabled": true
   },
@@ -10,5 +16,16 @@
   },
   "compatibility_flags": [
     "nodejs_compat"
-  ]
+  ],
+  "env": {
+    "production": {
+      "name": "vr",
+      "routes": [
+        {
+          "pattern": "vr.foursmith.com",
+          "custom_domain": true
+        }
+      ]
+    }
+  }
 }
