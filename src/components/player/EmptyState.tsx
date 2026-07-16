@@ -1,6 +1,5 @@
 import { createSignal, Show } from "solid-js"
 import { isChromiumBrowser } from "../../lib/browser"
-import { BrowserCompatibilityNotice } from "../BrowserCompatibilityNotice"
 import { FsvrLogo } from "../ui/FsvrLogo"
 import { Icon } from "../ui/Icon"
 import { LiquidGlass } from "../ui/LiquidGlass"
@@ -44,6 +43,22 @@ function launchGithubConfetti(origin: DOMRect) {
 
   document.body.append(layer)
   window.setTimeout(() => layer.remove(), 900)
+}
+
+function BrowserCompatibilityNotice() {
+  return (
+    <aside class="flex max-w-lg flex-col items-center gap-4">
+      <div aria-hidden="true" class="h-px w-12 bg-gradient-to-r from-transparent via-accent/38 to-transparent" />
+      <div class="flex flex-col items-center gap-0.5">
+        <p class="text-sm font-normal tracking-[-0.01em] text-[#f5fffc]/88 sm:text-base">
+          Works best in
+          {" "}
+          <span class="font-serif italic text-[#b8f3ec]/92">Chrome</span>
+        </p>
+        <p class="max-w-sm text-[10px] font-medium leading-4 tracking-[0.018em] text-white/38 sm:text-[11px]">VR playback may stutter or fail in this browser.</p>
+      </div>
+    </aside>
+  )
 }
 
 export function EmptyState(props: {
