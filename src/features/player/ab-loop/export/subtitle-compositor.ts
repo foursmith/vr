@@ -1,4 +1,4 @@
-import type { VrSceneController } from "../../vr/scene"
+import type { VrSceneController } from "../../../vr/scene"
 
 const wrapCanvasText = (context: CanvasRenderingContext2D, text: string, maxWidth: number) => text
   .split("\n")

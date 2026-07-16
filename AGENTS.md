@@ -19,6 +19,8 @@
 - Before adding new logic, identify and reuse the existing components, state flows, interaction handling, and abstractions that already cover the behavior.
 - If the existing design is not compatible with the feature, prefer a focused refactor that simplifies and generalizes the shared logic before adding the new behavior.
 - Keep feature changes cohesive: each piece of state should have a clear owner, related behavior should use one code path, and tests should verify the shared behavior rather than implementation-specific workarounds.
+- Prefer extracting logic into small, side-effect-free pure functions with explicit inputs and outputs so it can be covered by focused unit tests. Keep state management, I/O, and UI interaction at the boundaries.
+- When a feature grows beyond a cohesive single file, organize it in a dedicated folder and expose its public API through an `index.ts` entry point. Callers should import from that feature entry point instead of reaching into internal files.
 
 ### Version Control
 

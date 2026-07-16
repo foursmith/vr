@@ -1,6 +1,6 @@
-import { MOTION_PHOTO_EXPORT_FORMAT } from "./formats/motion-photo"
-import { MP4_EXPORT_FORMAT } from "./formats/mp4"
-import { WEBM_EXPORT_FORMAT } from "./formats/webm"
+import { MOTION_PHOTO_EXPORT_FORMAT } from "./motion-photo"
+import { MP4_EXPORT_FORMAT } from "./mp4"
+import { WEBM_EXPORT_FORMAT } from "./webm"
 
 export type AbExportFormat = "webm" | "mp4" | "motion-photo"
 

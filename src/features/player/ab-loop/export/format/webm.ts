@@ -1,4 +1,4 @@
-import type { AbExportFormatDefinition } from "../format"
+import type { AbExportFormatDefinition } from "./index"
 
 export const WEBM_EXPORT_FORMAT = {
   id: "webm",

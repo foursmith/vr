@@ -1,4 +1,4 @@
-import type { AbExportFormatDefinition } from "../format"
+import type { AbExportFormatDefinition } from "./index"
 
 const XMP_NAMESPACE = "http://ns.adobe.com/xap/1.0/\0"
 

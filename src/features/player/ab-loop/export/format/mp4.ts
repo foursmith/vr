@@ -1,4 +1,4 @@
-import type { AbExportFormatDefinition } from "../format"
+import type { AbExportFormatDefinition } from "./index"
 
 export const MP4_EXPORT_FORMAT = {
   id: "mp4",

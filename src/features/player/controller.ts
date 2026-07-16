@@ -18,7 +18,7 @@ import { authenticateFsvr, detectFsvr, discoverFsvrDlna, hasFsvrAuth, loadFsvrDl
 import { isFsvrHostMode } from "../sources/fsvr-runtime"
 import { activeSubtitleText, parseSubtitle } from "../subtitles/parser"
 import { DEFAULT_FORWARD, DEFAULT_ZOOM, PROJECTION_OPTIONS, QUALITY_OPTIONS } from "../vr/config"
-import { createAbLoopController } from "./ab-loop/controller"
+import { createAbLoopController } from "./ab-loop"
 import { createControls } from "./controls"
 import { createDisplay } from "./display"
 import { DEFAULT_GLOBAL_PREFERENCES, fsvrMediaIdentity, loadGlobalPreferences, loadLastPlayback, loadVideoPlaybackState, saveGlobalPreferences, saveLastPlayback, saveVideoPlaybackState, videoStateKey } from "./playback-state"
