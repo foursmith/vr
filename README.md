@@ -38,15 +38,15 @@ For the best experience, use Chrome, Edge, or another Chromium-based desktop bro
 
 | Shortcut | Action |
 | --- | --- |
-| Space / K | Play or pause |
-| Left / J | Seek backward 10 seconds |
-| Right / L | Seek forward 10 seconds |
-| Shift + Left / Shift + J | Seek backward 60 seconds |
-| Shift + Right / Shift + L | Seek forward 60 seconds |
+| Space | Play or pause |
+| Left | Seek backward 10 seconds |
+| Right | Seek forward 10 seconds |
+| Shift + Left | Seek backward 60 seconds |
+| Shift + Right | Seek forward 60 seconds |
 | Up / Down | Adjust volume |
 | M | Mute or unmute |
 | F | Toggle fullscreen |
-| R | Reset view and zoom |
+| R | Reset view |
 | [ / - | Zoom out |
 | ] / = | Zoom in |
 | 1-7 | Select projection |
