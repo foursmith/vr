@@ -5,6 +5,7 @@ import { Icon } from "../ui/Icon"
 import { LiquidGlass } from "../ui/LiquidGlass"
 import { MediaPickerButtons } from "../ui/MediaPickerButtons"
 import { OceanBackground } from "./OceanBackground"
+import { PwaUpdateBubble } from "./PwaUpdateBubble"
 
 type ServerStatus = "disconnected" | "connecting" | "authentication-required" | "connected" | "error"
 
@@ -116,6 +117,7 @@ export function EmptyState(props: {
               class="h-full w-full"
             />
           </div>
+          <PwaUpdateBubble />
 
           <a
             href={GITHUB_URL}

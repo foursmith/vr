@@ -255,6 +255,80 @@
   90%, 100% { filter: blur(0); opacity: 1; transform: translate3d(3px, -1px, 0) rotate(0.2deg) scale(1); }
 }
 
+/* PWA update bubble */
+
+@keyframes empty-update-bubble-rise {
+  0% { opacity: 0; transform: translate3d(-50%, -50%, 0) scale(0.04); }
+  12% { opacity: 0.48; }
+  38% { opacity: 1; transform: translate3d(-50%, calc(-50% - 6rem), 0) scale(1); }
+  88% { opacity: 1; transform: translate3d(-50%, -78vh, 0) scale(1.04); }
+  100% { opacity: 0; transform: translate3d(-50%, -108vh, 0) scale(0.92); }
+}
+
+.empty-update-bubble {
+  animation: empty-update-bubble-rise 15s cubic-bezier(0.3, 0.05, 0.28, 1) both;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate3d(-50%, -50%, 0) scale(0.04);
+  transform-origin: center;
+  will-change: opacity, transform;
+  z-index: 15;
+}
+
+.empty-update-bubble:hover,
+.empty-update-bubble:focus-within {
+  animation-play-state: paused;
+}
+
+.empty-update-bubble-body {
+  align-items: center;
+  backdrop-filter: blur(10px);
+  background:
+    radial-gradient(circle at 34% 24%, rgba(255, 255, 255, 0.76) 0 5%, transparent 17%),
+    linear-gradient(145deg, rgba(235, 255, 251, 0.92), rgba(140, 222, 220, 0.82));
+  border: 1px solid rgba(245, 255, 252, 0.72);
+  border-radius: 999px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 9px 26px rgba(2, 30, 48, 0.18),
+    0 0 24px rgba(184, 243, 236, 0.16);
+  color: #075166;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  height: 7rem;
+  justify-content: center;
+  padding: 1rem;
+  text-align: center;
+  width: 7rem;
+}
+
+.empty-update-bubble-body span {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.014em;
+  line-height: 1.25;
+  max-width: 4.5rem;
+}
+
+.empty-update-bubble-body a {
+  color: rgba(7, 81, 102, 0.66);
+  font-size: 9px;
+  font-weight: 600;
+  outline: none;
+  text-decoration: underline;
+  text-decoration-color: rgba(7, 81, 102, 0.24);
+  text-underline-offset: 2px;
+  transition: color 160ms ease, text-decoration-color 160ms ease;
+}
+
+.empty-update-bubble-body a:hover,
+.empty-update-bubble-body a:focus-visible {
+  color: #043d50;
+  text-decoration-color: rgba(4, 61, 80, 0.7);
+}
+
 @media (min-width: 640px) {
   .empty-feature-tiktok { left: 0.375rem; }
   .empty-feature-open-source { right: -0.25rem; top: 4.75rem; }
@@ -306,11 +380,17 @@
   .empty-state-drift,
   .empty-hero-logo,
   .empty-feature-dot,
+  .empty-update-bubble,
   .empty-github-burst .empty-github-icon {
     animation: none;
   }
 
   .empty-hero-logo {
     transform: translate(-50%, -50%);
+  }
+
+  .empty-update-bubble {
+    opacity: 1;
+    transform: translate3d(-50%, calc(-50% - 7rem), 0) scale(1);
   }
 }
