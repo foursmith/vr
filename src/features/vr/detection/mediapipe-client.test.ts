@@ -4,16 +4,18 @@ import { createMediaPipeFaceDetectorClient } from "./mediapipe-client"
 const mocks = vi.hoisted(() => ({
   infer: vi.fn(),
   release: vi.fn(),
+  tracker: { infer: vi.fn() },
 }))
 
 vi.mock("./face-tracker-client", () => ({
-  getFaceTrackerClient: () => ({ infer: mocks.infer }),
-  releaseFaceAutoCenterResources: mocks.release,
+  acquireFaceTrackerClient: () => mocks.tracker,
+  releaseFaceTrackerClient: mocks.release,
 }))
 
 describe("mediaPipe face detector client", () => {
   beforeEach(() => {
     mocks.infer.mockReset()
+    mocks.tracker.infer = mocks.infer
     mocks.release.mockReset()
   })
 
@@ -37,5 +39,6 @@ describe("mediaPipe face detector client", () => {
 
     client.destroy()
     expect(mocks.release).toHaveBeenCalledOnce()
+    expect(mocks.release).toHaveBeenCalledWith(mocks.tracker)
   })
 })

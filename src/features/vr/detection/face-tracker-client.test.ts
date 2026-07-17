@@ -1,6 +1,6 @@
 import type { FaceWorkerResponse } from "./protocol"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { downloadFaceTrackingResources, FaceTrackerClient, prefetchFaceTrackingResources } from "./face-tracker-client"
+import { acquireFaceTrackerClient, downloadFaceTrackingResources, FaceTrackerClient, prefetchFaceTrackingResources, releaseFaceAutoCenterResources, releaseFaceTrackerClient } from "./face-tracker-client"
 
 class FakeWorker {
   static instances: FakeWorker[] = []
@@ -25,9 +25,28 @@ beforeEach(() => {
   vi.stubGlobal("createImageBitmap", vi.fn())
 })
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  releaseFaceAutoCenterResources()
+  vi.unstubAllGlobals()
+})
 
 describe("faceTrackerClient worker backend", () => {
+  it("keeps the shared tracker alive until every detector lease is released", async () => {
+    const first = acquireFaceTrackerClient()
+    const second = acquireFaceTrackerClient()
+    expect(second).toBe(first)
+
+    const initializing = first.initialize(() => {})
+    const worker = FakeWorker.instances[0]
+    worker.emit({ type: "ready" })
+    await initializing
+
+    releaseFaceTrackerClient(first)
+    expect(worker.terminate).not.toHaveBeenCalled()
+    releaseFaceTrackerClient(second)
+    expect(worker.terminate).toHaveBeenCalledOnce()
+  })
+
   it("downloads and caches face tracking resources before initialization", async () => {
     const cache = {
       match: vi.fn(async () => undefined),

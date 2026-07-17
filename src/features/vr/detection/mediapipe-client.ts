@@ -1,8 +1,8 @@
 import type { FaceDetectionRange } from "./protocol"
-import { getFaceTrackerClient, releaseFaceAutoCenterResources } from "./face-tracker-client"
+import { acquireFaceTrackerClient, releaseFaceTrackerClient } from "./face-tracker-client"
 
 export const createMediaPipeFaceDetectorClient = () => {
-  const tracker = getFaceTrackerClient()
+  const tracker = acquireFaceTrackerClient()
   let destroyed = false
 
   return {
@@ -32,7 +32,7 @@ export const createMediaPipeFaceDetectorClient = () => {
     destroy: () => {
       if (destroyed) return
       destroyed = true
-      releaseFaceAutoCenterResources()
+      releaseFaceTrackerClient(tracker)
     },
   }
 }

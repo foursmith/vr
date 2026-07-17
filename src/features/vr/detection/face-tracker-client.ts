@@ -390,10 +390,25 @@ export class FaceTrackerClient {
 }
 
 let sharedClient: FaceTrackerClient | undefined
+let sharedClientLeases = 0
 
 export const getFaceTrackerClient = () => {
   sharedClient ??= new FaceTrackerClient()
   return sharedClient
+}
+
+export const acquireFaceTrackerClient = () => {
+  const client = getFaceTrackerClient()
+  sharedClientLeases += 1
+  return client
+}
+
+export const releaseFaceTrackerClient = (client: FaceTrackerClient) => {
+  if (client !== sharedClient || sharedClientLeases <= 0) return
+  sharedClientLeases -= 1
+  if (sharedClientLeases > 0) return
+  sharedClient.destroy()
+  sharedClient = undefined
 }
 
 export const preloadFaceAutoCenterResources = (
@@ -403,4 +418,5 @@ export const preloadFaceAutoCenterResources = (
 export const releaseFaceAutoCenterResources = () => {
   sharedClient?.destroy()
   sharedClient = undefined
+  sharedClientLeases = 0
 }

@@ -55,6 +55,11 @@ export interface FaceScanCaptureSize {
   height: number
 }
 
+interface ViewportCaptureContext {
+  camera: PerspectiveCamera
+  view: Pick<CameraView, "yaw" | "pitch" | "forward">
+}
+
 export interface FaceScanCapturePort {
   captureViewport: (
     canvas: HTMLCanvasElement,
@@ -192,6 +197,7 @@ export const createFaceScanController = (options: FaceScanControllerOptions): Fa
     detectionMode: DetectionMode,
     panoramaSample: PanoramaSample | undefined,
     projection: ProjectionMode,
+    viewportCapture: ViewportCaptureContext | undefined,
   ) => {
     const time = result.timestamp
     const completedAt = performance.now()
@@ -222,28 +228,28 @@ export const createFaceScanController = (options: FaceScanControllerOptions): Fa
       } else {
         detectionState = applyPanoramaDetectionMiss(
           detectionState,
-          time,
+          completedAt,
           face ? getPanoramaRefinementTile(projection, face) : undefined,
         )
       }
     } else {
+      if (!viewportCapture) return false
       faceState.detectionMode = "viewport"
       const face = applyDetections(faceState, result.faces, time, "viewport")
-      if (face) updateFaceMotion(faceState, face, time, camera, options.getView())
+      if (face) updateFaceMotion(faceState, face, time, viewportCapture.camera, viewportCapture.view)
       foundFace = setViewportTarget(
         faceState,
         face,
         time,
-        camera,
-        options.getView(),
+        viewportCapture.camera,
+        viewportCapture.view,
         undefined,
         options.getSurfaceDistance(projection),
       )
-      const view = options.getView()
       const transition = applyViewportDetection(detectionState, foundFace, () => getPanoramaScanTiles(
         projection,
-        view.yaw,
-        view.pitch,
+        viewportCapture.view.yaw,
+        viewportCapture.view.pitch,
         getPredictedFaceDirection(faceState, time, projection),
       ))
       detectionState = transition.state
@@ -294,6 +300,9 @@ export const createFaceScanController = (options: FaceScanControllerOptions): Fa
     let completedInferenceMs = 0
     let completedScheduleOverride: { activity: FaceInferenceActivity, period: number } | undefined
     const projection = options.getProjection()
+    const viewportCapture = detectionMode === "viewport"
+      ? { camera: camera.clone(), view: { ...options.getView() } }
+      : undefined
 
     try {
       if (detectionMode === "panorama") {
@@ -353,7 +362,7 @@ export const createFaceScanController = (options: FaceScanControllerOptions): Fa
           })),
           inferenceMs: completedInferenceMs,
         }
-        if (applyInferenceResult(result, detectionMode, panoramaSample, projection)) {
+        if (applyInferenceResult(result, detectionMode, panoramaSample, projection, viewportCapture)) {
           completedScheduleOverride = { activity: inferenceActivityAtStart, period: inferencePeriodAtStart }
         }
       })

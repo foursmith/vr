@@ -38,6 +38,8 @@ The player alternates between two spatial detection modes:
 
 After video playback enters `playing`, the player starts a non-blocking background prefetch of the MediaPipe WASM loader, WASM binary, short-range model, and full-range model. Playback and the first visible frame do not wait for this work. Repeated `playing` events share the same in-session prefetch, failed prefetches remain retryable, and detector instances are still created lazily by the first inference that needs each range.
 
+Detector backends in the same page lease one shared tracker client. Releasing one player destroys only its lease; the shared worker and detector instances remain alive until the final active backend releases them. Explicit application-level resource release still tears down the shared client and clears all leases.
+
 ### Face filtering and target selection
 
 Detections are normalized face boxes. MediaPipe detection and automatic-centering candidate selection share a minimum confidence of `0.6`; candidates below it are discarded. Remaining candidates receive a selection score composed of:
@@ -69,7 +71,7 @@ Detection acquisition is owned by `FaceScanController` through one discriminated
 | `panorama-scan` | Active perspective tile, full range | Accept a reliable mapped candidate, create its panorama target, and return to `tracking` | Insert the pass's single refinement when eligible; otherwise advance the coarse scan |
 | `recovery-backoff` | No capture before `retryAt` | — | When due, return to `tracking` for a fresh short-range viewport attempt |
 
-An unreliable panorama candidate may insert one 70° refinement tile centered on its mapped direction. A failed or still-unreliable refinement advances past its originating coarse tile. This limits a 360° pass to seven inferences and a 180° pass to six. Exhausting all coarse tiles enters `recovery-backoff`: the first failed pass waits 500 ms and consecutive failures double the delay up to 4 seconds. Any successful viewport or panorama detection creates a fresh `tracking` state and clears accumulated misses, scan progress, failed-pass count, and backoff.
+An unreliable panorama candidate may insert one 70° refinement tile centered on its mapped direction. A failed or still-unreliable refinement advances past its originating coarse tile. This limits a 360° pass to seven inferences and a 180° pass to six. Exhausting all coarse tiles enters `recovery-backoff`: measured from completion of the final failed inference, the first failed pass waits 500 ms and consecutive failures double the delay up to 4 seconds. Any successful viewport or panorama detection creates a fresh `tracking` state and clears accumulated misses, scan progress, failed-pass count, and backoff.
 
 A reliable panorama direction that cannot be reached without exposing a 180-degree projection edge requests the nearest inward camera position that restores coverage. The camera moves inward while aligning the target; a later viewport detection supplies the fresh face size and normal depth target. Face identity continuity remains active across short misses, while the state machine's total miss count controls when a stale selected subject is discarded.
 
@@ -147,7 +149,7 @@ The face box width and height are converted to approximate angular dimensions. H
 
 Viewport centering targets normalized position `(0.5, 1/3)`: horizontally centered, with the face center on the upper third of the frame. Panorama recovery results are converted into yaw and pitch that place the recovered face at the same composition target.
 
-Each viewport detection is converted immediately from its screen-space face center into an absolute world yaw and pitch target using the camera pose at capture time. This lets a locked target's remaining error decrease as the camera moves even when short movements intentionally pause inference. Position, world angle, and forward targets use exponential smoothing with a 480 ms time constant. Smoothing resets when the detection mode changes, the target gap exceeds 1.8 seconds, or a subject switch is detected.
+Each viewport inference freezes the camera pose and perspective parameters with the captured frame. Its detection is converted from screen-space face center into an absolute world yaw and pitch target using that immutable capture context, even if inference completes after the camera moves or the viewport is resized. This lets a locked target's remaining error decrease as the camera moves even when short movements intentionally pause inference. Position, world angle, and forward targets use exponential smoothing with a 480 ms time constant. Smoothing resets when the detection mode changes, the target gap exceeds 1.8 seconds, or a subject switch is detected.
 
 ### Centering dead zones
 
@@ -293,12 +295,15 @@ Primary implementation files:
 
 Primary tests:
 
-- `tests/unit/face-detection-state.test.ts`
-- `tests/unit/face-sampling.test.ts`
-- `tests/unit/face-auto-center.test.ts`
-- `tests/unit/face-detector-service.test.ts`
-- `tests/unit/face-movement-step.test.ts`
-- `tests/unit/panorama-recovery.test.ts`
-- `tests/unit/frame-scheduler.test.ts`
+- `src/features/vr/tracking/face-detection-state.test.ts`
+- `src/features/vr/tracking/face-sampling.test.ts`
+- `src/features/vr/tracking/face-auto-center.test.ts`
+- `src/features/vr/tracking/face-scan-controller.test.ts`
+- `src/features/vr/tracking/face-movement-step.test.ts`
+- `src/features/vr/tracking/panorama-recovery.test.ts`
+- `src/features/vr/tracking/inference-schedule-policy.test.ts`
+- `src/features/vr/detection/face-detector-service.test.ts`
+- `src/features/vr/detection/face-tracker-client.test.ts`
+- `src/features/vr/rendering/render-cadence-policy.test.ts`
 
 When changing the algorithm, update the relevant unit tests, run `bun run typecheck`, `bun run test`, and `bun run lint`, and verify that this document still describes the shipped constants and state transitions.
