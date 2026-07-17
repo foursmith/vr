@@ -18,8 +18,8 @@ const REMOVED_FACE_LANDMARKER_MODEL_URL = "/models/face_landmarker/face_landmark
 const FACE_DETECTION_RESOURCES = [
   { url: VISION_WASM_FILESET.wasmLoaderPath, cacheName: "face-tracking-runtime" },
   { url: VISION_WASM_FILESET.wasmBinaryPath, cacheName: "face-tracking-runtime" },
-  { url: FULL_RANGE_FACE_MODEL_URL, cacheName: "face-tracking-models" },
   { url: SHORT_RANGE_FACE_MODEL_URL, cacheName: "face-tracking-models" },
+  { url: FULL_RANGE_FACE_MODEL_URL, cacheName: "face-tracking-models" },
 ] as const
 type FaceTrackingResource = (typeof FACE_DETECTION_RESOURCES)[number]
 
@@ -61,6 +61,19 @@ export const downloadFaceTrackingResources = async (
     loaded += 1
     onProgress({ loaded, total, label: "Downloading face tracking resources" })
   }
+}
+
+let resourcePrefetchPromise: Promise<void> | undefined
+
+export const prefetchFaceTrackingResources = () => {
+  if (!resourcePrefetchPromise) {
+    const prefetch = downloadFaceTrackingResources(() => {})
+    resourcePrefetchPromise = prefetch
+    void prefetch.catch(() => {
+      if (resourcePrefetchPromise === prefetch) resourcePrefetchPromise = undefined
+    })
+  }
+  return resourcePrefetchPromise
 }
 
 interface PendingInference {

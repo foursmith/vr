@@ -243,8 +243,12 @@ export const createVrScene = (initialOptions: VrSceneOptions): VrSceneController
       nextPlaybackFrameAt = undefined
       lastFrameAt = performance.now()
     }
-    if (event.type === "playing") diagnostics.recordPlaying()
-    else diagnostics.recordMediaEvent(event.type)
+    if (event.type === "playing") {
+      diagnostics.recordPlaying()
+      autoCenter.prefetchResources()
+    } else {
+      diagnostics.recordMediaEvent(event.type)
+    }
     autoCenter.requestDetection()
     requestRender()
   }

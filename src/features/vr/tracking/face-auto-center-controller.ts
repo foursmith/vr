@@ -4,7 +4,7 @@ import type { FaceMovementHint } from "./face-center-movement"
 import type { FaceScanCapturePort, FaceScanDiagnosticEvent } from "./face-scan-controller"
 import type { FaceAutoCenterState } from "./face-target-tracking"
 import type { FaceInferenceActivity } from "./inference-schedule-policy"
-import { createFaceDetectorService } from "../detection/face-detector-service"
+import { createFaceDetectorService, prefetchFaceDetectorResources } from "../detection/face-detector-service"
 import {
   advanceFaceMovement,
   getFaceCenteringPlan,
@@ -59,6 +59,7 @@ export interface FaceAutoCenterController {
   pauseForManualInput: () => void
   resume: () => void
   handleVideoPause: () => void
+  prefetchResources: () => void
   handleMetadata: () => void
   invalidateInference: () => void
   requestDetection: () => void
@@ -89,6 +90,7 @@ export const createFaceAutoCenterController = (
   let temporaryManualPauseActive = false
   let manualResumeTimer: number | undefined
   let automaticBoundaryAxis: "yaw" | "pitch" | "forward" | undefined
+  let resourcePrefetchStarted = false
 
   const scanner = createFaceScanController({
     video: options.video,
@@ -108,6 +110,15 @@ export const createFaceAutoCenterController = (
   })
 
   const hideOverlay = () => options.onOverlayHint()
+
+  const prefetchResources = () => {
+    if (resourcePrefetchStarted || !options.getEnabled()) return
+    resourcePrefetchStarted = true
+    void prefetchFaceDetectorResources().catch((error) => {
+      resourcePrefetchStarted = false
+      console.warn("face tracking resource prefetch failed", error)
+    })
+  }
 
   const clearManualResume = () => {
     if (manualResumeTimer !== undefined) window.clearTimeout(manualResumeTimer)
@@ -226,6 +237,7 @@ export const createFaceAutoCenterController = (
     runAfterRender,
     pauseForManualInput,
     resume: () => setManuallyPaused(false),
+    prefetchResources,
     handleVideoPause() {
       scanner.invalidateInference()
       clearTracking()
@@ -246,7 +258,10 @@ export const createFaceAutoCenterController = (
     },
     setEnabled(enabled) {
       scanner.invalidateInference()
-      if (enabled) return
+      if (enabled) {
+        if (!options.video.paused) prefetchResources()
+        return
+      }
       scanner.releaseDetector()
       clearManualResume()
       if (faceState.manuallyPaused) setManuallyPaused(false)

@@ -32,6 +32,11 @@ const loadMediaPipeFaceDetector: FaceDetectorBackendLoader = async () => {
   return module.createMediaPipeFaceDetectorClient()
 }
 
+export const prefetchFaceDetectorResources = async () => {
+  const module = await import("./face-tracker-client")
+  await module.prefetchFaceTrackingResources()
+}
+
 export const createFaceDetectorService = (
   loadBackend: FaceDetectorBackendLoader = loadMediaPipeFaceDetector,
 ): FaceDetectorService => {

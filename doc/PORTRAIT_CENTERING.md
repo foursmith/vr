@@ -36,6 +36,8 @@ The player alternates between two spatial detection modes:
 - **Viewport detection** copies the currently rendered view into a reusable inference canvas. The `tracking` state uses the BlazeFace short-range detector. Its first miss enters `viewport-retry`, which applies the full-range detector to the same rendered view; a second miss creates the panorama scan plan.
 - **Panorama recovery** renders one perspective view of the projection sphere per inference. It uses the MediaPipe full-range detector because a face occupies fewer pixels in a wide-FOV recovery tile.
 
+After video playback enters `playing`, the player starts a non-blocking background prefetch of the MediaPipe WASM loader, WASM binary, short-range model, and full-range model. Playback and the first visible frame do not wait for this work. Repeated `playing` events share the same in-session prefetch, failed prefetches remain retryable, and detector instances are still created lazily by the first inference that needs each range.
+
 ### Face filtering and target selection
 
 Detections are normalized face boxes. MediaPipe detection and automatic-centering candidate selection share a minimum confidence of `0.6`; candidates below it are discarded. Remaining candidates receive a selection score composed of:
@@ -258,6 +260,7 @@ The resume-after-view-movement preference is enabled by default. Every applied m
 Changes to any of the following must update this document in the same change:
 
 - face detector selection, confidence filtering, or target selection;
+- face detector resource prefetch timing or lifecycle;
 - viewport/recovery state transitions;
 - scan tile count, order, yaw, pitch, FOV, or projection coverage;
 - perspective capture or GPU readback behavior;
