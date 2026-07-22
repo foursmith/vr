@@ -1,9 +1,33 @@
+import { execFileSync } from "node:child_process"
 import UnoCSS from "unocss/vite"
 import { defineConfig } from "vite"
 import { VitePWA } from "vite-plugin-pwa"
 import solid from "vite-plugin-solid"
 
+function readGit(args: string[]) {
+  try {
+    return execFileSync("git", args, { encoding: "utf8" }).trim()
+  } catch {
+    return ""
+  }
+}
+
+function resolveBuildVersion() {
+  const ciTag = process.env.GITHUB_REF_TYPE === "tag" ? process.env.GITHUB_REF_NAME : undefined
+  if (ciTag?.startsWith("v")) return ciTag
+
+  const exactTag = readGit(["tag", "--points-at", "HEAD", "--list", "v*", "--sort=-version:refname"])
+    .split("\n")
+    .find(Boolean)
+  if (exactTag) return exactTag
+
+  return (process.env.GITHUB_SHA || readGit(["rev-parse", "HEAD"]) || "unknown").slice(0, 7)
+}
+
 export default defineConfig(({ command, mode }) => ({
+  define: {
+    __FSVR_VERSION__: JSON.stringify(resolveBuildVersion()),
+  },
   server: {
     port: mode === "fsvr-dev" ? 4090 : 2333,
     strictPort: true,
@@ -31,7 +55,7 @@ export default defineConfig(({ command, mode }) => ({
     solid(),
     UnoCSS(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
       includeAssets: ["icon.svg", "pwa-192x192.png", "pwa-512x512.png"],
       workbox: {
         globIgnores: [

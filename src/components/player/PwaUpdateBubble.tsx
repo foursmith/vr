@@ -1,21 +1,119 @@
+import type { PwaUpdateState } from "../../app/pwa-update"
 import { createSignal, onSettled, Show } from "solid-js"
-import appPackage from "../../../package.json"
-import { subscribePwaUpdateReady } from "../../app/pwa-update"
+import { APP_VERSION, APP_VERSION_URL } from "../../app/build-info"
+import { applyPwaUpdate, subscribePwaUpdateState } from "../../app/pwa-update"
 
-const RELEASE_URL = `${appPackage.homepage}/releases/latest`
+const BURST_COLORS = ["#f5fffc", "#b8f3ec", "#62cfd8", "#7dd3fc"]
+
+function burstUpdateBubble(origin: DOMRect) {
+  const layer = document.createElement("div")
+  layer.className = "pwa-update-burst-layer"
+  layer.setAttribute("aria-hidden", "true")
+
+  const centerX = origin.left + origin.width / 2
+  const centerY = origin.top + origin.height / 2
+
+  for (let index = 0; index < 18; index += 1) {
+    const angle = (Math.PI * 2 * index) / 18 + (Math.random() - 0.5) * 0.18
+    const distance = 36 + Math.random() * 58
+    const particle = document.createElement("i")
+
+    particle.className = "pwa-update-burst-particle"
+    particle.style.left = `${centerX}px`
+    particle.style.top = `${centerY}px`
+    particle.style.width = `${5 + Math.random() * 8}px`
+    particle.style.height = particle.style.width
+    particle.style.animationDelay = `${Math.random() * 45}ms`
+    particle.style.setProperty("--burst-color", BURST_COLORS[index % BURST_COLORS.length])
+    particle.style.setProperty("--burst-x", `${Math.cos(angle) * distance}px`)
+    particle.style.setProperty("--burst-y", `${Math.sin(angle) * distance}px`)
+    layer.append(particle)
+  }
+
+  document.body.append(layer)
+  window.setTimeout(() => layer.remove(), 700)
+}
+
+function popUpdateBubble(bubble: HTMLElement) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+
+  const origin = bubble.getBoundingClientRect()
+  const clone = bubble.cloneNode(true) as HTMLElement
+
+  clone.className = "pwa-update-bubble pwa-update-pop-clone"
+  clone.removeAttribute("href")
+  clone.removeAttribute("aria-label")
+  clone.setAttribute("aria-hidden", "true")
+  clone.style.left = `${origin.left}px`
+  clone.style.top = `${origin.top}px`
+
+  bubble.style.visibility = "hidden"
+  document.body.append(clone)
+  burstUpdateBubble(origin)
+  window.setTimeout(() => clone.remove(), 650)
+  return clone
+}
 
 export function PwaUpdateBubble() {
-  const [updateReady, setUpdateReady] = createSignal(false)
+  const [state, setState] = createSignal<PwaUpdateState>("idle")
+  let interactionPending = false
 
-  onSettled(() => subscribePwaUpdateReady(setUpdateReady))
+  onSettled(() => subscribePwaUpdateState(setState))
+
+  const reloadToUpdate = (event: MouseEvent & { currentTarget: HTMLButtonElement }) => {
+    if (interactionPending) return
+    interactionPending = true
+
+    const bubble = event.currentTarget
+    const popClone = popUpdateBubble(bubble)
+
+    window.setTimeout(() => {
+      void applyPwaUpdate().catch((error) => {
+        interactionPending = false
+        bubble.style.removeProperty("visibility")
+        popClone?.remove()
+        console.warn("service worker update failed", error)
+      })
+    }, popClone ? 420 : 0)
+  }
+
+  const viewUpdateDetails = (event: MouseEvent & { currentTarget: HTMLAnchorElement }) => {
+    event.preventDefault()
+    if (interactionPending) return
+    interactionPending = true
+
+    popUpdateBubble(event.currentTarget)
+    window.setTimeout(() => window.location.assign(APP_VERSION_URL), 500)
+  }
 
   return (
-    <Show when={updateReady()}>
-      <aside class="empty-update-bubble" role="status" aria-live="polite">
-        <div class="empty-update-bubble-body">
-          <span>Update successful</span>
-          <a href={RELEASE_URL} target="_blank" rel="noreferrer">What’s new</a>
-        </div>
+    <Show when={state() !== "idle"}>
+      <aside class="pwa-update-anchor" role="status" aria-live="polite">
+        <Show
+          when={state() === "ready" || state() === "applying"}
+          fallback={(
+            <a
+              href={APP_VERSION_URL}
+              class="pwa-update-bubble pwa-update-bubble-success"
+              aria-label={`View ${APP_VERSION} update details`}
+              onClick={viewUpdateDetails}
+            >
+              <span>Update successful</span>
+              <small>{APP_VERSION}</small>
+            </a>
+          )}
+        >
+          <button
+            type="button"
+            class="pwa-update-bubble pwa-update-bubble-ready"
+            disabled={state() === "applying"}
+            aria-label="Reload to update Foursmith VR"
+            onClick={reloadToUpdate}
+          >
+            <span>{state() === "applying" ? "Updating…" : "Reload to update"}</span>
+            <small>{state() === "applying" ? "One moment" : "New version ready"}</small>
+          </button>
+        </Show>
       </aside>
     </Show>
   )

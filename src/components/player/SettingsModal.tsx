@@ -2,6 +2,7 @@ import type { PlayerController } from "../../features/player/controller"
 import type { IconName } from "../ui/Icon"
 import { createSignal, For, onSettled, Show, untrack } from "solid-js"
 import appPackage from "../../../package.json"
+import { APP_VERSION, APP_VERSION_URL } from "../../app/build-info"
 import { VIDEO_FRAME_RATE_OPTIONS } from "../../features/player/controller"
 import { SHORTCUT_DEFINITIONS } from "../../features/player/shortcuts"
 import { Drawer } from "../ui/Drawer"
@@ -18,7 +19,6 @@ const VIDEO_MATRIX_COLUMNS = VIDEO_QUALITY_LABELS.map((label, index) => ({
   color: VIDEO_MATRIX_COLORS[index]!,
 }))
 const VIDEO_MATRIX_ROWS = VIDEO_FRAME_RATE_OPTIONS
-const RELEASE_URL = `${appPackage.homepage}/releases/tag/v${appPackage.version}`
 const ABOUT_ACTION_CLASS = "flex items-center gap-1.5 rounded-full border px-2 py-1 font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent/40"
 const ABOUT_ACTION_IDLE_CLASS = "border-transparent bg-transparent text-white/42 hover:border-white/7 hover:bg-white/7 hover:text-white/72 focus-visible:border-white/7 focus-visible:bg-white/7 focus-visible:text-white/72"
 
@@ -211,14 +211,13 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
                   <p class="mt-1 text-[11px] leading-snug text-white/48">Watch VR like TikTok</p>
                   <div class="absolute right-0 top-1/2 flex -translate-y-1/2 flex-col items-end gap-0.5">
                     <a
-                      href={RELEASE_URL}
+                      href={APP_VERSION_URL}
                       target="_blank"
                       rel="noreferrer"
-                      title={`View v${appPackage.version} release on GitHub`}
+                      title={`View ${APP_VERSION} on GitHub`}
                       class="flex h-3.5 items-center rounded-[3px] bg-[#34383c] px-1.5 font-mono text-[8px] leading-none text-white/68 outline-none transition-colors hover:bg-[#41464b] hover:text-white/86 focus-visible:ring-2 focus-visible:ring-accent/40"
                     >
-                      v
-                      {appPackage.version}
+                      {APP_VERSION}
                     </a>
                     <a
                       href={`${appPackage.homepage}/stargazers`}
