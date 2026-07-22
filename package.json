@@ -34,7 +34,7 @@
     "build:cli": "bun run --filter fsvr build",
     "typecheck:cli": "bun run --filter fsvr typecheck",
     "test:cli": "bun run --filter fsvr test",
-    "release": "bumpp",
+    "release": "bumpp --recursive --install --all --git-check",
     "deploy": "bun run build && wrangler deploy --env \"\"",
     "deploy:production": "bun run build && wrangler deploy --env production"
   },

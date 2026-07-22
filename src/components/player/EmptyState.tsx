@@ -152,7 +152,7 @@ export function EmptyState(props: {
 
         <div class="flex flex-col items-center gap-8">
           <div class="flex flex-col items-center gap-5 sm:gap-6">
-            <h1 class="text-[10px] font-medium italic tracking-[0.18em] text-[#f5fffc]/42 sm:text-[11px] sm:tracking-[0.21em]">Watch VR like TikTok 1</h1>
+            <h1 class="text-[10px] font-medium italic tracking-[0.18em] text-[#f5fffc]/42 sm:text-[11px] sm:tracking-[0.21em]">Watch VR like TikTok</h1>
             <Show
               when={props.serverStatus === "authentication-required" || props.serverStatus === "connecting"}
               fallback={(
