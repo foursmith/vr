@@ -12,7 +12,7 @@ export function Switch(props: {
       aria-checked={props.checked ? "true" : "false"}
       disabled={props.disabled}
       data-checked={props.checked ? "true" : "false"}
-      class="ui-switch grid h-11 w-14 shrink-0 place-items-center rounded-full border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-accent/45 disabled:cursor-not-allowed disabled:opacity-40"
+      class="ui-switch grid h-11 w-14 shrink-0 place-items-center rounded-full border-0 bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-accent/45 disabled:opacity-40"
       onClick={() => props.onCheckedChange(!props.checked)}
     >
       <span aria-hidden="true" class="ui-switch-track relative h-5 w-9 rounded-full border border-white/14">

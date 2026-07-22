@@ -109,7 +109,6 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
           </Show>
           <GlassRange
             class="absolute inset-0 max-sm:h-11"
-            inputClass="cursor-default"
             min={0}
             max={duration() || 0}
             step={0.1}

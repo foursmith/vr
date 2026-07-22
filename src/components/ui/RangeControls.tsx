@@ -45,7 +45,7 @@ export function DiscreteRange(props: {
           aria-label={props.label}
           aria-labelledby={props.labelledBy}
           aria-valuetext={props.options[props.value]?.label}
-          class="discrete-range-input absolute inset-0 z-10 h-8 w-full cursor-pointer appearance-none bg-transparent"
+          class="discrete-range-input absolute inset-0 z-10 h-8 w-full appearance-none bg-transparent"
           onInput={event => props.onChange(Number(event.currentTarget.value))}
         />
         <span aria-hidden="true" class="pointer-events-none absolute inset-x-2.5 top-1/2">

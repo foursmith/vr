@@ -38,8 +38,8 @@ function SettingToggle(props: {
         "group grid w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 py-1 pr-1 pl-3 text-left text-white transition-[transform,background-color,opacity]",
         props.embedded ? "rounded-none bg-transparent" : "rounded-2xl bg-white/4",
         props.disabled
-          ? "cursor-not-allowed opacity-42"
-          : "cursor-pointer hover:bg-white/8 active:scale-[0.992]",
+          ? "opacity-42"
+          : "hover:bg-white/8 active:scale-[0.992]",
       ]}
       onClick={(event) => {
         if (props.disabled || (event.target as Element).closest("button")) return
@@ -146,7 +146,7 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
             </Show>
             <Show when={!narrowScreen()}>
               <details class="settings-collapsible group border-t border-white/7">
-                <summary class="grid min-h-13 cursor-pointer list-none grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-3 py-1 pl-3 pr-1 text-left transition-colors marker:hidden hover:bg-white/8">
+                <summary class="grid min-h-13 list-none grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-3 py-1 pl-3 pr-1 text-left transition-colors marker:hidden hover:bg-white/8">
                   <span class="grid h-8 w-8 place-items-center rounded-xl bg-white/8 text-white/78 transition group-hover:text-white">
                     <Icon name="keyboard" class="h-4 w-4" />
                   </span>

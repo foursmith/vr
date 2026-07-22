@@ -121,7 +121,7 @@ export function LiquidGlass(props: LiquidGlassProps) {
       onFocusOut={props.onFocusOut}
     >
       <div
-        class="relative bg-white/5 grid h-full min-h-0 w-full min-w-0 origin-center overflow-hidden will-change-transform [&_button]:cursor-default [&_button]:transition [&_button:hover]:bg-white/7 [&_button:hover]:text-white [&_button:active]:scale-95 [&_button:focus-visible]:bg-white/10 [&_button:focus-visible]:outline-none"
+        class="relative bg-white/5 grid h-full min-h-0 w-full min-w-0 origin-center overflow-hidden will-change-transform [&_button]:transition [&_button:hover]:bg-white/7 [&_button:hover]:text-white [&_button:active]:scale-95 [&_button:focus-visible]:bg-white/10 [&_button:focus-visible]:outline-none"
         style={shellStyle()}
       >
         <span

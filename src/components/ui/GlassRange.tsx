@@ -30,7 +30,7 @@ export function GlassRange(props: {
         disabled={props.disabled}
         aria-label={props.label}
         aria-valuetext={props.valueLabel}
-        class={["glass-range-input absolute inset-0 z-10 h-full w-full appearance-none bg-transparent", props.inputClass ?? "cursor-pointer"]}
+        class={["glass-range-input absolute inset-0 z-10 h-full w-full appearance-none bg-transparent", props.inputClass]}
         onPointerDown={() => props.onPointerDown?.()}
         onPointerUp={event => props.onPointerUp?.(event.pointerType)}
         onPointerCancel={() => props.onPointerCancel?.()}

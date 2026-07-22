@@ -151,7 +151,7 @@ export function Drawer(props: {
           >
             <div
               ref={handle}
-              class="drawer-handle-zone absolute inset-x-0 top-0 z-10 flex h-11 touch-none items-start justify-center pt-2 cursor-grab active:cursor-grabbing"
+              class="drawer-handle-zone absolute inset-x-0 top-0 z-10 flex h-11 touch-none items-start justify-center pt-2"
               aria-hidden="true"
               onPointerDown={beginPointerDrag}
               onPointerMove={movePointerDrag}
