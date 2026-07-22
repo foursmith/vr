@@ -207,7 +207,6 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     getFolderInput: () => folderInput,
     getLastPlaybackKey: playbackHistory.getLastKey,
     getVideoPlaybackKey: videoStateKey,
-    hasVideo,
     isRemoteSourceConnected: () => serverModule.state.status === "connected",
     isDisposed: () => appDisposed,
     isPlaying: playing,
@@ -274,7 +273,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     enabled: connectFsvr,
     getLastPlaybackKey: playbackHistory.getLastKey,
     getVideoPlaybackKey: videoStateKey,
-    importPlaylist: nodes => playlistModule.importNodes(nodes, "when-empty"),
+    importPlaylist: playlistModule.importNodes,
     isDisposed: () => appDisposed,
     loadRemoteFolder: playlistModule.loadRemoteFolder,
     loadVideoUrl: mediaModule.loadUrl,
@@ -312,7 +311,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     handleKeydown,
     importLaunchedFiles: async (files) => {
       if (!canImportLocalMedia()) return
-      await playlistModule.importNodes(buildPlaylistTree(files), "always")
+      await playlistModule.importNodes(buildPlaylistTree(files))
     },
     persistActiveVideo: playbackHistory.persistActive,
     refreshLocalPlaylist: playlistModule.refreshLoadedLocalFolders,

@@ -17,8 +17,6 @@ import {
 export type { PlaylistNode, PlaylistSourceKind, PlaylistStateNode } from "./model"
 export { isAppleDoublePath, isVideoFile } from "./model"
 
-type PlaylistImportPlayback = "always" | "when-empty" | "never"
-
 interface PlaylistControllerOptions {
   cancelPendingVideoSwitch: (removedIds?: ReadonlySet<string>) => void
   canImportLocalMedia: () => boolean
@@ -26,7 +24,6 @@ interface PlaylistControllerOptions {
   getFolderInput: () => HTMLInputElement
   getLastPlaybackKey: () => string | undefined
   getVideoPlaybackKey: (resource: { name: string, file?: File, url?: string }) => string
-  hasVideo: () => boolean
   isRemoteSourceConnected: () => boolean
   isDisposed: () => boolean
   isPlaying: () => boolean
@@ -176,10 +173,9 @@ export const createPlaylistController = (options: PlaylistControllerOptions) => 
     if (url && node) options.loadVideoUrl(url, node.name, id)
   }
 
-  const importNodes = async (items: PlaylistNode[], playback: PlaylistImportPlayback) => {
+  const importNodes = async (items: PlaylistNode[]) => {
     if (!items.length) return
     const firstVideo = firstVideoNode(items)
-    if (playback === "always" && !firstVideo?.file && !firstVideo?.mediaUrl) return
     const lastPlaybackKey = options.getLastPlaybackKey()
     const findLastPlayedVideo = (candidates: PlaylistNode[]): PlaylistNode | undefined => {
       for (const node of candidates) {
@@ -204,19 +200,19 @@ export const createPlaylistController = (options: PlaylistControllerOptions) => 
     })
     if (countPlaylistVideos(items) > 1) options.showControls()
 
-    const shouldLoad = Boolean(preferredVideo) || (!options.isPlaying() && (firstVideo?.file || firstVideo?.mediaUrl)
-      && (playback === "always" || (playback === "when-empty" && !options.hasVideo())))
+    const shouldLoad = !options.isPlaying()
+      && Boolean(videoToLoad?.file || videoToLoad?.mediaUrl)
     if (!shouldLoad || !videoToLoad) return
     if (videoToLoad.file) options.loadVideoFile(videoToLoad.file, videoToLoad.id)
     else if (videoToLoad.mediaUrl) options.loadVideoUrl(videoToLoad.mediaUrl, videoToLoad.name, videoToLoad.id)
   }
 
-  const importTransfer = async (dataTransfer: DataTransfer, playback: PlaylistImportPlayback) => {
+  const importTransfer = async (dataTransfer: DataTransfer) => {
     const generation = importGeneration
     try {
       const items = await playlistNodesFromTransfer(dataTransfer)
       if (options.isDisposed() || generation !== importGeneration) return
-      await importNodes(items, playback)
+      await importNodes(items)
     } catch (error) {
       console.warn("video import failed", error)
     }
@@ -226,14 +222,14 @@ export const createPlaylistController = (options: PlaylistControllerOptions) => 
     const input = options.getFileInput()
     const selectedFiles = Array.from(input.files ?? [])
     input.value = ""
-    void importNodes(buildPlaylistTree(selectedFiles), "always")
+    void importNodes(buildPlaylistTree(selectedFiles))
   }
 
   const handleFolder = () => {
     const input = options.getFolderInput()
     const selectedFiles = Array.from(input.files ?? [])
     input.value = ""
-    void importNodes(buildPlaylistTree(selectedFiles), "when-empty")
+    void importNodes(buildPlaylistTree(selectedFiles))
   }
 
   const loadRemoteFolder = async (id: string) => {
@@ -299,7 +295,7 @@ export const createPlaylistController = (options: PlaylistControllerOptions) => 
     event.preventDefault()
     if (!options.canImportLocalMedia()) return
     const dataTransfer = event.dataTransfer
-    if (dataTransfer) await importTransfer(dataTransfer, "always")
+    if (dataTransfer) await importTransfer(dataTransfer)
   }
 
   const getSubtitle = (id: string | undefined): SubtitleResource | undefined => {

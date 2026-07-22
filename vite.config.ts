@@ -121,6 +121,9 @@ export default defineConfig(({ command, mode }) => ({
         background_color: "#62cfd8",
         display: "standalone",
         categories: ["video", "photo", "entertainment", "utilities"],
+        launch_handler: {
+          client_mode: "focus-existing",
+        },
         file_handlers: [
           {
             action: "/",
