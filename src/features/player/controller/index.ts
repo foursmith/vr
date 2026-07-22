@@ -2,6 +2,7 @@ import type { ValueUpdate } from "../../../lib/value-update"
 import { createEffect, createMemo } from "solid-js"
 import { createServerController, isFsvrHostMode, loadFsvrEntries } from "../../fsvr"
 import { createPlaylistController } from "../../playlist"
+import { buildPlaylistTree } from "../../playlist/model"
 import { createSubtitles } from "../../subtitles"
 import { PROJECTION_OPTIONS, QUALITY_OPTIONS } from "../../vr/config"
 import { createAbLoopController } from "../ab-loop"
@@ -309,6 +310,10 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     },
     handleFullscreenChange,
     handleKeydown,
+    importLaunchedFiles: async (files) => {
+      if (!canImportLocalMedia()) return
+      await playlistModule.importNodes(buildPlaylistTree(files), "always")
+    },
     persistActiveVideo: playbackHistory.persistActive,
     refreshLocalPlaylist: playlistModule.refreshLoadedLocalFolders,
   })

@@ -97,6 +97,15 @@ export default defineConfig(({ command, mode }) => ({
         background_color: "#62cfd8",
         display: "standalone",
         categories: ["video", "photo", "entertainment", "utilities"],
+        file_handlers: [
+          {
+            action: "/",
+            accept: {
+              "video/mp4": [".mp4", ".m4v"],
+              "video/matroska": [".mkv"],
+            },
+          },
+        ],
         icons: [
           {
             src: "/icon.svg",

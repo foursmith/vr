@@ -1,4 +1,5 @@
 import { onSettled } from "solid-js"
+import { setupFileLaunchHandler } from "../../../app/file-launch"
 
 const LOCAL_PLAYLIST_REFRESH_INTERVAL_MS = 10_000
 
@@ -7,6 +8,7 @@ interface PlayerLifecycleOptions {
   dispose: () => void
   handleFullscreenChange: () => void
   handleKeydown: (event: KeyboardEvent) => void
+  importLaunchedFiles: (files: File[]) => Promise<void>
   persistActiveVideo: () => void
   refreshLocalPlaylist: () => Promise<void>
 }
@@ -52,13 +54,20 @@ export const setupPlayerLifecycle = (options: PlayerLifecycleOptions) => {
     }
     document.addEventListener("visibilitychange", handleVisibilityChange)
     window.addEventListener("pagehide", options.persistActiveVideo)
+    let disposed = false
+    const stopFileLaunchHandler = setupFileLaunchHandler({
+      importFiles: options.importLaunchedFiles,
+      isDisposed: () => disposed,
+    })
     startRefresh()
 
     return () => {
+      disposed = true
       window.removeEventListener("keydown", options.handleKeydown)
       document.removeEventListener("fullscreenchange", options.handleFullscreenChange)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
       window.removeEventListener("pagehide", options.persistActiveVideo)
+      stopFileLaunchHandler()
       stopRefresh()
       options.dispose()
     }
