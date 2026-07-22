@@ -56,7 +56,7 @@ export default defineConfig(({ command, mode }) => ({
     UnoCSS(),
     VitePWA({
       registerType: "prompt",
-      includeAssets: ["icon.svg", "pwa-192x192.png", "pwa-512x512.png"],
+      includeAssets: ["icon.svg", "apple-touch-icon.png", "pwa-192x192.png", "pwa-512x512.png"],
       workbox: {
         globIgnores: [
           "assets/vision_bundle-*.js",

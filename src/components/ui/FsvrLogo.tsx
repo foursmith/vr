@@ -26,6 +26,8 @@ export function FsvrLogo(props: { class?: JSX.ClassValue, title?: string }) {
           <circle cx="160" cy="160" r="17" fill="black" />
         </mask>
       </defs>
+      <path fill="#082B3D" d="M60 160Q136 60 235 92Q205 160 235 228Q136 260 60 160Z" />
+      <circle cx="160" cy="160" r="17" fill="#082B3D" />
       <rect width="320" height="320" fill="url(#fsvr-logo-lens)" mask="url(#fsvr-logo-mask)" />
     </svg>
   )

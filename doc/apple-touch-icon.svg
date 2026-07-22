@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-labelledby="title desc">
+  <title id="title">Foursmith VR Apple touch icon</title>
+  <desc id="desc">A full-bleed square cyan icon with a deep blue eye, intended for Apple's system-applied corner mask.</desc>
+  <defs>
+    <linearGradient id="lens" x1="70" y1="54" x2="250" y2="270" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f5fffc" />
+      <stop offset=".42" stop-color="#b8f3ec" />
+      <stop offset="1" stop-color="#62cfd8" />
+    </linearGradient>
+  </defs>
+  <rect width="320" height="320" fill="url(#lens)" />
+  <path fill="#082B3D" d="M60 160Q136 60 235 92Q205 160 235 228Q136 260 60 160Z" />
+  <circle cx="160" cy="160" r="42" fill="url(#lens)" />
+  <circle cx="160" cy="160" r="17" fill="#082B3D" />
+</svg>

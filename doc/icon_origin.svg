@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-labelledby="title desc">
   <title id="title">Foursmith VR</title>
-  <desc id="desc">A focused cyan gaze with a deep blue eye on a transparent background.</desc>
+  <desc id="desc">A focused gaze carved from a softly rounded rectangular lens using negative space.</desc>
   <defs>
     <linearGradient id="lens" x1="70" y1="54" x2="250" y2="270" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#f5fffc" />
@@ -14,7 +14,5 @@
       <circle cx="160" cy="160" r="17" fill="black" />
     </mask>
   </defs>
-  <path fill="#082B3D" d="M60 160Q136 60 235 92Q205 160 235 228Q136 260 60 160Z" />
-  <circle cx="160" cy="160" r="17" fill="#082B3D" />
   <rect width="320" height="320" fill="url(#lens)" mask="url(#icon-mask)" />
 </svg>
