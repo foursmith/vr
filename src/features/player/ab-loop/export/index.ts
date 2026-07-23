@@ -1,6 +1,7 @@
 import type { VrSceneController } from "../../../vr/scene"
 import type { AbExportFormat } from "./format"
 import { createStore } from "solid-js"
+import { exportFormatLabel, t } from "../../../../i18n"
 import { chooseAbExportMimeType, getAbExportFormat } from "./format"
 import { createSubtitleCompositor } from "./subtitle-compositor"
 
@@ -48,11 +49,12 @@ export const createAbLoopExporter = (options: AbLoopExporterOptions) => {
     if (exporting) return
     const video = options.getVideo()
     const formatDefinition = getAbExportFormat(format)
+    const localizedFormatLabel = exportFormatLabel(format)
     const clipDuration = end - start
     if (!(clipDuration > 0) || clipDuration > MAX_AB_EXPORT_DURATION_SECONDS) {
       setState((draft) => {
         draft.status = "error"
-        draft.message = `AB clips must be ${MAX_AB_EXPORT_DURATION_SECONDS} seconds or shorter.`
+        draft.message = t("export.durationLimit", MAX_AB_EXPORT_DURATION_SECONDS)
       })
       return
     }
@@ -62,14 +64,14 @@ export const createAbLoopExporter = (options: AbLoopExporterOptions) => {
     if (!scene || !outputCanvas?.captureStream) {
       setState((draft) => {
         draft.status = "error"
-        draft.message = "This browser cannot export the current view."
+        draft.message = t("export.captureUnsupported")
       })
       return
     }
     if (!chooseAbExportMimeType(format)) {
       setState((draft) => {
         draft.status = "error"
-        draft.message = `${formatDefinition.label} export is not supported by this browser.`
+        draft.message = t("export.formatUnsupported", localizedFormatLabel)
       })
       return
     }
@@ -90,7 +92,7 @@ export const createAbLoopExporter = (options: AbLoopExporterOptions) => {
     setState((draft) => {
       draft.status = "recording"
       draft.progress = 0
-      draft.message = `Exporting ${formatDefinition.label}…`
+      draft.message = t("export.exporting", localizedFormatLabel)
       draft.format = format
     })
 
@@ -116,11 +118,11 @@ export const createAbLoopExporter = (options: AbLoopExporterOptions) => {
           }
           handleError = () => {
             cleanup()
-            reject(new Error("The video could not seek to point A."))
+            reject(new Error(t("export.seekFailed")))
           }
           timer = window.setTimeout(() => {
             cleanup()
-            reject(new Error("Timed out while preparing the clip."))
+            reject(new Error(t("export.preparationTimedOut")))
           }, 5_000)
           video.addEventListener("seeked", handleSeeked, { once: true })
           video.addEventListener("error", handleError, { once: true })
@@ -147,7 +149,7 @@ export const createAbLoopExporter = (options: AbLoopExporterOptions) => {
         ...viewStream.getVideoTracks(),
         ...(audioStream?.getAudioTracks() ?? []),
       ])
-      if (!stream.getVideoTracks().length) throw new Error("The current view could not be captured.")
+      if (!stream.getVideoTracks().length) throw new Error(t("export.captureFailed"))
       const mimeType = chooseAbExportMimeType(format)
       recorder = new MediaRecorder(stream, {
         ...(mimeType ? { mimeType } : {}),
@@ -159,7 +161,7 @@ export const createAbLoopExporter = (options: AbLoopExporterOptions) => {
           if (event.data.size) chunks.push(event.data)
         })
         recorder!.addEventListener("stop", () => resolve(), { once: true })
-        recorder!.addEventListener("error", () => reject(new Error("The browser could not encode this clip.")), { once: true })
+        recorder!.addEventListener("error", () => reject(new Error(t("export.encodingFailed"))), { once: true })
       })
       const finishRecording = () => {
         if (finishing) return
@@ -206,9 +208,9 @@ export const createAbLoopExporter = (options: AbLoopExporterOptions) => {
 
       removeCaptureListeners()
       removeCaptureListeners = undefined
-      if (timedOut) throw new Error("Export timed out before reaching point B.")
+      if (timedOut) throw new Error(t("export.exportTimedOut"))
       const videoBlob = new Blob(chunks, { type: recorder.mimeType || formatDefinition.recordingMimeType })
-      if (!videoBlob.size) throw new Error("The exported clip was empty.")
+      if (!videoBlob.size) throw new Error(t("export.emptyClip"))
       const baseName = exportBaseName(options.getFileName() ?? "video", start, end)
       const blob = await formatDefinition.finalize(videoBlob, preparedFormat)
       const name = `${baseName}.${formatDefinition.extension}`
@@ -221,13 +223,13 @@ export const createAbLoopExporter = (options: AbLoopExporterOptions) => {
       setState((draft) => {
         draft.status = "done"
         draft.progress = 100
-        draft.message = `Saved ${name}`
+        draft.message = t("export.saved", name)
       })
     } catch (error) {
       console.warn("AB clip export failed", error)
       setState((draft) => {
         draft.status = "error"
-        draft.message = error instanceof Error ? error.message : "The clip could not be exported."
+        draft.message = error instanceof Error ? error.message : t("export.failed")
       })
     } finally {
       if (animationFrame !== undefined) window.cancelAnimationFrame(animationFrame)

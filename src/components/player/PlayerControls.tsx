@@ -1,5 +1,6 @@
 import type { PlayerController } from "../../features/player/controller"
 import { Show, untrack } from "solid-js"
+import { t } from "../../i18n"
 import { IconButton } from "../ui/IconButton"
 import { ControlSliderPopover } from "./ControlSliderPopover"
 import { PlaybackTimeline } from "./PlaybackTimeline"
@@ -53,21 +54,21 @@ export function PlayerControls(props: { controller: PlayerController }) {
         <div class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 max-sm:gap-2">
           <div class="flex items-center gap-3 justify-self-start max-sm:gap-2">
             <IconButton
-              label={playing() ? "Pause" : "Play"}
+              label={playing() ? t("controls.pause") : t("controls.play")}
               icon={playing() ? "pause" : "play"}
               iconClass={playing() ? "h-6.5 w-6.5" : "h-6.5 w-6.5 translate-x-0.5"}
               class="!h-12 !w-12 text-white/94 max-sm:!h-14 max-sm:!w-14"
               onClick={togglePlay}
             />
             <Show when={canPlayNext()}>
-              <IconButton label="Next video" icon="skip-forward" onClick={playNext} />
+              <IconButton label={t("controls.nextVideo")} icon="skip-forward" onClick={playNext} />
             </Show>
           </div>
 
           <div class="flex min-w-0 items-center justify-end gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] max-sm:[&::-webkit-scrollbar]:hidden">
             <Show when={subtitles.hasSubtitle()}>
               <IconButton
-                label={subtitles.enabled() ? "Hide subtitles" : "Show subtitles"}
+                label={subtitles.enabled() ? t("controls.hideSubtitles") : t("controls.showSubtitles")}
                 icon="subtitles"
                 pressed={subtitles.enabled()}
                 onClick={subtitles.toggle}
@@ -76,21 +77,21 @@ export function PlayerControls(props: { controller: PlayerController }) {
             <ProjectionSelect value={displayState.projectionId} mount={controller.frame.getPlayer()} onChange={setProjectionId} />
             <div ref={adjustmentsButton} class="shrink-0">
               <IconButton
-                label="Adjust volume and speed"
+                label={t("controls.adjustVolumeSpeed")}
                 icon="sliders"
                 onClick={() => toggleSlider("adjustments", adjustmentsButton)}
               />
             </div>
             <Show when={pictureInPictureSupported}>
               <IconButton
-                label={pictureInPicture() ? "Exit Picture-in-Picture" : "Enter Picture-in-Picture"}
+                label={pictureInPicture() ? t("controls.exitPip") : t("controls.enterPip")}
                 icon="picture-in-picture"
                 pressed={pictureInPicture()}
                 onClick={() => void togglePictureInPicture()}
               />
             </Show>
             <IconButton
-              label={fullscreen() ? "Exit fullscreen" : "Enter fullscreen"}
+              label={fullscreen() ? t("controls.exitFullscreen") : t("controls.enterFullscreen")}
               icon={fullscreen() ? "corners-in" : "corners-out"}
               pressed={fullscreen()}
               onClick={() => void toggleFullscreen()}

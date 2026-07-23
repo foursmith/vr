@@ -5,7 +5,7 @@
   </picture>
   <h1>Foursmith VR</h1>
   <p><sub><a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · 日本語</sub></p>
-  <p><strong><em>ショート動画感覚で VR を楽しもう</em></strong></p>
+  <p><strong><em>ライブ配信を見る感覚でVRを楽しもう</em></strong></p>
   <p><em>VR を楽しむなら、これがいちばん心地よい方法かもしれません。ヘッドセットは不要。VR 酔いが心配な方も、くつろいで楽しめます！</em></p>
   <p><a href="https://vr.foursmith.com/"><strong>Foursmith VR を開く →</strong></a></p>
 </div>

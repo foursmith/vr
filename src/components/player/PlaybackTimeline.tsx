@@ -1,6 +1,7 @@
 import type { PlayerController } from "../../features/player/controller"
 import { createSignal, For, Show, untrack } from "solid-js"
 import { AB_EXPORT_FORMAT_OPTIONS, MAX_AB_EXPORT_DURATION_SECONDS } from "../../features/player/ab-loop"
+import { exportFormatLabel, localizeLoadingLabel, t } from "../../i18n"
 import { formatTime } from "../../lib/format-time"
 import { GlassRange } from "../ui/GlassRange"
 import { Icon } from "../ui/Icon"
@@ -63,17 +64,19 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
             progress={loadingPercent()}
             class="max-sm:h-11"
             role="progressbar"
-            label="Preparing player"
+            label={t("timeline.preparingPlayer")}
           />
           <div class="flex h-4 min-w-0 items-center font-mono text-[11px] leading-4 text-white/48">
-            <span class="min-w-0 truncate" role="status" aria-live="polite">{loadingState.error ?? loadingState.label}</span>
+            <span class="min-w-0 truncate" role="status" aria-live="polite">
+              {loadingState.error ? t("loading.failed") : localizeLoadingLabel(loadingState.label)}
+            </span>
             <Show when={loadingState.error}>
               <button
                 type="button"
                 class="ml-2 flex h-5 shrink-0 items-center rounded-md border-0 bg-white/8 px-1.5 font-sans text-[9px] font-semibold text-white/62 transition hover:bg-white/14 hover:text-white"
                 onClick={startInitialLoad}
               >
-                Retry
+                {t("common.retry")}
               </button>
             </Show>
             <span class="ml-auto shrink-0 pl-3 text-right">
@@ -114,7 +117,7 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
             step={0.1}
             value={pendingTime() ?? currentTime()}
             progress={timelineProgress()}
-            label="Playback position"
+            label={t("timeline.playbackPosition")}
             disabled={!duration()}
             onPointerDown={() => setControlsHold("scrubbing", true)}
             onPointerUp={(pointerType) => {
@@ -141,7 +144,7 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
               <span class="flex shrink-0 items-center gap-1.5">
                 <button
                   type="button"
-                  aria-label="Set the current position as point A"
+                  aria-label={t("timeline.setPointA")}
                   class={["flex h-5 shrink-0 items-center gap-1 rounded-md px-1.5 font-mono text-[9px]", abLoop.a === undefined ? "bg-white/6 text-white/45" : "bg-amber-300/14 text-amber-200"]}
                   onClick={setAbStart}
                 >
@@ -152,11 +155,11 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
                   when={abLoop.a !== undefined}
                   fallback={<span class="h-px w-2 shrink-0 bg-white/15"></span>}
                 >
-                  <button type="button" aria-label="Clear AB loop" title="Clear AB loop" class="grid h-5 w-5 shrink-0 place-items-center rounded-full border-0 bg-transparent p-0 text-white/38 hover:bg-white/8 hover:text-white" onClick={clearAbLoop}>×</button>
+                  <button type="button" aria-label={t("timeline.clearLoop")} title={t("timeline.clearLoop")} class="grid h-5 w-5 shrink-0 place-items-center rounded-full border-0 bg-transparent p-0 text-white/38 hover:bg-white/8 hover:text-white" onClick={clearAbLoop}>×</button>
                 </Show>
                 <button
                   type="button"
-                  aria-label="Set the current position as point B"
+                  aria-label={t("timeline.setPointB")}
                   disabled={abLoop.a === undefined}
                   class={["flex h-5 shrink-0 items-center gap-1 rounded-md px-1.5 font-mono text-[9px] disabled:cursor-not-allowed disabled:opacity-30", abLoop.b === undefined ? "bg-white/6 text-white/45" : "bg-sky-300/14 text-sky-200"]}
                   onClick={setAbEnd}
@@ -166,26 +169,29 @@ export function PlaybackTimeline(props: { controller: PlayerController }) {
                 </button>
                 <Show when={abLoop.b !== undefined}>
                   <For each={AB_EXPORT_FORMAT_OPTIONS.filter(option => abExportFormatSupported(option.value))}>
-                    {option => (
-                      <button
-                        type="button"
-                        aria-label={abTooLong() ? "AB clip is longer than 1 minute" : `Export AB clip as ${option.label}`}
-                        title={abExport.format === option.value && abExport.message ? abExport.message : abTooLong() ? "Only AB clips up to 1 minute can be exported" : `Export AB clip as ${option.label}`}
-                        disabled={abTooLong() || abExport.status === "recording"}
-                        class={[
-                          "flex h-5 shrink-0 items-center gap-1 rounded-md border-0 px-1.5 font-sans text-[9px] font-semibold transition disabled:cursor-not-allowed",
-                          abTooLong() || (abExport.status === "error" && abExport.format === option.value)
-                            ? "bg-red-300/12 text-red-200/80"
-                            : abExport.status === "done" && abExport.format === option.value
-                              ? "bg-emerald-300/14 text-emerald-200"
-                              : "bg-white/8 text-white/62 hover:bg-white/14 hover:text-white",
-                        ]}
-                        onClick={() => void exportAbLoop(option.value)}
-                      >
-                        <Icon name={abExport.status === "done" && abExport.format === option.value ? "check" : "download"} class="h-3 w-3" />
-                        <span>{abExport.status === "recording" && abExport.format === option.value ? `${abExport.progress}%` : abTooLong() ? "1:00 max" : option.label}</span>
-                      </button>
-                    )}
+                    {(option) => {
+                      const formatLabel = () => exportFormatLabel(option.value)
+                      return (
+                        <button
+                          type="button"
+                          aria-label={abTooLong() ? t("timeline.clipTooLong") : t("timeline.exportAs", formatLabel())}
+                          title={abExport.format === option.value && abExport.message ? abExport.message : abTooLong() ? t("timeline.exportLimit") : t("timeline.exportAs", formatLabel())}
+                          disabled={abTooLong() || abExport.status === "recording"}
+                          class={[
+                            "flex h-5 shrink-0 items-center gap-1 rounded-md border-0 px-1.5 font-sans text-[9px] font-semibold transition disabled:cursor-not-allowed",
+                            abTooLong() || (abExport.status === "error" && abExport.format === option.value)
+                              ? "bg-red-300/12 text-red-200/80"
+                              : abExport.status === "done" && abExport.format === option.value
+                                ? "bg-emerald-300/14 text-emerald-200"
+                                : "bg-white/8 text-white/62 hover:bg-white/14 hover:text-white",
+                          ]}
+                          onClick={() => void exportAbLoop(option.value)}
+                        >
+                          <Icon name={abExport.status === "done" && abExport.format === option.value ? "check" : "download"} class="h-3 w-3" />
+                          <span>{abExport.status === "recording" && abExport.format === option.value ? `${abExport.progress}%` : abTooLong() ? t("timeline.oneMinuteMax") : formatLabel()}</span>
+                        </button>
+                      )
+                    }}
                   </For>
                 </Show>
               </span>

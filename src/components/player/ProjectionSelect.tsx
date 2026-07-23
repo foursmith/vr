@@ -1,6 +1,7 @@
 import { Portal } from "@solidjs/web"
 import { createSignal, For } from "solid-js"
 import { PROJECTION_OPTIONS } from "../../features/vr/config"
+import { projectionLabel, t } from "../../i18n"
 import { createPopover } from "../ui/createPopover"
 import { IconButton } from "../ui/IconButton"
 import { LiquidGlass } from "../ui/LiquidGlass"
@@ -57,11 +58,11 @@ export function ProjectionSelect(props: {
   return (
     <div ref={root} class="relative shrink-0">
       <IconButton
-        label="Projection"
+        label={t("projection.title")}
         customIcon={<ProjectionIcon projection={currentProjection().component} class="h-4.5 w-4.5" />}
         hasPopup="listbox"
         expanded={open()}
-        title={`Projection: ${currentProjection().label}`}
+        title={t("projection.current", projectionLabel(currentProjection().component))}
         onClick={toggle}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -89,7 +90,7 @@ export function ProjectionSelect(props: {
             <div
               ref={list}
               role="listbox"
-              aria-label="Projection"
+              aria-label={t("projection.title")}
               class="grid h-full w-full gap-1 p-1.5"
               onKeyDown={(event) => {
                 if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -124,7 +125,7 @@ export function ProjectionSelect(props: {
                     onClick={() => select(index())}
                   >
                     <ProjectionIcon projection={projection.component} class="h-4.5 w-4.5 shrink-0" />
-                    <span class="flex-1">{projection.label}</span>
+                    <span class="flex-1">{projectionLabel(projection.component)}</span>
                     {index() === props.value && <span aria-hidden="true" class="i-ph-check h-4 w-4 text-white/72"></span>}
                   </button>
                 )}

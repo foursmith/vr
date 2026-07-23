@@ -1,6 +1,7 @@
 import type { PlaylistNode } from "../playlist"
 import type { DlnaDevice } from "./client"
 import { createStore } from "solid-js"
+import { t } from "../../i18n"
 import {
   authenticateFsvr,
   detectFsvr,
@@ -76,7 +77,7 @@ export const createServerController = (options: ServerControllerOptions) => {
   }
 
   const authenticate = async (password: string) => {
-    if (!password.trim()) throw new Error("Enter a password")
+    if (!password.trim()) throw new Error(t("server.enterPassword"))
     setState((draft) => {
       draft.status = "connecting"
       draft.error = undefined
@@ -84,14 +85,14 @@ export const createServerController = (options: ServerControllerOptions) => {
     try {
       await authenticateFsvr(state.endpoint || window.location.origin, password)
       await loadPlaylist()
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Invalid password"
+    } catch {
+      const message = t("server.invalidPassword")
       options.clearPlaylist()
       setState((draft) => {
         draft.status = "authentication-required"
         draft.error = message
       })
-      throw error
+      throw new Error(message)
     }
   }
 
@@ -116,18 +117,18 @@ export const createServerController = (options: ServerControllerOptions) => {
         return
       }
       await loadPlaylist()
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to connect to fsvr"
+    } catch {
+      const message = t("server.connectionFailed")
       setState((draft) => {
         draft.status = "error"
         draft.error = message
       })
-      throw error
+      throw new Error(message)
     }
   }
 
   const scanDlna = async () => {
-    if (state.status !== "connected") throw new Error("Connect to fsvr before scanning DLNA")
+    if (state.status !== "connected") throw new Error(t("server.connectBeforeDlna"))
     setState((draft) => {
       draft.scanningDlna = true
       draft.error = undefined
@@ -143,12 +144,12 @@ export const createServerController = (options: ServerControllerOptions) => {
       setState((draft) => {
         draft.dlnaDevices = devices
       })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "DLNA scan failed"
+    } catch {
+      const message = t("server.dlnaFailed")
       setState((draft) => {
         draft.error = message
       })
-      throw error
+      throw new Error(message)
     } finally {
       setState((draft) => {
         draft.scanningDlna = false

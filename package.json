@@ -41,8 +41,9 @@
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.35",
     "@msvargas97/pico.js": "1.0.2",
-    "@solidjs/web": "^2.0.0-beta.15",
-    "solid-js": "^2.0.0-beta.15",
+    "@solid-primitives/i18n": "3.0.0-next.3",
+    "@solidjs/web": "2.0.0-beta.20",
+    "solid-js": "2.0.0-beta.20",
     "three": "^0.185.1"
   },
   "devDependencies": {

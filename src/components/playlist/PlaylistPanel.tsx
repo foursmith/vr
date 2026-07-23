@@ -1,15 +1,16 @@
 import type { RepeatMode } from "../../features/player/playback-state"
 import type { PlaylistStateNode } from "../../features/playlist"
 import { createSignal, For, Show, untrack } from "solid-js"
+import { t } from "../../i18n"
 import { PlaylistTreeNode } from "../playlist/PlaylistTreeNode"
 import { IconButton } from "../ui/IconButton"
 import { LiquidGlass } from "../ui/LiquidGlass"
 import { MediaPickerButtons } from "../ui/MediaPickerButtons"
 
 const REPEAT_MODES = [
-  { value: "off", label: "Play once", icon: "play-once" },
-  { value: "folder", label: "Repeat folder", icon: "folder-repeat" },
-  { value: "file", label: "Repeat video", icon: "repeat-once" },
+  { value: "off", labelKey: "playlist.playOnce", icon: "play-once" },
+  { value: "folder", labelKey: "playlist.repeatFolder", icon: "folder-repeat" },
+  { value: "file", labelKey: "playlist.repeatVideo", icon: "repeat-once" },
 ] as const
 
 export interface PlaylistPanelController {
@@ -91,7 +92,7 @@ export function PlaylistPanel(props: { controller: PlaylistPanelController }) {
       }}
     >
       <IconButton
-        label={playlistExpanded() ? "Close playlist" : "Open playlist"}
+        label={playlistExpanded() ? t("playlist.close") : t("playlist.open")}
         icon="playlist"
         iconClass="h-4 w-4 max-sm:h-5 max-sm:w-5"
         class={["!h-8 !w-8 max-sm:!h-10 max-sm:!w-10", playlistExpanded() ? "!absolute left-2 top-2 z-1" : "ml-2 mt-2"]}
@@ -110,12 +111,12 @@ export function PlaylistPanel(props: { controller: PlaylistPanelController }) {
           <aside
             id="playlist-panel-content"
             class="flex max-h-[calc(100dvh-14.75rem)] w-full flex-col overflow-hidden rounded-[20px] text-white sm:max-h-[calc(100dvh-13.5rem)]"
-            aria-label="Playlist"
+            aria-label={t("playlist.title")}
           >
             <header class="flex shrink-0 items-center gap-2 p-2 pl-14 max-sm:h-14 sm:pl-12">
-              <div class="min-w-0 flex-1 text-sm font-semibold tracking-tight text-white/94">Playlist</div>
+              <div class="min-w-0 flex-1 text-sm font-semibold tracking-tight text-white/94">{t("playlist.title")}</div>
               <IconButton
-                label={`Playback mode: ${currentRepeatMode().label}`}
+                label={t("playlist.playbackMode", t(currentRepeatMode().labelKey))}
                 icon={currentRepeatMode().icon}
                 iconClass="h-4 w-4"
                 class="!h-8 !w-8"
@@ -123,7 +124,7 @@ export function PlaylistPanel(props: { controller: PlaylistPanelController }) {
               />
               <Show when={serverState.status === "connected"}>
                 <IconButton
-                  label={serverState.scanningDlna ? "Scanning for DLNA devices" : "Scan for DLNA devices"}
+                  label={serverState.scanningDlna ? t("playlist.scanningDlna") : t("playlist.scanDlna")}
                   icon="dlna-scan"
                   iconClass={["h-4 w-4", serverState.scanningDlna && "animate-pulse"]}
                   class="!h-8 !w-8"
@@ -132,7 +133,7 @@ export function PlaylistPanel(props: { controller: PlaylistPanelController }) {
                 />
               </Show>
               <IconButton
-                label="Clear playlist"
+                label={t("playlist.clear")}
                 icon="trash"
                 iconClass="h-3.5 w-3.5"
                 class={["!h-8 !w-8", !hasBrowserPlaylistItems() && "pointer-events-none opacity-25"]}
@@ -146,7 +147,7 @@ export function PlaylistPanel(props: { controller: PlaylistPanelController }) {
             </Show>
 
             <div class="playlist-scroll min-h-0 flex-1 overflow-y-auto px-2">
-              <ul role="tree" aria-label="Video folders" class="m-0 list-none p-0">
+              <ul role="tree" aria-label={t("playlist.videoFolders")} class="m-0 list-none p-0">
                 <For each={state.nodes}>
                   {node => (
                     <PlaylistTreeNode

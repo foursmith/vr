@@ -1,5 +1,6 @@
 import type { PlaylistSourceKind, PlaylistStateNode } from "../../features/playlist"
 import { For, Show } from "solid-js"
+import { t } from "../../i18n"
 import { Icon } from "../ui/Icon"
 
 function SourceFolderIcon(props: { expanded: boolean, source?: PlaylistSourceKind }) {
@@ -77,15 +78,15 @@ export function PlaylistTreeNode(props: {
         <span dir="rtl" class="min-w-0 flex-1 truncate text-left">{displayName()}</span>
         <Show when={props.node.kind === "video" && props.node.hasSubtitle}>
           <span
-            aria-label="Subtitle available"
-            title="Subtitle: matched automatically"
+            aria-label={t("playlist.subtitleAvailable")}
+            title={t("playlist.subtitleMatched")}
             class="shrink-0 rounded border border-white/14 bg-white/8 px-1 py-0.5 font-mono text-[8px] font-bold leading-none tracking-wide text-white/52"
           >
             CC
           </span>
         </Show>
         <Show when={props.node.id === props.selectedId}>
-          <span aria-label="Playing" class="flex h-3 items-end gap-[2px] text-accent">
+          <span aria-label={t("playlist.playing")} class="flex h-3 items-end gap-[2px] text-accent">
             <i class="playlist-eq h-2 w-[2px] rounded-full bg-current"></i>
             <i class="playlist-eq h-3 w-[2px] rounded-full bg-current [animation-delay:-.35s]"></i>
             <i class="playlist-eq h-1.5 w-[2px] rounded-full bg-current [animation-delay:-.7s]"></i>

@@ -36,6 +36,7 @@ const ICONS = {
   "skip-forward": "i-ph-caret-line-right-fill",
   "sliders": "i-ph-sliders-horizontal",
   "subtitles": "i-ph-subtitles",
+  "translate": "i-ph-translate",
   "rotate-ccw": "i-ph-arrow-counter-clockwise",
   "repeat": "i-ph-repeat",
   "repeat-once": "i-ph-repeat-once",

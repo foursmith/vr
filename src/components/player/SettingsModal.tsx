@@ -5,19 +5,16 @@ import appPackage from "../../../package.json"
 import { APP_VERSION, APP_VERSION_URL } from "../../app/build-info"
 import { VIDEO_FRAME_RATE_OPTIONS } from "../../features/player/controller"
 import { SHORTCUT_DEFINITIONS } from "../../features/player/shortcuts"
+import { projectionLabel, t } from "../../i18n"
 import { Drawer } from "../ui/Drawer"
 import { FsvrLogo } from "../ui/FsvrLogo"
 import { Icon } from "../ui/Icon"
+import { LanguagePicker } from "../ui/LanguagePicker"
 import { Modal } from "../ui/Modal"
 import { MatrixRange } from "../ui/RangeControls"
 import { Switch } from "../ui/Switch"
 
 const VIDEO_MATRIX_COLORS = ["#58bde2", "#5ed59a", "#efa557", "#9d74f7"]
-const VIDEO_QUALITY_LABELS = ["Low", "Medium", "High", "Ultra"]
-const VIDEO_MATRIX_COLUMNS = VIDEO_QUALITY_LABELS.map((label, index) => ({
-  label,
-  color: VIDEO_MATRIX_COLORS[index]!,
-}))
 const VIDEO_MATRIX_ROWS = VIDEO_FRAME_RATE_OPTIONS
 const ABOUT_ACTION_CLASS = "flex items-center gap-1.5 rounded-full border px-2 py-1 font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent/40"
 const ABOUT_ACTION_IDLE_CLASS = "border-transparent bg-transparent text-white/42 hover:border-white/7 hover:bg-white/7 hover:text-white/72 focus-visible:border-white/7 focus-visible:bg-white/7 focus-visible:text-white/72"
@@ -75,6 +72,12 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
     state,
   } = display
   const [narrowScreen, setNarrowScreen] = createSignal(window.matchMedia("(max-width: 639.9px)").matches)
+  const videoMatrixColumns = () => [
+    t("settings.quality.low"),
+    t("settings.quality.medium"),
+    t("settings.quality.high"),
+    t("settings.quality.ultra"),
+  ].map((label, index) => ({ label, color: VIDEO_MATRIX_COLORS[index]! }))
   onSettled(() => {
     const media = window.matchMedia("(max-width: 639.9px)")
     const sync = () => setNarrowScreen(media.matches)
@@ -86,11 +89,11 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
     <div class="max-h-[calc(100dvh-1rem)] w-full overflow-y-auto pb-[env(safe-area-inset-bottom)] pt-3 overscroll-contain">
       <div class="flex items-center justify-between px-5 py-3">
         <div>
-          <h2 id="settings-title" class="font-semibold tracking-tight text-white">Settings</h2>
+          <h2 id="settings-title" class="font-semibold tracking-tight text-white">{t("common.settings")}</h2>
         </div>
         <button
           type="button"
-          aria-label="Close settings"
+          aria-label={t("settings.close")}
           class="grid h-8 w-8 place-items-center rounded-full border-0 bg-white/7 text-white/68 outline-none transition hover:!bg-white/12 hover:text-white focus-visible:!bg-white/14 max-sm:h-11 max-sm:w-11"
           onClick={() => props.onOpenChange(false)}
         >
@@ -101,21 +104,21 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
       <div class="grid gap-1.5 px-2.5 pb-2.5">
         <section class="grid gap-1.5" aria-labelledby="playback-settings-title">
           <h3 id="playback-settings-title" class="px-3 text-[9px] font-semibold uppercase tracking-[0.12em] text-white/42">
-            Playback
+            {t("settings.playback")}
           </h3>
           <div class="overflow-hidden rounded-2xl bg-white/4">
             <div
               class="grid gap-3 p-3"
               role="group"
-              aria-label="Video quality and frame rate"
+              aria-label={t("settings.qualityAndFrameRate")}
             >
               <MatrixRange
-                columns={VIDEO_MATRIX_COLUMNS}
+                columns={videoMatrixColumns()}
                 rows={VIDEO_MATRIX_ROWS}
                 column={state.qualityId}
                 row={Math.max(0, state.renderFrameRateId - 1)}
-                label="Video quality and frame rate matrix"
-                cornerLabel="Renderer"
+                label={t("settings.qualityMatrix")}
+                cornerLabel={t("settings.renderer")}
                 onChange={(qualityId, frameRateIndex) => {
                   setQualityId(qualityId)
                   setRenderFrameRateId(frameRateIndex + 1)
@@ -124,8 +127,8 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
             </div>
             <div class="border-t border-white/7">
               <SettingToggle
-                title="Portrait layout"
-                description="Repeat the view on wide screens."
+                title={t("settings.portraitLayout")}
+                description={t("settings.portraitLayoutDescription")}
                 icon="columns"
                 pressed={state.splitScreen}
                 embedded
@@ -135,8 +138,8 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
             <Show when={server.enabled()}>
               <div class="border-t border-white/7">
                 <SettingToggle
-                  title="Resume last video"
-                  description="Reopen and play it on startup."
+                  title={t("settings.resumeLastVideo")}
+                  description={t("settings.resumeLastVideoDescription")}
                   icon="play"
                   pressed={playback.autoResumePlayback()}
                   embedded
@@ -151,8 +154,8 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
                     <Icon name="keyboard" class="h-4 w-4" />
                   </span>
                   <div class="min-w-0">
-                    <h3 class="truncate text-xs font-semibold text-white/92">Shortcuts</h3>
-                    <span class="mt-0.5 block truncate text-[11px] leading-snug text-white/48">View player keyboard controls.</span>
+                    <h3 class="truncate text-xs font-semibold text-white/92">{t("settings.shortcuts")}</h3>
+                    <span class="mt-0.5 block truncate text-[11px] leading-snug text-white/48">{t("settings.shortcutsDescription")}</span>
                   </div>
                   <span class="grid h-8 w-8 place-items-center text-white/42 transition-colors group-hover:text-white/68">
                     <Icon name="caret-down" class="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
@@ -162,7 +165,11 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
                   <For each={SHORTCUT_DEFINITIONS}>
                     {shortcut => (
                       <div class="flex min-w-0 items-center justify-between gap-2 border-b border-white/6 py-2 last:border-b-0">
-                        <span class="min-w-0 truncate text-[10px] font-medium text-white/66">{shortcut.label}</span>
+                        <span class="min-w-0 truncate text-[10px] font-medium text-white/66">
+                          {"labelKey" in shortcut
+                            ? t(shortcut.labelKey)
+                            : t("projection.current", projectionLabel(shortcut.projection))}
+                        </span>
                         <kbd class="min-w-5 shrink-0 rounded-md border border-white/9 bg-black/14 px-1.5 py-1 text-center font-mono text-[9px] font-semibold text-white/72">{shortcut.key}</kbd>
                       </div>
                     )}
@@ -174,12 +181,12 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
         </section>
         <div class="grid gap-1.5 pt-2">
           <h3 id="portrait-centering-title" class="px-3 text-[9px] font-semibold uppercase tracking-[0.12em] text-white/42">
-            Centering
+            {t("settings.centering")}
           </h3>
           <section class="overflow-hidden rounded-2xl bg-white/4" aria-labelledby="portrait-centering-title">
             <SettingToggle
-              title="Face centering"
-              description="Keep detected faces centered."
+              title={t("settings.faceCentering")}
+              description={t("settings.faceCenteringDescription")}
               icon="scan-face"
               pressed={state.faceAutoCenter}
               embedded
@@ -187,8 +194,8 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
             />
             <div class="border-t border-white/7">
               <SettingToggle
-                title="Resume after movement"
-                description="Scan again after 1 second."
+                title={t("settings.resumeAfterMovement")}
+                description={t("settings.resumeAfterMovementDescription")}
                 icon="rotate-ccw"
                 pressed={state.resumeFaceAutoCenterAfterViewChange}
                 disabled={!state.faceAutoCenter}
@@ -200,21 +207,31 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
         </div>
         <section class="grid gap-1.5 pt-2" aria-labelledby="more-settings-title">
           <h3 id="more-settings-title" class="px-3 text-[9px] font-semibold uppercase tracking-[0.12em] text-white/42">
-            More
+            {t("settings.more")}
           </h3>
           <div class="overflow-hidden rounded-2xl bg-white/4">
+            <div class="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2">
+              <span class="grid h-8 w-8 place-items-center rounded-xl bg-white/8 text-white/78">
+                <Icon name="translate" class="h-4 w-4" />
+              </span>
+              <span class="min-w-0">
+                <span class="block truncate text-xs font-semibold text-white/92">{t("language.title")}</span>
+                <span class="mt-0.5 block truncate text-[11px] leading-snug text-white/48">{t("language.description")}</span>
+              </span>
+              <LanguagePicker />
+            </div>
             <div aria-labelledby="about-title">
-              <div class="grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-3 px-3 py-3">
+              <div class="grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-3 border-t border-white/7 px-3 py-3">
                 <FsvrLogo class="h-10 w-10" />
                 <div class="relative min-w-0 pr-20">
                   <h3 id="about-title" class="truncate text-xs font-semibold text-white/94">Foursmith VR</h3>
-                  <p class="mt-1 text-[11px] leading-snug text-white/48">Watch VR like TikTok</p>
+                  <p class="mt-1 text-[11px] leading-snug text-white/48">{t("common.tagline")}</p>
                   <div class="absolute right-0 top-1/2 flex -translate-y-1/2 flex-col items-end gap-0.5">
                     <a
                       href={APP_VERSION_URL}
                       target="_blank"
                       rel="noreferrer"
-                      title={`View ${APP_VERSION} on GitHub`}
+                      title={t("settings.viewVersion", APP_VERSION)}
                       class="flex h-3.5 items-center rounded-[3px] bg-[#34383c] px-1.5 font-mono text-[8px] leading-none text-white/68 outline-none transition-colors hover:bg-[#41464b] hover:text-white/86 focus-visible:ring-2 focus-visible:ring-accent/40"
                     >
                       {APP_VERSION}
@@ -223,12 +240,12 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
                       href={`${appPackage.homepage}/stargazers`}
                       target="_blank"
                       rel="noreferrer"
-                      title="View foursmith/vr stars on GitHub"
+                      title={t("settings.viewStars")}
                       class="rounded-[3px] outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-accent/40"
                     >
                       <img
                         src="https://img.shields.io/github/stars/foursmith/vr?style=flat&logo=github&logoColor=white&label=stars&labelColor=26292c&color=34383c"
-                        alt="GitHub stars"
+                        alt={t("settings.githubStars")}
                         class="block h-3.5"
                         loading="lazy"
                       />
@@ -239,7 +256,7 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
               <div class="flex items-center gap-2 border-t border-white/7 px-3 py-2.5 text-[10px] leading-0">
                 <div class="flex min-w-0 items-center gap-2 text-white/42">
                   <span class="whitespace-nowrap">
-                    By
+                    {t("settings.by")}
                     {" "}
                     <a class="font-medium text-white/68 transition-colors hover:text-white focus-visible:text-white focus-visible:outline-none focus-visible:underline" href="https://github.com/ourongxing" target="_blank" rel="noreferrer">ourongxing</a>
                   </span>
@@ -250,12 +267,12 @@ export function SettingsModal(props: { controller: PlayerController, open: boole
                   <button
                     type="button"
                     aria-pressed={debug.panelOpen() ? "true" : "false"}
-                    title={debug.panelOpen() ? "Hide debug info" : "Show debug info"}
+                    title={debug.panelOpen() ? t("settings.hideDebug") : t("settings.showDebug")}
                     class={[ABOUT_ACTION_CLASS, debug.panelOpen() ? "border-accent/18 bg-accent/10 text-accent/82 hover:border-accent/28 hover:bg-accent/15 hover:text-accent" : ABOUT_ACTION_IDLE_CLASS]}
                     onClick={() => debug.setPanelOpen(!debug.panelOpen())}
                   >
                     <Icon name="bug" class="h-3.5 w-3.5" />
-                    Debug
+                    {t("settings.debug")}
                   </button>
                   <a class={[ABOUT_ACTION_CLASS, ABOUT_ACTION_IDLE_CLASS]} href="https://github.com/foursmith/vr" target="_blank" rel="noreferrer">
                     <Icon name="github" class="h-3.5 w-3.5" />

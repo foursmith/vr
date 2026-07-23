@@ -5,7 +5,7 @@
   </picture>
   <h1>Foursmith VR</h1>
   <p><sub><a href="README.md">English</a> · 简体中文 · <a href="README.ja.md">日本語</a></sub></p>
-  <p><strong><em>像刷短视频一样看 VR</em></strong></p>
+  <p><strong><em>像看直播一样观看VR</em></strong></p>
   <p><em>也许是最轻松的 VR 观看方式——不用戴头显，也不怕晕。坐下来直接看就好。</em></p>
   <p><a href="https://vr.foursmith.com/"><strong>打开 Foursmith VR →</strong></a></p>
 </div>

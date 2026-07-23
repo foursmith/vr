@@ -1,5 +1,6 @@
 import type { PlayerController } from "../../features/player/controller"
 import { createSignal, onSettled, Show, untrack } from "solid-js"
+import { t } from "../../i18n"
 import { Icon } from "../ui/Icon"
 import { IconButton } from "../ui/IconButton"
 import { LiquidGlass } from "../ui/LiquidGlass"
@@ -179,19 +180,19 @@ export function PlayerStage(props: { controller: PlayerController }) {
                 ref={debug.setFpsMeter}
                 id="fps-meter"
                 class="hidden overflow-hidden rounded-xl border border-white/10 bg-[#090d0f]/88 shadow-[0_10px_28px_rgba(0,0,0,0.3)] backdrop-blur-xl"
-                aria-label="Performance metrics"
+                aria-label={t("debug.performanceMetrics")}
               >
                 <div class="flex items-center gap-2 border-b border-white/7 px-3 py-2">
                   <span class="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_8px_rgba(98,207,216,0.62)]"></span>
-                  <span class="text-[9px] font-semibold uppercase tracking-[0.12em] text-white/68">Tracking monitor</span>
+                  <span class="text-[9px] font-semibold uppercase tracking-[0.12em] text-white/68">{t("debug.trackingMonitor")}</span>
                   <button
                     type="button"
                     class={[
                       "pointer-events-auto ml-auto flex items-center gap-1 rounded-md border-0 bg-white/5 px-1.5 py-1 font-mono text-[8px] font-semibold tracking-[0.04em] outline-none transition-colors hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-accent/50",
                       isRecordingLog() ? "text-red-200" : "text-accent/72 hover:text-accent",
                     ]}
-                    aria-label={isRecordingLog() ? "Copy tracking log and stop recording" : "Record tracking log"}
-                    title={isRecordingLog() ? "Copy tracking log and stop recording" : "Record tracking log"}
+                    aria-label={isRecordingLog() ? t("debug.copyAndStop") : t("debug.recordLog")}
+                    title={isRecordingLog() ? t("debug.copyAndStop") : t("debug.recordLog")}
                     onPointerDown={event => event.stopPropagation()}
                     onClick={(event) => {
                       event.stopPropagation()
@@ -200,11 +201,11 @@ export function PlayerStage(props: { controller: PlayerController }) {
                     }}
                   >
                     <Icon name={isRecordingLog() ? "copy" : "record"} class="h-2.5 w-2.5" />
-                    {isRecordingLog() ? "Copy" : "Record"}
+                    {isRecordingLog() ? t("debug.copy") : t("debug.record")}
                   </button>
                 </div>
                 <div data-debug-metrics class="whitespace-pre px-3 py-2.5 font-mono text-[9px] font-medium leading-[1.7] text-white/54">
-                  Waiting for frames…
+                  {t("debug.waitingForFrames")}
                 </div>
                 <pre ref={debugLogElement} data-debug-log class="hidden" aria-hidden="true"></pre>
                 <div
@@ -235,8 +236,10 @@ export function PlayerStage(props: { controller: PlayerController }) {
                     class="border-t border-amber-300/14 bg-amber-950/36 px-3 py-2 font-mono text-[9px] font-semibold leading-[1.5] text-amber-100/86"
                     aria-live="off"
                   >
-                    Projection boundary ·
-                    {` ${projectionBoundaryWarning()?.source === "auto" ? "Auto" : "Manual"} ${projectionBoundaryWarning()?.axis ?? ""}`}
+                    {t("debug.projectionBoundary")}
+                    {" · "}
+                    {projectionBoundaryWarning()?.source === "auto" ? t("debug.automatic") : t("debug.manual")}
+                    {` ${projectionBoundaryWarning()?.axis ?? ""}`}
                   </div>
                 </Show>
               </div>
@@ -271,7 +274,7 @@ export function PlayerStage(props: { controller: PlayerController }) {
         <div class="pointer-events-none absolute inset-0 grid place-items-center" aria-live="polite">
           <div class="flex items-center gap-2 rounded-full border border-white/8 bg-white/5 px-4 py-2.5 text-xs font-medium tracking-wide text-white/48">
             <Icon name="picture-in-picture" class="h-4 w-4" />
-            Playing in Picture-in-Picture
+            {t("controls.playingInPip")}
           </div>
         </div>
       </Show>
@@ -297,8 +300,8 @@ export function PlayerStage(props: { controller: PlayerController }) {
           <div data-face-centering-resume class="shrink-0">
             <IconButton
               class="!h-8 !w-8 max-sm:!h-10 max-sm:!w-10"
-              label="Resume portrait centering"
-              title="Resume portrait centering"
+              label={t("debug.resumeCentering")}
+              title={t("debug.resumeCentering")}
               icon="scan-face"
               iconClass="h-4 w-4 max-sm:h-5 max-sm:w-5"
               onClick={resumeFaceAutoCenter}
@@ -307,7 +310,7 @@ export function PlayerStage(props: { controller: PlayerController }) {
         </Show>
         <IconButton
           class="!h-8 !w-8 max-sm:!h-10 max-sm:!w-10"
-          label="Settings"
+          label={t("common.settings")}
           icon="settings"
           iconClass="h-4 w-4 max-sm:h-5 max-sm:w-5"
           onClick={() => setSettingsOpen(true)}

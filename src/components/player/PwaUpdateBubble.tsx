@@ -2,6 +2,7 @@ import type { PwaUpdateState } from "../../app/pwa-update"
 import { createSignal, onSettled, Show } from "solid-js"
 import { APP_VERSION, APP_VERSION_URL } from "../../app/build-info"
 import { applyPwaUpdate, subscribePwaUpdateState } from "../../app/pwa-update"
+import { t } from "../../i18n"
 
 const BURST_COLORS = ["#f5fffc", "#b8f3ec", "#62cfd8", "#7dd3fc"]
 
@@ -95,10 +96,10 @@ export function PwaUpdateBubble() {
             <a
               href={APP_VERSION_URL}
               class="pwa-update-bubble pwa-update-bubble-success"
-              aria-label={`View ${APP_VERSION} update details`}
+              aria-label={t("update.details", APP_VERSION)}
               onClick={viewUpdateDetails}
             >
-              <span>Update successful</span>
+              <span>{t("update.successful")}</span>
               <small>{APP_VERSION}</small>
             </a>
           )}
@@ -107,11 +108,11 @@ export function PwaUpdateBubble() {
             type="button"
             class="pwa-update-bubble pwa-update-bubble-ready"
             disabled={state() === "applying"}
-            aria-label="Reload to update Foursmith VR"
+            aria-label={t("update.reload")}
             onClick={reloadToUpdate}
           >
-            <span>{state() === "applying" ? "Updating…" : "Reload to update"}</span>
-            <small>{state() === "applying" ? "One moment" : "New version ready"}</small>
+            <span>{state() === "applying" ? t("update.updating") : t("update.reloadToUpdate")}</span>
+            <small>{state() === "applying" ? t("update.oneMoment") : t("update.ready")}</small>
           </button>
         </Show>
       </aside>

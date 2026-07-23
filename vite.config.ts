@@ -114,7 +114,7 @@ export default defineConfig(({ command, mode }) => ({
         id: "/",
         name: "Foursmith VR",
         short_name: "Foursmith VR",
-        description: "Watch VR like TikTok",
+        description: "Watch VR like a livestream",
         start_url: "/",
         scope: "/",
         theme_color: "#62cfd8",

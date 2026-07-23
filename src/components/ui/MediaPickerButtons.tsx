@@ -1,3 +1,4 @@
+import { t } from "../../i18n"
 import { Icon } from "./Icon"
 import { LiquidGlass } from "./LiquidGlass"
 
@@ -20,7 +21,7 @@ export function MediaPickerButtons(props: {
           onClick={props.onChooseFiles}
         >
           <Icon name="file-video" class="h-3.5 w-3.5" />
-          Choose files
+          {t("media.chooseFiles")}
         </button>
         <span aria-hidden="true" class="h-4 w-px shrink-0 bg-white/12"></span>
         <button
@@ -29,7 +30,7 @@ export function MediaPickerButtons(props: {
           onClick={props.onChooseFolder}
         >
           <Icon name="folder" class="h-3.5 w-3.5" />
-          Choose folder
+          {t("media.chooseFolder")}
         </button>
       </div>
     </LiquidGlass>

@@ -1,6 +1,7 @@
 import type { PlayerController } from "../../features/player/controller"
 import type { IconName } from "../ui/Icon"
 import { Show, untrack } from "solid-js"
+import { t } from "../../i18n"
 import { createPopover } from "../ui/createPopover"
 import { GlassRange } from "../ui/GlassRange"
 import { Icon } from "../ui/Icon"
@@ -78,14 +79,14 @@ export function ControlSliderPopover(props: { controller: PlayerController, trig
       >
         <section
           ref={panel}
-          aria-label="Playback adjustments"
+          aria-label={t("controls.playbackAdjustments")}
           class="grid w-full gap-0.5 overflow-hidden rounded-2xl p-2"
           onKeyDown={(event) => {
             if (event.key === "Escape") closeSlider()
           }}
         >
           <HorizontalControlRange
-            label="Volume"
+            label={t("controls.volume")}
             valueLabel={`${Math.round(volume() * 100)}%`}
             min={0}
             max={1}
@@ -93,13 +94,13 @@ export function ControlSliderPopover(props: { controller: PlayerController, trig
             value={volume()}
             progress={volume() * 100}
             onInput={setVolumeLevel}
-            actionLabel={volume() === 0 ? "Unmute" : "Mute"}
+            actionLabel={volume() === 0 ? t("controls.unmute") : t("controls.mute")}
             actionIcon={volume() === 0 ? "volume-x" : volume() < 0.5 ? "volume-1" : "volume-2"}
             actionPressed={volume() === 0}
             onAction={toggleMute}
           />
           <HorizontalControlRange
-            label="Speed"
+            label={t("controls.speed")}
             valueLabel={formattedRate()}
             min={0.5}
             max={2}
@@ -107,7 +108,7 @@ export function ControlSliderPopover(props: { controller: PlayerController, trig
             value={playbackRate()}
             progress={((playbackRate() - 0.5) / 1.5) * 100}
             onInput={setPlaybackRateLevel}
-            actionLabel="Reset speed"
+            actionLabel={t("controls.resetSpeed")}
             actionIcon="rotate-ccw"
             onAction={() => setPlaybackRateLevel(1)}
           />

@@ -5,7 +5,7 @@
   </picture>
   <h1>Foursmith VR</h1>
   <p><sub>English · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a></sub></p>
-  <p><strong><em>Watch VR like TikTok</em></strong></p>
+  <p><strong><em>Watch VR like a livestream</em></strong></p>
   <p><em>A comfortable way to enjoy VR video—no headset required, even if you're prone to motion sickness. Just sit back and watch.</em></p>
   <p><a href="https://vr.foursmith.com/"><strong>Open Foursmith VR →</strong></a></p>
 </div>

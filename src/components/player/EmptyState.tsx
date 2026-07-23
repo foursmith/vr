@@ -1,4 +1,5 @@
 import { createSignal, Show } from "solid-js"
+import { t } from "../../i18n"
 import { isChromiumBrowser } from "../../lib/browser"
 import { FsvrLogo } from "../ui/FsvrLogo"
 import { Icon } from "../ui/Icon"
@@ -52,11 +53,11 @@ function BrowserCompatibilityNotice() {
       <div aria-hidden="true" class="h-px w-12 bg-gradient-to-r from-transparent via-accent/38 to-transparent" />
       <div class="flex flex-col items-center gap-0.5">
         <p class="text-sm font-normal tracking-[-0.01em] text-[#f5fffc]/88 sm:text-base">
-          Works best in
+          {t("empty.worksBestIn")}
           {" "}
           <span class="font-serif italic text-[#b8f3ec]/92">Chrome</span>
         </p>
-        <p class="max-w-sm text-[10px] font-medium leading-4 tracking-[0.018em] text-white/38 sm:text-[11px]">VR playback may stutter or fail in this browser.</p>
+        <p class="max-w-sm text-[10px] font-medium leading-4 tracking-[0.018em] text-white/38 sm:text-[11px]">{t("empty.browserWarning")}</p>
       </div>
     </aside>
   )
@@ -113,7 +114,7 @@ export function EmptyState(props: {
         <div class="relative h-60 w-88 sm:h-68 sm:w-100">
           <div class="empty-hero-logo absolute left-1/2 top-1/2 z-20 size-40 sm:size-48">
             <FsvrLogo
-              title="Foursmith VR"
+              title={t("common.appName")}
               class="h-full w-full"
             />
           </div>
@@ -123,36 +124,36 @@ export function EmptyState(props: {
             href={GITHUB_URL}
             target="_blank"
             rel="noreferrer"
-            aria-label="View foursmith/vr on GitHub"
+            aria-label={t("empty.viewOnGithub")}
             class="absolute left-[calc(50%+4rem)] top-1/2 z-15 flex size-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full p-1 text-[#dafaf5]/58 transition-colors hover:text-[#f5fffc]/94 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b8f3ec]/72 focus-visible:text-[#f5fffc]/94 sm:left-[calc(50%+5rem)]"
             onClick={celebrateGithub}
           >
             <Icon name="github" class="empty-github-icon size-8" />
           </a>
 
-          <span aria-label="No headset" role="img" tabindex="0" class="empty-feature-dot empty-feature-tiktok">
-            <span aria-hidden="true" class="empty-feature-label">No headset</span>
+          <span aria-label={t("empty.noHeadset")} role="img" tabindex="0" class="empty-feature-dot empty-feature-tiktok">
+            <span aria-hidden="true" class="empty-feature-label">{t("empty.noHeadset")}</span>
           </span>
-          <span aria-label="Open source" role="img" tabindex="0" class="empty-feature-dot empty-feature-open-source">
-            <span aria-hidden="true" class="empty-feature-label">Open source</span>
+          <span aria-label={t("empty.openSource")} role="img" tabindex="0" class="empty-feature-dot empty-feature-open-source">
+            <span aria-hidden="true" class="empty-feature-label">{t("empty.openSource")}</span>
           </span>
-          <span aria-label="Portrait layout" role="img" tabindex="0" class="empty-feature-dot empty-feature-portrait-layout">
-            <span aria-hidden="true" class="empty-feature-label">Portrait layout</span>
+          <span aria-label={t("empty.portraitLayout")} role="img" tabindex="0" class="empty-feature-dot empty-feature-portrait-layout">
+            <span aria-hidden="true" class="empty-feature-label">{t("empty.portraitLayout")}</span>
           </span>
-          <span aria-label="Portrait centering" role="img" tabindex="0" class="empty-feature-dot empty-feature-face-tracking">
-            <span aria-hidden="true" class="empty-feature-label">Portrait centering</span>
+          <span aria-label={t("empty.portraitCentering")} role="img" tabindex="0" class="empty-feature-dot empty-feature-face-tracking">
+            <span aria-hidden="true" class="empty-feature-label">{t("empty.portraitCentering")}</span>
           </span>
-          <span aria-label="Auto-framed VR" role="img" tabindex="0" class="empty-feature-dot empty-feature-vr-player">
-            <span aria-hidden="true" class="empty-feature-label">Auto-framed VR</span>
+          <span aria-label={t("empty.autoFramedVr")} role="img" tabindex="0" class="empty-feature-dot empty-feature-vr-player">
+            <span aria-hidden="true" class="empty-feature-label">{t("empty.autoFramedVr")}</span>
           </span>
-          <span aria-label="Foursmith VR" role="img" tabindex="0" class="empty-feature-dot empty-feature-brand">
-            <span aria-hidden="true" class="empty-feature-label">Foursmith VR</span>
+          <span aria-label={t("common.appName")} role="img" tabindex="0" class="empty-feature-dot empty-feature-brand">
+            <span aria-hidden="true" class="empty-feature-label">{t("common.appName")}</span>
           </span>
         </div>
 
         <div class="flex flex-col items-center gap-8">
           <div class="flex flex-col items-center gap-5 sm:gap-6">
-            <h1 class="text-[10px] font-medium italic tracking-[0.18em] text-[#f5fffc]/42 sm:text-[11px] sm:tracking-[0.21em]">Watch VR like TikTok</h1>
+            <h1 class="text-[10px] font-medium italic tracking-[0.18em] text-[#f5fffc]/42 sm:text-[11px] sm:tracking-[0.21em]">{t("common.tagline")}</h1>
             <Show
               when={props.serverStatus === "authentication-required" || props.serverStatus === "connecting"}
               fallback={(
@@ -163,7 +164,7 @@ export function EmptyState(props: {
                 <form
                   class="empty-auth-form relative w-full rounded-full"
                   data-invalid={props.serverError ? "true" : "false"}
-                  aria-label="Unlock media server"
+                  aria-label={t("empty.unlockServer")}
                   onSubmit={submitPassword}
                 >
                   <LiquidGlass
@@ -177,12 +178,12 @@ export function EmptyState(props: {
                         ref={passwordInput}
                         type="password"
                         autocomplete="current-password"
-                        aria-label="Password"
+                        aria-label={t("empty.password")}
                         aria-invalid={props.serverError ? "true" : "false"}
                         value={password()}
                         disabled={props.serverStatus === "connecting"}
                         onInput={event => setPassword(event.currentTarget.value)}
-                        placeholder="Password"
+                        placeholder={t("empty.password")}
                         class="h-full min-w-0 flex-1 border-0 bg-transparent px-2.5 text-xs text-white outline-none placeholder:text-white/28 disabled:cursor-wait"
                       />
                     </div>
@@ -193,11 +194,11 @@ export function EmptyState(props: {
                     class="absolute inset-y-0 right-1.5 z-10 flex items-center gap-1.5 rounded-r-full border-0 bg-transparent pl-4 pr-3 text-[10px] font-semibold text-white/72 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-accent/60 active:text-accent disabled:cursor-wait disabled:opacity-35"
                   >
                     <span aria-hidden="true" class="absolute left-0 h-4 w-px bg-white/12"></span>
-                    {props.serverStatus === "connecting" ? "Checking…" : "Unlock"}
+                    {props.serverStatus === "connecting" ? t("empty.checking") : t("empty.unlock")}
                     <Icon name="unlock" class="h-3 w-3 text-accent/78" />
                   </button>
                 </form>
-                <p class="text-[10px] leading-0 font-medium tracking-[0.04em] text-white/52 sm:text-[11px]">Enter your media server password</p>
+                <p class="text-[10px] leading-0 font-medium tracking-[0.04em] text-white/52 sm:text-[11px]">{t("empty.enterPassword")}</p>
               </div>
             </Show>
           </div>
