@@ -1,18 +1,22 @@
+<img src="public/icon.svg" alt="Foursmith VR 应用图标" width="160" height="160" align="left" hspace="20">
+
+<h3>Foursmith VR</h3>
+
+<em>像看直播一样观看 VR。</em>
+
+也许是最轻松的 VR 观看方式——不用戴头显，也不怕晕。打开视频，坐下来直接看就好。
+
+<a href="https://vr.foursmith.com/"><strong>打开 Foursmith VR →</strong></a>
+
+<br clear="all">
+
 <div align="center">
-  <picture>
-    <source media="(prefers-reduced-motion: reduce)" srcset="doc/banner.jpg">
-    <img src="doc/banner.webp" alt="Foursmith VR" width="960">
-  </picture>
-  <h1>Foursmith VR</h1>
   <p><sub><a href="README.md">English</a> · 简体中文 · <a href="README.ja.md">日本語</a></sub></p>
-  <p><strong><em>像看直播一样观看VR</em></strong></p>
-  <p><em>也许是最轻松的 VR 观看方式——不用戴头显，也不怕晕。坐下来直接看就好。</em></p>
-  <p><a href="https://vr.foursmith.com/"><strong>打开 Foursmith VR →</strong></a></p>
 </div>
 
 ## 演示视频（无敏感内容）
 
-[▶ 观看演示视频](https://cdn.jsdelivr.net/gh/foursmith/vr@main/doc/demo.mp4)
+[![观看 Foursmith VR 演示视频](doc/youtube-thumbnail.png)](https://www.youtube.com/watch?v=TxfZAjrw_Q8)
 
 ## 功能
 

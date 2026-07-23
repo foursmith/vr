@@ -1,18 +1,22 @@
+<img src="public/icon.svg" alt="Foursmith VR app icon" width="160" height="160" align="left" hspace="20">
+
+<h3>Foursmith VR</h3>
+
+<em>Watch VR like a livestream.</em>
+
+A comfortable way to enjoy VR video—no headset required, even if you're prone to motion sickness. Open a video, sit back, and watch.
+
+<a href="https://vr.foursmith.com/"><strong>Open Foursmith VR →</strong></a>
+
+<br clear="all">
+
 <div align="center">
-  <picture>
-    <source media="(prefers-reduced-motion: reduce)" srcset="doc/banner.jpg">
-    <img src="doc/banner.webp" alt="Foursmith VR" width="960">
-  </picture>
-  <h1>Foursmith VR</h1>
   <p><sub>English · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a></sub></p>
-  <p><strong><em>Watch VR like a livestream</em></strong></p>
-  <p><em>A comfortable way to enjoy VR video—no headset required, even if you're prone to motion sickness. Just sit back and watch.</em></p>
-  <p><a href="https://vr.foursmith.com/"><strong>Open Foursmith VR →</strong></a></p>
 </div>
 
 ## Demo Video (Safe for Work)
 
-[▶ Watch the demo video](https://cdn.jsdelivr.net/gh/foursmith/vr@main/doc/demo.mp4)
+[![Watch the Foursmith VR demo video](doc/youtube-thumbnail.png)](https://www.youtube.com/watch?v=TxfZAjrw_Q8)
 
 ## Features
 

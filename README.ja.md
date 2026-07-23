@@ -1,18 +1,22 @@
+<img src="public/icon.svg" alt="Foursmith VR アプリアイコン" width="160" height="160" align="left" hspace="20">
+
+<h3>Foursmith VR</h3>
+
+<em>ライブ配信を見る感覚で VR を楽しもう。</em>
+
+ヘッドセットなしで、VR 酔いが心配な方も快適に VR 動画を楽しめます。動画を開いたら、くつろいでご覧ください。
+
+<a href="https://vr.foursmith.com/"><strong>Foursmith VR を開く →</strong></a>
+
+<br clear="all">
+
 <div align="center">
-  <picture>
-    <source media="(prefers-reduced-motion: reduce)" srcset="doc/banner.jpg">
-    <img src="doc/banner.webp" alt="Foursmith VR" width="960">
-  </picture>
-  <h1>Foursmith VR</h1>
   <p><sub><a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · 日本語</sub></p>
-  <p><strong><em>ライブ配信を見る感覚でVRを楽しもう</em></strong></p>
-  <p><em>VR を楽しむなら、これがいちばん心地よい方法かもしれません。ヘッドセットは不要。VR 酔いが心配な方も、くつろいで楽しめます！</em></p>
-  <p><a href="https://vr.foursmith.com/"><strong>Foursmith VR を開く →</strong></a></p>
 </div>
 
 ## デモ動画（職場でも安心して見られます）
 
-[▶ デモ動画を見る](https://cdn.jsdelivr.net/gh/foursmith/vr@main/doc/demo.mp4)
+[![Foursmith VR のデモ動画を見る](doc/youtube-thumbnail.png)](https://www.youtube.com/watch?v=TxfZAjrw_Q8)
 
 ## 機能
 
