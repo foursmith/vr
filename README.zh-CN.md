@@ -20,7 +20,7 @@
 
 ## 演示视频（无敏感内容）
 
-[![观看 Foursmith VR 演示视频](doc/youtube-thumbnail.png)](https://www.youtube.com/watch?v=TxfZAjrw_Q8)
+[![观看 Foursmith VR 演示视频](doc/youtube-thumbnail.webp)](https://www.youtube.com/watch?v=TxfZAjrw_Q8)
 
 ## 功能
 

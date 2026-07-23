@@ -20,7 +20,7 @@ A comfortable way to enjoy VR video—no headset required, even if you're prone 
 
 ## Demo Video (Safe for Work)
 
-[![Watch the Foursmith VR demo video](doc/youtube-thumbnail.png)](https://www.youtube.com/watch?v=TxfZAjrw_Q8)
+[![Watch the Foursmith VR demo video](doc/youtube-thumbnail.webp)](https://www.youtube.com/watch?v=TxfZAjrw_Q8)
 
 ## Features
 

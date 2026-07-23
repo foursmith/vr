@@ -20,7 +20,7 @@
 
 ## デモ動画（職場でも安心して見られます）
 
-[![Foursmith VR のデモ動画を見る](doc/youtube-thumbnail.png)](https://www.youtube.com/watch?v=TxfZAjrw_Q8)
+[![Foursmith VR のデモ動画を見る](doc/youtube-thumbnail.webp)](https://www.youtube.com/watch?v=TxfZAjrw_Q8)
 
 ## 機能
 
