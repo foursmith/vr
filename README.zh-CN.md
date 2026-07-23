@@ -1,16 +1,12 @@
-# Foursmith VR
-
-<p align="center">
-  <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a>
-</p>
-
 <div align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="doc/banner.jpg">
     <img src="doc/banner.webp" alt="Foursmith VR" width="960">
   </picture>
+  <h1>Foursmith VR</h1>
+  <p><sub><a href="README.md">English</a> · 简体中文 · <a href="README.ja.md">日本語</a></sub></p>
   <p><strong><em>像刷短视频一样看 VR</em></strong></p>
-  <p><em>这也许是体验 VR 最轻松惬意的方式——不用戴头显，也不用担心晕动症。坐下来，尽情享受吧！</em></p>
+  <p><em>也许是最轻松的 VR 观看方式——不用戴头显，也不怕晕。坐下来直接看就好。</em></p>
   <p><a href="https://vr.foursmith.com/"><strong>打开 Foursmith VR →</strong></a></p>
 </div>
 
@@ -20,23 +16,20 @@
 
 ## 功能
 
-- **不戴头显，也能轻松看 VR。** 将沉浸式视频转换成舒适易看的 2D 画面，坐下来直接观看即可。
-- **自动取景，让镜头紧跟主体。** 自动构图与人像居中会根据检测到的人脸调整画面，让人物自然地保持在视野内。
-- **在宽屏上也能看清人物。** 人像布局会将画面重复显示在多个竖向分栏中，让人物更大、更醒目。
-- **工作时也能接着看。** 在兼容的 Chromium 浏览器中，可将竖屏 VR 画面放进始终置顶的画中画（PiP）窗口；拖动即可调整视角，单击即可播放或暂停，字幕也会照常显示。
-- **常见 VR 格式开箱即播。** 180°、360°、左右格式、上下格式、鱼眼和普通平面视频都可直接在浏览器中打开。
-- **整个片库，随时开播。** 既可选择本地文件或文件夹，也可运行内置媒体服务器，还能发现 DLNA 设备上的视频。
-- **安装后就是一款桌面应用。** 将 Foursmith VR 安装为 PWA 后，可直接从操作系统打开 MP4、M4V 和 MKV 文件；有可用的新版本时，应用也会主动提示更新。
-- **眼前所见，原样导出。** 标记 A–B 片段，即可将当前画面导出为 WebM、MP4 或单文件动态照片（Motion Photo）；在支持的浏览器中，画面上显示的字幕也会一并导出。
-- **字幕自动匹配。** 自动找到与视频对应的字幕文件，也可配合浏览器端的实时语音翻译使用。
-- **操作始终得心应手。** 鼠标、键盘快捷键和精心设计的屏幕控件任你选择。Foursmith VR 免费开源。
+| 观看体验 | 片源与工具 |
+| --- | --- |
+| **无需头显也能看 VR**<br>将 VR 视频转成舒适的 2D 画面，自动跟随人物并保持竖屏构图。 | **常见格式直接播放**<br>支持 180°、360°、左右、上下、鱼眼和普通平面视频。 |
+| **画中画（仅 Chromium）**<br>让竖屏画面和字幕悬浮在最前面；拖动调整视角，单击播放或暂停。 | **本地片库随手打开**<br>打开本地文件和文件夹，或通过内置媒体服务器、DLNA 浏览片库；字幕自动匹配。 |
+| **可安装为桌面应用（PWA）**<br>从系统直接打开 MP4、M4V 和 MKV；有新版本时在应用内更新。 | **截取并导出 A–B 片段**<br>导出当前视角的 WebM、MP4 或动态照片；浏览器支持时可保留字幕。 |
+
+支持鼠标、键盘快捷键和屏幕控件；Foursmith VR 免费开源。
 
 ## 使用说明
 
 > [!IMPORTANT]
 > 大多数 8K VR 视频在 Safari 或 Firefox 中可能无法正常播放，或播放不够流畅。iOS 上的所有浏览器底层都采用与 Safari 相同的 WebKit 引擎。
 
-为了获得最佳体验，请使用 Chrome、Edge 或其他基于 Chromium 的桌面浏览器。
+建议使用桌面版 Chrome、Edge 或其他 Chromium 浏览器。
 
 ### 键盘快捷键
 

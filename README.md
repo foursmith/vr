@@ -1,14 +1,10 @@
-# Foursmith VR
-
-<p align="center">
-  <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a>
-</p>
-
 <div align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="doc/banner.jpg">
     <img src="doc/banner.webp" alt="Foursmith VR" width="960">
   </picture>
+  <h1>Foursmith VR</h1>
+  <p><sub>English · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a></sub></p>
   <p><strong><em>Watch VR like TikTok</em></strong></p>
   <p><em>A comfortable way to enjoy VR video—no headset required, even if you're prone to motion sickness. Just sit back and watch.</em></p>
   <p><a href="https://vr.foursmith.com/"><strong>Open Foursmith VR →</strong></a></p>
@@ -20,16 +16,13 @@
 
 ## Features
 
-- **Watch VR without a headset.** Foursmith VR turns immersive video into a comfortable, easy-to-follow 2D view, so you can simply sit back and watch.
-- **Let the camera follow the action.** Automatic framing and portrait centering keep faces comfortably in frame.
-- **Make better use of wide screens.** Portrait mode repeats the view across portrait panels, keeping people large and easy to see.
-- **Keep watching while you work.** In supported Chromium browsers, pop the portrait VR view into an always-on-top picture-in-picture window. Drag to look around, click to play or pause, and keep subtitles in view.
-- **Play the formats you already have.** Open 180°, 360°, side-by-side, top-and-bottom, fisheye, and flat videos directly in your browser.
-- **Bring your whole library.** Open individual files or entire folders, run the included media server, and discover videos on DLNA devices.
-- **Install it as a desktop app.** Once installed, the PWA can open MP4, M4V, and MKV files directly from your operating system and let you know when an update is ready.
-- **Save exactly what you see.** Set an A–B range and export the current view as WebM, MP4, or a single-file Motion Photo, with visible subtitles included in supported browsers.
-- **Bring subtitles along.** Foursmith VR pairs matching subtitle files automatically and works with browser-based live speech translation.
-- **Stay in control.** Control playback with the mouse, keyboard shortcuts, or on-screen controls. Foursmith VR is free and open source.
+| Viewing | Media & tools |
+| --- | --- |
+| **Headset-free VR**<br>Comfortable 2D viewing with automatic face framing and portrait layouts. | **Broad format support**<br>180°, 360°, side-by-side, top-and-bottom, fisheye, and flat video. |
+| **Picture-in-picture (Chromium)**<br>Keep the portrait view and subtitles on top; drag to look and click to play or pause. | **Your whole library**<br>Local files and folders, the bundled media server, DLNA discovery, and automatic subtitle matching. |
+| **Installable PWA**<br>Open MP4, M4V, and MKV files from your OS and apply updates in the app. | **A–B export**<br>Save the current view as WebM, MP4, or Motion Photo, with subtitles where supported. |
+
+Mouse, keyboard, and on-screen controls are all included. Foursmith VR is free and open source.
 
 ## Usage
 
