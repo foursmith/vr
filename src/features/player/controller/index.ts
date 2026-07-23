@@ -108,6 +108,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     syncFullscreen,
   } = displayModule
   const {
+    pictureInPicture,
     resetView,
     setProjectionId: setDisplayProjectionId,
     toggleFullscreen,
@@ -241,15 +242,16 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
 
   const loadingPercent = sceneModule.loadingPercent
   function sceneOptions() {
+    const isPictureInPicture = pictureInPicture()
     return {
       projection: PROJECTION_OPTIONS[projectionId()].component,
       quality: QUALITY_OPTIONS[qualityId()].component,
       frameRate: VIDEO_FRAME_RATE_OPTIONS[renderFrameRateId() - 1]?.value ?? 30,
       hidden: false,
-      splitScreen: splitScreen(),
+      splitScreen: isPictureInPicture ? false : splitScreen(),
       faceAutoCenter: faceAutoCenter(),
       resumeFaceAutoCenterAfterViewChange: resumeFaceAutoCenterAfterViewChange(),
-      debugPanelOpen: sceneModule.debugPanelOpen(),
+      debugPanelOpen: isPictureInPicture ? false : sceneModule.debugPanelOpen(),
     }
   }
 
@@ -304,6 +306,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       appDisposed = true
       playlistModule.dispose()
       disposeControls()
+      displayModule.dispose()
       sceneModule.destroy()
       mediaModule.dispose()
     },
@@ -321,6 +324,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
     () => hasVideo(),
     (videoSelected) => {
       if (videoSelected) sceneModule.start()
+      else displayModule.dispose()
     },
   )
 
@@ -377,6 +381,7 @@ export function createPlayerController(options: { connectFsvr?: boolean } = {}) 
       setFileInput: (element: HTMLInputElement) => (fileInput = element),
       setFolderInput: (element: HTMLInputElement) => (folderInput = element),
       setPlayer: (element: HTMLElement) => (player = element),
+      setPictureInPictureContent: displayModule.setPictureInPictureContent,
       setVideo: mediaModule.setVideo,
       setVrMount: sceneModule.setMount,
       setVrRoot: sceneModule.setRoot,

@@ -3,6 +3,7 @@ import type { CameraView } from "../vr/config"
 import { createSignal, createStore } from "solid-js"
 import { resolveValueUpdate } from "../../lib/value-update"
 import { DEFAULT_FORWARD, QUALITY_OPTIONS } from "../vr/config"
+import { createDocumentPictureInPicture } from "./document-picture-in-picture"
 
 interface ViewRef { current: CameraView }
 
@@ -28,6 +29,11 @@ export function createDisplay(options: {
     resumeFaceAutoCenterAfterViewChange: options.initialState?.resumeFaceAutoCenterAfterViewChange ?? true,
   })
   const [fullscreen, setFullscreen] = createSignal(false)
+  let pictureInPictureContent!: HTMLElement
+  const documentPictureInPicture = createDocumentPictureInPicture({
+    getContent: () => pictureInPictureContent,
+    resourcesReady: options.resourcesReady,
+  })
 
   const setValue = <K extends keyof typeof state>(key: K, update: ValueUpdate<(typeof state)[K]>) => {
     setState((draft) => {
@@ -90,6 +96,8 @@ export function createDisplay(options: {
 
   const controller = {
     fullscreen,
+    pictureInPicture: documentPictureInPicture.active,
+    pictureInPictureSupported: documentPictureInPicture.supported,
     resetView,
     setFaceAutoCenter,
     setResumeFaceAutoCenterAfterViewChange,
@@ -98,12 +106,14 @@ export function createDisplay(options: {
     setRenderFrameRateId,
     setSplitScreen,
     state,
+    togglePictureInPicture: documentPictureInPicture.toggle,
     toggleFullscreen,
   }
 
   return {
     changeQualityBy,
     controller,
+    dispose: documentPictureInPicture.dispose,
     faceAutoCenter: () => state.faceAutoCenter,
     projectionId: () => state.projectionId,
     qualityId: () => state.qualityId,
@@ -112,6 +122,7 @@ export function createDisplay(options: {
     splitScreen: () => state.splitScreen,
     resetTransientView,
     restoreProjection,
+    setPictureInPictureContent: (element: HTMLElement) => (pictureInPictureContent = element),
     syncFullscreen,
   }
 }

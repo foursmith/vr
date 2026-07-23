@@ -25,6 +25,7 @@ const ICONS = {
   "unlock": "i-ph-lock-key-open",
   "pause": "i-ph-pause",
   "play": "i-ph-play",
+  "picture-in-picture": "i-ph-picture-in-picture",
   "play-once": "i-ph-skip-forward",
   "playlist": "i-ph-playlist",
   "plus": "i-ph-plus",

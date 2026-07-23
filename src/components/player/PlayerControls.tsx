@@ -24,9 +24,12 @@ export function PlayerControls(props: { controller: PlayerController }) {
   } = playback
   const {
     fullscreen,
+    pictureInPicture,
+    pictureInPictureSupported,
     setProjectionId,
     state: displayState,
     toggleFullscreen,
+    togglePictureInPicture,
   } = display
   return (
     <aside
@@ -78,6 +81,14 @@ export function PlayerControls(props: { controller: PlayerController }) {
                 onClick={() => toggleSlider("adjustments", adjustmentsButton)}
               />
             </div>
+            <Show when={pictureInPictureSupported}>
+              <IconButton
+                label={pictureInPicture() ? "Exit Picture-in-Picture" : "Enter Picture-in-Picture"}
+                icon="picture-in-picture"
+                pressed={pictureInPicture()}
+                onClick={() => void togglePictureInPicture()}
+              />
+            </Show>
             <IconButton
               label={fullscreen() ? "Exit fullscreen" : "Enter fullscreen"}
               icon={fullscreen() ? "corners-in" : "corners-out"}

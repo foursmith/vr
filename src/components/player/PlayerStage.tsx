@@ -2,6 +2,7 @@ import type { PlayerController } from "../../features/player/controller"
 import { createSignal, onSettled, Show, untrack } from "solid-js"
 import { Icon } from "../ui/Icon"
 import { IconButton } from "../ui/IconButton"
+import { LiquidGlass } from "../ui/LiquidGlass"
 import { SettingsModal } from "./SettingsModal"
 
 const SINGLE_CLICK_DELAY_MS = 250
@@ -12,11 +13,13 @@ export function PlayerStage(props: { controller: PlayerController }) {
   const controller = untrack(() => props.controller)
   const { controls, debug, display, frame, playback, subtitles } = controller
   const { controlsVisible, registerUiSurface, setControlsHold } = controls
-  const { faceAutoCenterPaused, handlePlayerPointerDown, handlePlayerPointerUp, projectionBoundaryWarning, resumeFaceAutoCenter, setVideo, setVrMount, setVrRoot } = frame
+  const { faceAutoCenterPaused, handlePlayerPointerDown, handlePlayerPointerUp, projectionBoundaryWarning, resumeFaceAutoCenter, setPictureInPictureContent, setVideo, setVrMount, setVrRoot } = frame
+  const inPictureInPicture = display.pictureInPicture
   let singleClickTimer: number | undefined
   let pointerStart: { id: number, x: number, y: number } | undefined
   let lastPointerType = ""
   let suppressClick = false
+  let stageElement!: HTMLElement
   let debugLogElement: HTMLPreElement | undefined
   let debugLogObserver: MutationObserver | undefined
   let debugLogStartedAt = 0
@@ -53,14 +56,9 @@ export function PlayerStage(props: { controller: PlayerController }) {
     suppressClick = true
   }
 
-  const handleStageClick = (event: MouseEvent) => {
-    if (lastPointerType !== "mouse") return
+  const schedulePlaybackToggle = (event: MouseEvent) => {
     if (event.detail > 1) {
       cancelSingleClick()
-      return
-    }
-    if (suppressClick) {
-      suppressClick = false
       return
     }
     cancelSingleClick()
@@ -70,9 +68,19 @@ export function PlayerStage(props: { controller: PlayerController }) {
     }, SINGLE_CLICK_DELAY_MS)
   }
 
-  const handleStageDoubleClick = () => {
+  const handleStageClick = (event: MouseEvent) => {
+    if ((event.target as Element | null)?.closest("button, a, input, select, textarea")) return
     if (lastPointerType !== "mouse") return
+    if (suppressClick) {
+      suppressClick = false
+      return
+    }
+    schedulePlaybackToggle(event)
+  }
+
+  const handleStageDoubleClick = () => {
     cancelSingleClick()
+    if (lastPointerType !== "mouse") return
     void display.toggleFullscreen()
   }
 
@@ -128,101 +136,145 @@ export function PlayerStage(props: { controller: PlayerController }) {
     }
   }
 
-  onSettled(() => cancelSingleClick)
-  onSettled(() => () => {
-    debugLogObserver?.disconnect()
+  onSettled(() => {
+    const abortController = new AbortController()
+    const listenerOptions = { signal: abortController.signal }
+    stageElement.addEventListener("pointerdown", handleStagePointerDown, listenerOptions)
+    stageElement.addEventListener("pointerup", handleStagePointerUp, listenerOptions)
+    stageElement.addEventListener("pointercancel", handleStagePointerCancel, listenerOptions)
+    stageElement.addEventListener("click", handleStageClick, listenerOptions)
+    return () => {
+      abortController.abort()
+      cancelSingleClick()
+      debugLogObserver?.disconnect()
+    }
   })
 
   return (
     <>
-      <section
-        ref={setVrRoot}
-        id="vr-scene"
-        class="absolute inset-0 h-dvh w-full opacity-100"
-        onPointerDown={handleStagePointerDown}
-        onPointerUp={handleStagePointerUp}
-        onPointerCancel={handleStagePointerCancel}
-        onClick={handleStageClick}
-        onDblClick={handleStageDoubleClick}
-        onContextMenu={handleStageContextMenu}
+      <div
+        ref={setPictureInPictureContent}
+        class="absolute inset-0 h-full w-full overflow-hidden bg-black text-white"
       >
-        <div ref={setVrMount} id="vr-mount" class="h-full w-full"></div>
-        <div class="pointer-events-none absolute inset-0 z-10">
-          <div class="absolute right-3 top-3 flex w-[min(14rem,38vw,31.5vh)] max-w-[calc(100vw-24px)] flex-col gap-2">
-            <canvas
-              ref={debug.setSampleCanvas}
-              id="sample-canvas"
-              class="hidden aspect-[9/16] w-full object-contain overflow-hidden rounded-xl border border-accent/18 bg-[#070a0c] shadow-[0_12px_32px_rgba(0,0,0,0.34),inset_0_0_0_1px_rgba(255,255,255,0.025)]"
-            >
-            </canvas>
-            <div
-              ref={debug.setFpsMeter}
-              id="fps-meter"
-              class="hidden overflow-hidden rounded-xl border border-white/10 bg-[#090d0f]/88 shadow-[0_10px_28px_rgba(0,0,0,0.3)] backdrop-blur-xl"
-              aria-label="Performance metrics"
-            >
-              <div class="flex items-center gap-2 border-b border-white/7 px-3 py-2">
-                <span class="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_8px_rgba(98,207,216,0.62)]"></span>
-                <span class="text-[9px] font-semibold uppercase tracking-[0.12em] text-white/68">Tracking monitor</span>
-                <button
-                  type="button"
-                  class={[
-                    "pointer-events-auto ml-auto flex items-center gap-1 rounded-md border-0 bg-white/5 px-1.5 py-1 font-mono text-[8px] font-semibold tracking-[0.04em] outline-none transition-colors hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-accent/50",
-                    isRecordingLog() ? "text-red-200" : "text-accent/72 hover:text-accent",
-                  ]}
-                  aria-label={isRecordingLog() ? "Copy tracking log and stop recording" : "Record tracking log"}
-                  title={isRecordingLog() ? "Copy tracking log and stop recording" : "Record tracking log"}
-                  onPointerDown={event => event.stopPropagation()}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    if (isRecordingLog()) void copyDebugLog()
-                    else startDebugLogRecording()
-                  }}
-                >
-                  <Icon name={isRecordingLog() ? "copy" : "record"} class="h-2.5 w-2.5" />
-                  {isRecordingLog() ? "Copy" : "Record"}
-                </button>
-              </div>
-              <div data-debug-metrics class="whitespace-pre px-3 py-2.5 font-mono text-[9px] font-medium leading-[1.7] text-white/54">
-                Waiting for frames…
-              </div>
-              <pre ref={debugLogElement} data-debug-log class="hidden" aria-hidden="true"></pre>
-              <div
-                ref={debug.setFaceHint}
-                id="face-hint"
-                class="flex items-center gap-1.5 whitespace-nowrap border-t border-white/7 px-3 py-2 font-mono text-[10px] font-semibold leading-none text-accent/88"
-                hidden
+        <section
+          ref={(element) => {
+            stageElement = element
+            setVrRoot(element)
+          }}
+          id="vr-scene"
+          class="absolute inset-0 h-full w-full opacity-100"
+          onDblClick={handleStageDoubleClick}
+          onContextMenu={handleStageContextMenu}
+        >
+          <div ref={setVrMount} id="vr-mount" class="h-full w-full"></div>
+          <div class="pointer-events-none absolute inset-0 z-10">
+            <div class="absolute right-3 top-3 flex w-[min(14rem,38vw,31.5vh)] max-w-[calc(100vw-24px)] flex-col gap-2">
+              <canvas
+                ref={debug.setSampleCanvas}
+                id="sample-canvas"
+                class="hidden aspect-[9/16] w-full object-contain overflow-hidden rounded-xl border border-accent/18 bg-[#070a0c] shadow-[0_12px_32px_rgba(0,0,0,0.34),inset_0_0_0_1px_rgba(255,255,255,0.025)]"
               >
-                <span data-face-horizontal-group class="hidden items-center gap-1 rounded-md bg-white/6 px-1.5 py-1.5">
-                  <span data-face-horizontal-icon class="text-xs text-accent"></span>
-                  <span data-face-horizontal-value class="tabular-nums text-white/72"></span>
-                </span>
-                <span data-face-vertical-group class="hidden items-center gap-1 rounded-md bg-white/6 px-1.5 py-1.5">
-                  <span data-face-vertical-icon class="text-xs text-accent"></span>
-                  <span data-face-vertical-value class="tabular-nums text-white/72"></span>
-                </span>
-                <span data-face-depth-group class="hidden items-center gap-1 rounded-md bg-white/6 px-1.5 py-1" aria-hidden="true">
-                  <span class="relative h-5 w-5 shrink-0">
-                    <span class="absolute inset-1 rounded-full border border-white/22"></span>
-                    <span data-face-depth-target class="absolute inset-1 rounded-full border border-accent/88 shadow-[0_0_8px_rgba(98,207,216,0.32)] transition-transform duration-150"></span>
-                  </span>
-                  <span data-face-depth-value class="font-mono text-[10px] font-semibold tabular-nums text-white/72"></span>
-                </span>
-              </div>
-              <Show when={projectionBoundaryWarning()}>
-                <div
-                  data-projection-boundary-warning
-                  class="border-t border-amber-300/14 bg-amber-950/36 px-3 py-2 font-mono text-[9px] font-semibold leading-[1.5] text-amber-100/86"
-                  aria-live="off"
-                >
-                  Projection boundary ·
-                  {` ${projectionBoundaryWarning()?.source === "auto" ? "Auto" : "Manual"} ${projectionBoundaryWarning()?.axis ?? ""}`}
+              </canvas>
+              <div
+                ref={debug.setFpsMeter}
+                id="fps-meter"
+                class="hidden overflow-hidden rounded-xl border border-white/10 bg-[#090d0f]/88 shadow-[0_10px_28px_rgba(0,0,0,0.3)] backdrop-blur-xl"
+                aria-label="Performance metrics"
+              >
+                <div class="flex items-center gap-2 border-b border-white/7 px-3 py-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_8px_rgba(98,207,216,0.62)]"></span>
+                  <span class="text-[9px] font-semibold uppercase tracking-[0.12em] text-white/68">Tracking monitor</span>
+                  <button
+                    type="button"
+                    class={[
+                      "pointer-events-auto ml-auto flex items-center gap-1 rounded-md border-0 bg-white/5 px-1.5 py-1 font-mono text-[8px] font-semibold tracking-[0.04em] outline-none transition-colors hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-accent/50",
+                      isRecordingLog() ? "text-red-200" : "text-accent/72 hover:text-accent",
+                    ]}
+                    aria-label={isRecordingLog() ? "Copy tracking log and stop recording" : "Record tracking log"}
+                    title={isRecordingLog() ? "Copy tracking log and stop recording" : "Record tracking log"}
+                    onPointerDown={event => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      if (isRecordingLog()) void copyDebugLog()
+                      else startDebugLogRecording()
+                    }}
+                  >
+                    <Icon name={isRecordingLog() ? "copy" : "record"} class="h-2.5 w-2.5" />
+                    {isRecordingLog() ? "Copy" : "Record"}
+                  </button>
                 </div>
-              </Show>
+                <div data-debug-metrics class="whitespace-pre px-3 py-2.5 font-mono text-[9px] font-medium leading-[1.7] text-white/54">
+                  Waiting for frames…
+                </div>
+                <pre ref={debugLogElement} data-debug-log class="hidden" aria-hidden="true"></pre>
+                <div
+                  ref={debug.setFaceHint}
+                  id="face-hint"
+                  class="flex items-center gap-1.5 whitespace-nowrap border-t border-white/7 px-3 py-2 font-mono text-[10px] font-semibold leading-none text-accent/88"
+                  hidden
+                >
+                  <span data-face-horizontal-group class="hidden items-center gap-1 rounded-md bg-white/6 px-1.5 py-1.5">
+                    <span data-face-horizontal-icon class="text-xs text-accent"></span>
+                    <span data-face-horizontal-value class="tabular-nums text-white/72"></span>
+                  </span>
+                  <span data-face-vertical-group class="hidden items-center gap-1 rounded-md bg-white/6 px-1.5 py-1.5">
+                    <span data-face-vertical-icon class="text-xs text-accent"></span>
+                    <span data-face-vertical-value class="tabular-nums text-white/72"></span>
+                  </span>
+                  <span data-face-depth-group class="hidden items-center gap-1 rounded-md bg-white/6 px-1.5 py-1" aria-hidden="true">
+                    <span class="relative h-5 w-5 shrink-0">
+                      <span class="absolute inset-1 rounded-full border border-white/22"></span>
+                      <span data-face-depth-target class="absolute inset-1 rounded-full border border-accent/88 shadow-[0_0_8px_rgba(98,207,216,0.32)] transition-transform duration-150"></span>
+                    </span>
+                    <span data-face-depth-value class="font-mono text-[10px] font-semibold tabular-nums text-white/72"></span>
+                  </span>
+                </div>
+                <Show when={projectionBoundaryWarning()}>
+                  <div
+                    data-projection-boundary-warning
+                    class="border-t border-amber-300/14 bg-amber-950/36 px-3 py-2 font-mono text-[9px] font-semibold leading-[1.5] text-amber-100/86"
+                    aria-live="off"
+                  >
+                    Projection boundary ·
+                    {` ${projectionBoundaryWarning()?.source === "auto" ? "Auto" : "Manual"} ${projectionBoundaryWarning()?.axis ?? ""}`}
+                  </div>
+                </Show>
+              </div>
             </div>
           </div>
+        </section>
+
+        <Show when={subtitles.text()}>
+          <div
+            class="pointer-events-none absolute inset-x-0 bottom-[14%] z-15 flex justify-center px-[6vw] text-center"
+            aria-live="off"
+          >
+            <p class="subtitle-cue m-0 max-w-[min(86vw,72rem)] whitespace-pre-line px-3.5 py-1.5 text-[clamp(1rem,2.2vw,1.75rem)] font-semibold leading-[1.38] text-white [text-shadow:0_1px_3px_#000]">
+              {subtitles.text()}
+            </p>
+          </div>
+        </Show>
+
+        <Show when={inPictureInPicture() && !playback.playing()}>
+          <LiquidGlass
+            class="pointer-events-none !absolute left-1/2 top-1/2 z-20 h-11 w-11 -translate-x-1/2 -translate-y-1/2 rounded-full text-white/92"
+            cornerRadius={999}
+            elasticity={0.18}
+            castShadow={false}
+          >
+            <Icon name="play" class="h-5 w-5 translate-x-0.5" />
+          </LiquidGlass>
+        </Show>
+      </div>
+
+      <Show when={inPictureInPicture()}>
+        <div class="pointer-events-none absolute inset-0 grid place-items-center" aria-live="polite">
+          <div class="flex items-center gap-2 rounded-full border border-white/8 bg-white/5 px-4 py-2.5 text-xs font-medium tracking-wide text-white/48">
+            <Icon name="picture-in-picture" class="h-4 w-4" />
+            Playing in Picture-in-Picture
+          </div>
         </div>
-      </section>
+      </Show>
 
       <div
         ref={registerUiSurface}
@@ -270,17 +322,6 @@ export function PlayerStage(props: { controller: PlayerController }) {
           setControlsHold("settings", open)
         }}
       />
-
-      <Show when={subtitles.text()}>
-        <div
-          class="pointer-events-none absolute inset-x-0 bottom-[14%] z-15 flex justify-center px-[6vw] text-center"
-          aria-live="off"
-        >
-          <p class="subtitle-cue m-0 max-w-[min(86vw,72rem)] whitespace-pre-line px-3.5 py-1.5 text-[clamp(1rem,2.2vw,1.75rem)] font-semibold leading-[1.38] text-white [text-shadow:0_1px_3px_#000]">
-            {subtitles.text()}
-          </p>
-        </div>
-      </Show>
 
       <video
         ref={setVideo}
