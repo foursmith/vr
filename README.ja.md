@@ -1,4 +1,4 @@
-<img src="public/icon.svg" alt="Foursmith VR アプリアイコン" width="160" height="160" align="left" hspace="20">
+<img src="public/icon.svg" alt="Foursmith VR アプリアイコン" width="200" height="200" align="left" hspace="20">
 
 <h3>Foursmith VR</h3>
 
