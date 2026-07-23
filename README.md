@@ -1,4 +1,8 @@
-<img src="public/icon.svg" alt="Foursmith VR app icon" width="200" height="200" align="left" hspace="20">
+<picture>
+  <source media="(max-width: 640px)" srcset="public/icon.svg" width="0" height="0">
+  <source srcset="public/icon.svg" width="200" height="200">
+  <img src="public/icon.svg" alt="Foursmith VR app icon" align="left" hspace="20">
+</picture>
 
 <h3>Foursmith VR</h3>
 
